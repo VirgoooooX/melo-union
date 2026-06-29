@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 
+import '../design/melo_tokens.dart';
 import 'provider_badge.dart';
 
 class SourceTrackTile extends StatelessWidget {
@@ -36,17 +37,45 @@ class SourceTrackTile extends StatelessWidget {
   final VoidCallback? onPauseDownload;
   final VoidCallback? onCancelDownload;
 
+  Color _getProviderBg(ProviderId providerId) {
+    final val = providerId.value.toLowerCase();
+    if (val.contains('aurora')) return MeloColors.neteaseBackground;
+    if (val.contains('beacon')) return MeloColors.qqBackground;
+    if (val.contains('local')) return MeloColors.localBackground;
+    return MeloColors.surfaceMuted;
+  }
+
+  Color _getProviderFg(ProviderId providerId) {
+    final val = providerId.value.toLowerCase();
+    if (val.contains('aurora')) return MeloColors.neteaseForeground;
+    if (val.contains('beacon')) return MeloColors.qqForeground;
+    if (val.contains('local')) return MeloColors.localForeground;
+    return MeloColors.textSecondary;
+  }
+
+  Color _downloadStatusColor(DownloadStatus status) {
+    return switch (status) {
+      DownloadStatus.queued => MeloColors.warning,
+      DownloadStatus.resolving => MeloColors.info,
+      DownloadStatus.downloading => MeloColors.primary600,
+      DownloadStatus.paused => MeloColors.warning,
+      DownloadStatus.completed => MeloColors.success,
+      DownloadStatus.failed => MeloColors.error,
+      DownloadStatus.cancelled => MeloColors.textTertiary,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final favoriteColor =
-        track.isFavorited ? const Color(0xFFF06292) : const Color(0xFF8796A5);
+        track.isFavorited ? MeloColors.favorite : MeloColors.textTertiary;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF141A21),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF262F3A)),
+        color: MeloColors.surface,
+        borderRadius: MeloRadii.md,
+        border: Border.all(color: MeloColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,13 +91,14 @@ class SourceTrackTile extends StatelessWidget {
                       track.title,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w700,
+                            color: MeloColors.textPrimary,
                           ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${track.artists.join(' / ')} · ${_formatDuration(track.duration)}',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: const Color(0xFF8D9BA8),
+                            color: MeloColors.textSecondary,
                           ),
                     ),
                     if (track.album != null) ...[
@@ -76,7 +106,7 @@ class SourceTrackTile extends StatelessWidget {
                       Text(
                         track.album!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF728190),
+                              color: MeloColors.textTertiary,
                             ),
                       ),
                     ],
@@ -125,11 +155,11 @@ class SourceTrackTile extends StatelessWidget {
                     ),
                   ),
                   if (!isDownloadSupported)
-                    Tooltip(
+                    const Tooltip(
                       message: '该来源不支持下载',
                       child: IconButton(
                         onPressed: null,
-                        icon: const Icon(Icons.download),
+                        icon: Icon(Icons.download),
                       ),
                     )
                   else if (downloadTask == null)
@@ -165,7 +195,7 @@ class SourceTrackTile extends StatelessWidget {
                       message: '已下载到本地',
                       child: IconButton(
                         onPressed: null,
-                        icon: Icon(Icons.check_circle, color: Colors.green),
+                        icon: Icon(Icons.check_circle, color: MeloColors.success),
                       ),
                     ),
                   if (downloadTask != null &&
@@ -175,7 +205,7 @@ class SourceTrackTile extends StatelessWidget {
                       message: '取消下载',
                       child: IconButton(
                         onPressed: onCancelDownload,
-                        icon: const Icon(Icons.cancel, color: Colors.redAccent),
+                        icon: const Icon(Icons.cancel, color: MeloColors.error),
                       ),
                     ),
                 ],
@@ -189,46 +219,46 @@ class SourceTrackTile extends StatelessWidget {
             children: [
               ProviderBadge(
                 label: providerName,
-                backgroundColor: const Color(0xFF203040),
-                foregroundColor: const Color(0xFFB7D5F1),
+                backgroundColor: _getProviderBg(track.ref.providerId),
+                foregroundColor: _getProviderFg(track.ref.providerId),
               ),
               ProviderBadge(
                 label: track.isFavorited ? '来源已喜欢' : '来源未喜欢',
                 backgroundColor: track.isFavorited
-                    ? const Color(0xFF3A1D2A)
-                    : const Color(0xFF222A31),
+                    ? MeloColors.favorite.withOpacity(0.1)
+                    : MeloColors.surfaceMuted,
                 foregroundColor: track.isFavorited
-                    ? const Color(0xFFF6AEC8)
-                    : const Color(0xFFB0BEC5),
+                    ? MeloColors.favorite
+                    : MeloColors.textSecondary,
               ),
               ProviderBadge(
                 label: track.isPlayable ? '可播放' : '仅目录/补充',
                 backgroundColor: track.isPlayable
-                    ? const Color(0xFF1D3A33)
-                    : const Color(0xFF353123),
+                    ? MeloColors.success.withOpacity(0.1)
+                    : MeloColors.warning.withOpacity(0.1),
                 foregroundColor: track.isPlayable
-                    ? const Color(0xFF97E2D4)
-                    : const Color(0xFFE1C07A),
+                    ? MeloColors.success
+                    : MeloColors.warning,
               ),
               if (isDownloadSupported) ...[
                 if (downloadTask != null)
                   ProviderBadge(
                     label:
                         '下载: ${_statusLabel(downloadTask!.status)} ${downloadTask!.status == DownloadStatus.downloading ? "(${(downloadTask!.progress * 100).toInt()}%)" : ""}',
-                    backgroundColor: _downloadStatusColor(downloadTask!.status),
-                    foregroundColor: Colors.white,
+                    backgroundColor: _downloadStatusColor(downloadTask!.status).withOpacity(0.1),
+                    foregroundColor: _downloadStatusColor(downloadTask!.status),
                   )
                 else
                   const ProviderBadge(
                     label: '可下载',
-                    backgroundColor: Color(0xFF1D3C23),
-                    foregroundColor: Color(0xFF97E2D4),
+                    backgroundColor: MeloColors.primary50,
+                    foregroundColor: MeloColors.primary700,
                   )
               ] else
                 const ProviderBadge(
                   label: '不支持下载',
-                  backgroundColor: Color(0xFF3A1D1D),
-                  foregroundColor: Color(0xFFE29797),
+                  backgroundColor: MeloColors.surfaceMuted,
+                  foregroundColor: MeloColors.textTertiary,
                 ),
             ],
           ),
@@ -238,7 +268,7 @@ class SourceTrackTile extends StatelessWidget {
             Text(
               '收藏不可写：${favoriteAvailability.reason}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFFE1C07A),
+                    color: MeloColors.warning,
                   ),
             ),
           ],
@@ -247,7 +277,7 @@ class SourceTrackTile extends StatelessWidget {
             Text(
               '下载错误：${downloadTask!.error}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFFE29797),
+                    color: MeloColors.error,
                   ),
             ),
           ],
@@ -265,18 +295,6 @@ class SourceTrackTile extends StatelessWidget {
       DownloadStatus.completed => '已完成',
       DownloadStatus.failed => '失败',
       DownloadStatus.cancelled => '已取消',
-    };
-  }
-
-  Color _downloadStatusColor(DownloadStatus status) {
-    return switch (status) {
-      DownloadStatus.queued => const Color(0xFF3C3C1D),
-      DownloadStatus.resolving => const Color(0xFF1D353C),
-      DownloadStatus.downloading => const Color(0xFF1D3C23),
-      DownloadStatus.paused => const Color(0xFF3C2C1D),
-      DownloadStatus.completed => const Color(0xFF1D3A33),
-      DownloadStatus.failed => const Color(0xFF3A1D1D),
-      DownloadStatus.cancelled => const Color(0xFF2B3137),
     };
   }
 

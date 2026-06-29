@@ -4,6 +4,7 @@ import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 import '../../bootstrap/demo_repository.dart';
+import '../../design/melo_tokens.dart';
 
 class DownloadsPage extends ConsumerWidget {
   const DownloadsPage({super.key});
@@ -36,6 +37,7 @@ class DownloadsPage extends ConsumerWidget {
                 '离线下载与本地媒体',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
+                      color: MeloColors.textPrimary,
                     ),
               ),
               FilledButton.icon(
@@ -113,7 +115,7 @@ class _DownloadTaskPanel extends StatelessWidget {
       child: ListView.separated(
         itemCount: tasks.length,
         separatorBuilder: (context, index) => const Divider(
-          color: Color(0xFF29313A),
+          color: MeloColors.border,
         ),
         itemBuilder: (context, index) {
           final task = tasks[index];
@@ -138,7 +140,7 @@ class _LocalMediaPanel extends StatelessWidget {
       child: ListView.separated(
         itemCount: items.length,
         separatorBuilder: (context, index) => const Divider(
-          color: Color(0xFF29313A),
+          color: MeloColors.border,
         ),
         itemBuilder: (context, index) => _LocalMediaRow(item: items[index]),
       ),
@@ -162,8 +164,11 @@ class _DownloadPanelFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF151C23),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      color: MeloColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: MeloRadii.md,
+        side: BorderSide(color: MeloColors.border),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -174,6 +179,7 @@ class _DownloadPanelFrame extends StatelessWidget {
               title,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
+                    color: MeloColors.textPrimary,
                   ),
             ),
             const SizedBox(height: 12),
@@ -182,7 +188,7 @@ class _DownloadPanelFrame extends StatelessWidget {
                   ? Center(
                       child: Text(
                         emptyText,
-                        style: const TextStyle(color: Color(0xFF8D9BA8)),
+                        style: const TextStyle(color: MeloColors.textSecondary),
                       ),
                     )
                   : child,
@@ -206,14 +212,14 @@ class _DownloadTaskRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColor = switch (task.status) {
-      DownloadStatus.queued => Colors.orange,
-      DownloadStatus.resolving => Colors.cyan,
-      DownloadStatus.downloading => Colors.green,
-      DownloadStatus.paused => Colors.yellow,
-      DownloadStatus.failed => Colors.red,
+      DownloadStatus.queued => MeloColors.warning,
+      DownloadStatus.resolving => MeloColors.info,
+      DownloadStatus.downloading => MeloColors.primary600,
+      DownloadStatus.paused => MeloColors.warning,
+      DownloadStatus.failed => MeloColors.error,
       DownloadStatus.completed ||
       DownloadStatus.cancelled =>
-        const Color(0xFF8D9BA8),
+        MeloColors.textSecondary,
     };
 
     return Padding(
@@ -231,14 +237,17 @@ class _DownloadTaskRow extends StatelessWidget {
                       task.track.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: MeloColors.textPrimary,
+                      ),
                     ),
                     Text(
                       task.track.artists.join(' / '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Color(0xFF8D9BA8),
+                        color: MeloColors.textSecondary,
                         fontSize: 12,
                       ),
                     ),
@@ -254,14 +263,14 @@ class _DownloadTaskRow extends StatelessWidget {
                     IconButton(
                       tooltip: '开始/继续',
                       onPressed: () => repository.startDownload(task.track.ref),
-                      icon: const Icon(Icons.play_arrow, color: Colors.green),
+                      icon: const Icon(Icons.play_arrow, color: MeloColors.success),
                     )
                   else if (task.status == DownloadStatus.downloading ||
                       task.status == DownloadStatus.resolving)
                     IconButton(
                       tooltip: '暂停',
                       onPressed: () => repository.pauseDownload(task.track.ref),
-                      icon: const Icon(Icons.pause, color: Colors.yellow),
+                      icon: const Icon(Icons.pause, color: MeloColors.warning),
                     ),
                   if (task.status == DownloadStatus.downloading)
                     IconButton(
@@ -270,13 +279,13 @@ class _DownloadTaskRow extends StatelessWidget {
                           repository.simulateDownloadProgress(task.track.ref),
                       icon: const Icon(
                         Icons.trending_flat,
-                        color: Colors.blueAccent,
+                        color: MeloColors.info,
                       ),
                     ),
                   IconButton(
                     tooltip: '取消',
                     onPressed: () => repository.cancelDownload(task.track.ref),
-                    icon: const Icon(Icons.cancel, color: Colors.redAccent),
+                    icon: const Icon(Icons.cancel, color: MeloColors.error),
                   ),
                 ],
               ),
@@ -296,7 +305,7 @@ class _DownloadTaskRow extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 '${task.status.name.toUpperCase()} ${(task.progress * 100).toInt()}%',
-                style: const TextStyle(fontSize: 11),
+                style: const TextStyle(fontSize: 11, color: MeloColors.textPrimary),
               ),
               if (task.error != null) ...[
                 const SizedBox(width: 10),
@@ -306,7 +315,7 @@ class _DownloadTaskRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
-                    style: const TextStyle(color: Colors.red, fontSize: 11),
+                    style: const TextStyle(color: MeloColors.error, fontSize: 11),
                   ),
                 ),
               ],
@@ -315,7 +324,7 @@ class _DownloadTaskRow extends StatelessWidget {
           const SizedBox(height: 6),
           LinearProgressIndicator(
             value: task.progress,
-            backgroundColor: const Color(0xFF262F3A),
+            backgroundColor: MeloColors.surfaceMuted,
             valueColor: AlwaysStoppedAnimation<Color>(statusColor),
           ),
         ],
@@ -343,14 +352,17 @@ class _LocalMediaRow extends StatelessWidget {
                   item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: MeloColors.textPrimary,
+                  ),
                 ),
                 Text(
                   '${item.artists.join(' / ')} · ${_formatDuration(item.duration)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF8D9BA8),
+                    color: MeloColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -360,7 +372,7 @@ class _LocalMediaRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF8D9BA8),
+                    color: MeloColors.textTertiary,
                     fontSize: 10,
                     fontStyle: FontStyle.italic,
                   ),
@@ -377,12 +389,13 @@ class _LocalMediaRow extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
+                  color: MeloColors.textPrimary,
                 ),
               ),
               Text(
                 item.downloadedAt.toLocal().toString().split(' ').first,
                 style: const TextStyle(
-                  color: Color(0xFF8D9BA8),
+                  color: MeloColors.textSecondary,
                   fontSize: 10,
                 ),
               ),

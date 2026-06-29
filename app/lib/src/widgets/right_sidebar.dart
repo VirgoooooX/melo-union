@@ -1,11 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:music_domain/music_domain.dart';
+import 'package:provider_contract/provider_contract.dart';
 
 import '../bootstrap/demo_repository.dart';
+import '../design/melo_tokens.dart';
 import 'provider_badge.dart';
 
 class RightSidebar extends ConsumerWidget {
   const RightSidebar({super.key});
+
+  Color _getProviderBg(ProviderId providerId) {
+    final val = providerId.value.toLowerCase();
+    if (val.contains('aurora')) return MeloColors.neteaseBackground;
+    if (val.contains('beacon')) return MeloColors.qqBackground;
+    if (val.contains('local')) return MeloColors.localBackground;
+    return MeloColors.surfaceMuted;
+  }
+
+  Color _getProviderFg(ProviderId providerId) {
+    final val = providerId.value.toLowerCase();
+    if (val.contains('aurora')) return MeloColors.neteaseForeground;
+    if (val.contains('beacon')) return MeloColors.qqForeground;
+    if (val.contains('local')) return MeloColors.localForeground;
+    return MeloColors.textSecondary;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -14,7 +33,13 @@ class RightSidebar extends ConsumerWidget {
     final current = queue.current?.track;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+      decoration: const BoxDecoration(
+        color: MeloColors.surface,
+        border: Border(
+          left: BorderSide(color: MeloColors.border),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -22,6 +47,7 @@ class RightSidebar extends ConsumerWidget {
             '当前播放',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
+                  color: MeloColors.textPrimary,
                 ),
           ),
           const SizedBox(height: 12),
@@ -29,15 +55,15 @@ class RightSidebar extends ConsumerWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF151C23),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF29313A)),
+              color: MeloColors.surfaceMuted,
+              borderRadius: MeloRadii.md,
+              border: Border.all(color: MeloColors.border),
             ),
             child: current == null
                 ? Text(
                     '队列为空',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF8D9BA8),
+                          color: MeloColors.textSecondary,
                         ),
                   )
                 : Column(
@@ -47,13 +73,14 @@ class RightSidebar extends ConsumerWidget {
                         current.title,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
+                              color: MeloColors.textPrimary,
                             ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         current.artists.join(' / '),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF8D9BA8),
+                              color: MeloColors.textSecondary,
                             ),
                       ),
                       const SizedBox(height: 10),
@@ -62,8 +89,8 @@ class RightSidebar extends ConsumerWidget {
                                 .describe(current.ref.providerId)
                                 ?.displayName ??
                             current.ref.providerId.value,
-                        backgroundColor: const Color(0xFF203040),
-                        foregroundColor: const Color(0xFFB7D5F1),
+                        backgroundColor: _getProviderBg(current.ref.providerId),
+                        foregroundColor: _getProviderFg(current.ref.providerId),
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -79,12 +106,12 @@ class RightSidebar extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      const Divider(color: Color(0xFF29313A)),
+                      const Divider(color: MeloColors.border),
                       const SizedBox(height: 8),
                       Text(
                         '音频流票据信息',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF8D9BA8),
+                              color: MeloColors.textSecondary,
                               fontWeight: FontWeight.bold,
                             ),
                       ),
@@ -94,7 +121,7 @@ class RightSidebar extends ConsumerWidget {
                           '错误: ${repository.playbackCoordinator.currentError}',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: const Color(0xFFE29797),
+                                    color: MeloColors.error,
                                   ),
                         )
                       else if (repository.playbackCoordinator.currentTicket !=
@@ -105,21 +132,22 @@ class RightSidebar extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: const Color(0xFFB7D5F1),
+                                    color: MeloColors.info,
                                   ),
                         ),
                         Text(
                           '音质: ${repository.playbackCoordinator.currentTicket!.quality.name.toUpperCase()}',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: const Color(0xFF90C090),
+                                    color: MeloColors.success,
+                                    fontWeight: FontWeight.w600,
                                   ),
                         ),
                         Text(
                           '过期时间: ${repository.playbackCoordinator.currentTicket!.expiresAt.toLocal().toString().split('.').first}',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: const Color(0xFFE1C07A),
+                                    color: MeloColors.warning,
                                   ),
                         ),
                         if (repository
@@ -128,7 +156,7 @@ class RightSidebar extends ConsumerWidget {
                             '已过期',
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.red,
+                                      color: MeloColors.error,
                                       fontWeight: FontWeight.bold,
                                     ),
                           ),
@@ -137,7 +165,7 @@ class RightSidebar extends ConsumerWidget {
                           '正在加载/解析票据...',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: const Color(0xFF8D9BA8),
+                                    color: MeloColors.textTertiary,
                                     fontStyle: FontStyle.italic,
                                   ),
                         ),
@@ -161,6 +189,7 @@ class RightSidebar extends ConsumerWidget {
             '播放队列',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
+                  color: MeloColors.textPrimary,
                 ),
           ),
           const SizedBox(height: 12),
@@ -175,13 +204,13 @@ class RightSidebar extends ConsumerWidget {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isCurrent
-                        ? const Color(0xFF1B2630)
-                        : const Color(0xFF131920),
-                    borderRadius: BorderRadius.circular(8),
+                        ? MeloColors.primary50
+                        : MeloColors.surfaceMuted,
+                    borderRadius: MeloRadii.sm,
                     border: Border.all(
                       color: isCurrent
-                          ? const Color(0xFF355064)
-                          : const Color(0xFF262F3A),
+                          ? MeloColors.primary500
+                          : MeloColors.border,
                     ),
                   ),
                   child: Column(
@@ -193,6 +222,7 @@ class RightSidebar extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w600,
+                              color: isCurrent ? MeloColors.primary700 : MeloColors.textPrimary,
                             ),
                       ),
                       const SizedBox(height: 2),
@@ -201,7 +231,7 @@ class RightSidebar extends ConsumerWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF8D9BA8),
+                              color: isCurrent ? MeloColors.primary600.withOpacity(0.8) : MeloColors.textSecondary,
                             ),
                       ),
                     ],

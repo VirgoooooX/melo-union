@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../bootstrap/demo_repository.dart';
+import '../design/melo_tokens.dart';
 import '../widgets/right_sidebar.dart';
 
 class AppShellScaffold extends ConsumerWidget {
@@ -20,14 +21,24 @@ class AppShellScaffold extends ConsumerWidget {
     final repository = ref.watch(demoRepositoryProvider);
     final destinations = AppDestination.values;
     final current = _currentDestination(location);
-    final isWide = MediaQuery.sizeOf(context).width >= 1100;
+    final isWide = MediaQuery.sizeOf(context).width >= 960;
 
     if (!isWide) {
       return Scaffold(
         appBar: AppBar(
-          title: Text(_titleFor(current)),
+          title: Text(
+            _titleFor(current),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: MeloColors.textPrimary,
+                ),
+          ),
           elevation: 0,
-          backgroundColor: Colors.transparent,
+          backgroundColor: MeloColors.surface,
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(1),
+            child: Divider(height: 1, color: MeloColors.border),
+          ),
         ),
         body: child,
         bottomNavigationBar: NavigationBar(
@@ -66,17 +77,19 @@ class AppShellScaffold extends ConsumerWidget {
     }
 
     return Scaffold(
+      backgroundColor: MeloColors.canvas,
       body: SafeArea(
         child: Row(
           children: [
             Container(
-              width: 248,
+              width: MeloDimensions.desktopSidebarWidth,
               decoration: const BoxDecoration(
+                color: MeloColors.surface,
                 border: Border(
-                  right: BorderSide(color: Color(0xFF2B3440)),
+                  right: BorderSide(color: MeloColors.border),
                 ),
               ),
-              padding: const EdgeInsets.fromLTRB(20, 20, 16, 20),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -84,13 +97,14 @@ class AppShellScaffold extends ConsumerWidget {
                     'MeloUnion',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w700,
+                          color: MeloColors.primary700,
                         ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
                     'Flutter MVP · Phase 1-5',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF8D9AA7),
+                          color: MeloColors.textSecondary,
                         ),
                   ),
                   const SizedBox(height: 28),
@@ -107,8 +121,9 @@ class AppShellScaffold extends ConsumerWidget {
                   const SizedBox(height: 24),
                   Text(
                     '当前状态',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: const Color(0xFF9FB0BF),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textTertiary,
+                          fontWeight: FontWeight.w600,
                         ),
                   ),
                   const SizedBox(height: 12),
@@ -139,16 +154,16 @@ class AppShellScaffold extends ConsumerWidget {
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF151C23),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF29313A)),
+                      color: MeloColors.surfaceMuted,
+                      borderRadius: MeloRadii.sm,
+                      border: Border.all(color: MeloColors.border),
                     ),
                     child: Text(
                       '页面行为只读取 capability、登录态和启用状态；没有 QQ/网易云特判。',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF9FB0BF),
+                            color: MeloColors.textSecondary,
                             height: 1.4,
                           ),
                     ),
@@ -158,16 +173,12 @@ class AppShellScaffold extends ConsumerWidget {
             ),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(
-                    right: BorderSide(color: Color(0xFF2B3440)),
-                  ),
-                ),
+                color: MeloColors.canvas,
                 child: child,
               ),
             ),
             const SizedBox(
-              width: 320,
+              width: MeloDimensions.desktopNowPlayingWidth,
               child: RightSidebar(),
             ),
           ],
@@ -227,24 +238,23 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = selected ? Colors.white : const Color(0xFF98A7B5);
+    final foreground = selected ? MeloColors.primary700 : MeloColors.textPrimary;
+    final background = selected ? MeloColors.primary50 : Colors.transparent;
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: MeloRadii.sm,
       child: Ink(
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF1E2B36) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? const Color(0xFF355064) : const Color(0xFF25303B),
-          ),
+          color: background,
+          borderRadius: MeloRadii.sm,
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              IconTheme(data: IconThemeData(color: foreground), child: icon),
-              const SizedBox(width: 12),
+              IconTheme(data: IconThemeData(color: foreground, size: 20), child: icon),
+              const SizedBox(width: 10),
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -278,14 +288,15 @@ class _SidebarStat extends StatelessWidget {
         children: [
           Text(
             label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF8FA0AF),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: MeloColors.textSecondary,
                 ),
           ),
           Text(
             value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w700,
+                  color: MeloColors.textPrimary,
                 ),
           ),
         ],

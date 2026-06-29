@@ -4,6 +4,7 @@ import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 import '../../bootstrap/demo_repository.dart';
+import '../../design/melo_tokens.dart';
 import '../../widgets/source_track_tile.dart';
 
 class LocalPlaylistsPage extends ConsumerWidget {
@@ -32,13 +33,14 @@ class LocalPlaylistsPage extends ConsumerWidget {
                       style:
                           Theme.of(context).textTheme.headlineSmall?.copyWith(
                                 fontWeight: FontWeight.w700,
+                                color: MeloColors.textPrimary,
                               ),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       '歌单只保存 ProviderTrackRef 与缓存元数据；禁用来源后仍可显示历史条目。',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: const Color(0xFF8D9BA8),
+                            color: MeloColors.textSecondary,
                           ),
                     ),
                   ],
@@ -98,12 +100,12 @@ class _PlaylistSelector extends ConsumerWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF10161D),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF29313A)),
+        color: MeloColors.surface,
+        borderRadius: MeloRadii.md,
+        border: Border.all(color: MeloColors.border),
       ),
       child: playlists.isEmpty
-          ? const Center(child: Text('还没有本地歌单'))
+          ? const Center(child: Text('还没有本地歌单', style: TextStyle(color: MeloColors.textSecondary)))
           : ListView.separated(
               padding: const EdgeInsets.all(12),
               itemCount: playlists.length,
@@ -113,18 +115,18 @@ class _PlaylistSelector extends ConsumerWidget {
                 final selected = playlist.id == selectedId;
                 return InkWell(
                   onTap: () => repository.selectPlaylist(playlist.id),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: MeloRadii.sm,
                   child: Ink(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: selected
-                          ? const Color(0xFF1E2B36)
-                          : const Color(0xFF141A21),
-                      borderRadius: BorderRadius.circular(8),
+                          ? MeloColors.primary50
+                          : MeloColors.surfaceMuted,
+                      borderRadius: MeloRadii.sm,
                       border: Border.all(
                         color: selected
-                            ? const Color(0xFF355064)
-                            : const Color(0xFF262F3A),
+                            ? MeloColors.primary500
+                            : MeloColors.border,
                       ),
                     ),
                     child: Row(
@@ -138,7 +140,10 @@ class _PlaylistSelector extends ConsumerWidget {
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w700),
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: selected ? MeloColors.primary700 : MeloColors.textPrimary,
+                                    ),
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -146,7 +151,7 @@ class _PlaylistSelector extends ConsumerWidget {
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
-                                    ?.copyWith(color: const Color(0xFF8D9BA8)),
+                                    ?.copyWith(color: selected ? MeloColors.primary600 : MeloColors.textSecondary),
                               ),
                             ],
                           ),
@@ -203,9 +208,9 @@ class _PlaylistDetails extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF10161D),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF29313A)),
+        color: MeloColors.surface,
+        borderRadius: MeloRadii.md,
+        border: Border.all(color: MeloColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,13 +219,14 @@ class _PlaylistDetails extends ConsumerWidget {
             playlist!.name,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
+                  color: MeloColors.textPrimary,
                 ),
           ),
           const SizedBox(height: 6),
           Text(
             '${playlist!.items.length} 个缓存引用',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF8D9BA8),
+                  color: MeloColors.textSecondary,
                 ),
           ),
           const SizedBox(height: 16),
@@ -275,10 +281,10 @@ class _PlaylistDetails extends ConsumerWidget {
                                   repository.cancelDownload(sourceTrack.ref),
                               onFavoriteChanged: (liked) async {
                                 try {
-                                  await repository.toggleFavorite(
-                                    track: sourceTrack,
-                                    liked: liked,
-                                  );
+                                    await repository.toggleFavorite(
+                                      track: sourceTrack,
+                                      liked: liked,
+                                    );
                                 } on ProviderException catch (error) {
                                   if (!context.mounted) {
                                     return;
@@ -306,14 +312,14 @@ class _PlaylistDetails extends ConsumerWidget {
                       return Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF141A21),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF262F3A)),
+                          color: MeloColors.surfaceMuted,
+                          borderRadius: MeloRadii.md,
+                          border: Border.all(color: MeloColors.border),
                         ),
                         child: Row(
                           children: [
                             const Icon(Icons.music_off,
-                                color: Color(0xFFE1C07A)),
+                                color: MeloColors.warning),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -324,7 +330,10 @@ class _PlaylistDetails extends ConsumerWidget {
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleSmall
-                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: MeloColors.textPrimary,
+                                        ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
@@ -333,7 +342,7 @@ class _PlaylistDetails extends ConsumerWidget {
                                         .textTheme
                                         .bodyMedium
                                         ?.copyWith(
-                                            color: const Color(0xFF8D9BA8)),
+                                            color: MeloColors.textSecondary),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
@@ -342,7 +351,7 @@ class _PlaylistDetails extends ConsumerWidget {
                                         .textTheme
                                         .bodySmall
                                         ?.copyWith(
-                                            color: const Color(0xFFE1C07A)),
+                                            color: MeloColors.warning),
                                   ),
                                 ],
                               ),
@@ -378,7 +387,7 @@ class _PlaylistPlaceholder extends StatelessWidget {
       child: Text(
         message,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF8D9BA8),
+              color: MeloColors.textSecondary,
             ),
       ),
     );

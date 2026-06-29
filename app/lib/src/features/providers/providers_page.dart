@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 import '../../bootstrap/demo_repository.dart';
+import '../../design/melo_tokens.dart';
 import '../../widgets/provider_badge.dart';
 
 class ProvidersPage extends ConsumerWidget {
@@ -23,13 +24,14 @@ class ProvidersPage extends ConsumerWidget {
           'Provider / 我的',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w700,
+                color: MeloColors.textPrimary,
               ),
         ),
         const SizedBox(height: 6),
         Text(
           '这里可以模拟启用/禁用来源与登录态变化，验证全部喜欢与本地歌单的降级行为。',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF8D9BA8),
+                color: MeloColors.textSecondary,
               ),
         ),
         const SizedBox(height: 18),
@@ -62,9 +64,9 @@ class _ProviderCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF10161D),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF29313A)),
+        color: MeloColors.surface,
+        borderRadius: MeloRadii.md,
+        border: Border.all(color: MeloColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,13 +81,14 @@ class _ProviderCard extends ConsumerWidget {
                       descriptor.displayName,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
+                            color: MeloColors.textPrimary,
                           ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       descriptor.shortDescription ?? descriptor.id.value,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: const Color(0xFF8D9BA8),
+                            color: MeloColors.textSecondary,
                           ),
                     ),
                   ],
@@ -93,6 +96,7 @@ class _ProviderCard extends ConsumerWidget {
               ),
               Switch(
                 value: entry.isEnabled,
+                activeColor: MeloColors.primary600,
                 onChanged: (value) =>
                     repository.setProviderEnabled(descriptor.id, value),
               ),
@@ -106,34 +110,34 @@ class _ProviderCard extends ConsumerWidget {
               ProviderBadge(
                 label: entry.isEnabled ? '已启用' : '已禁用',
                 backgroundColor: entry.isEnabled
-                    ? const Color(0xFF1D3A33)
-                    : const Color(0xFF353123),
+                    ? MeloColors.success.withOpacity(0.1)
+                    : MeloColors.surfaceMuted,
                 foregroundColor: entry.isEnabled
-                    ? const Color(0xFF97E2D4)
-                    : const Color(0xFFE1C07A),
+                    ? MeloColors.success
+                    : MeloColors.textSecondary,
               ),
               ProviderBadge(
                 label: entry.provider.isAuthenticated ? '已登录' : '未登录',
                 backgroundColor: entry.provider.isAuthenticated
-                    ? const Color(0xFF1E2B36)
-                    : const Color(0xFF332128),
+                    ? MeloColors.primary50
+                    : MeloColors.favorite.withOpacity(0.1),
                 foregroundColor: entry.provider.isAuthenticated
-                    ? const Color(0xFFB7D5F1)
-                    : const Color(0xFFF3B5C6),
+                    ? MeloColors.primary700
+                    : MeloColors.favorite,
               ),
               ProviderBadge(
                 label: isEligibleFavoriteSource ? '进入全部喜欢' : '不进入全部喜欢',
                 backgroundColor: isEligibleFavoriteSource
-                    ? const Color(0xFF1F2F1F)
-                    : const Color(0xFF252B31),
+                    ? MeloColors.success.withOpacity(0.1)
+                    : MeloColors.surfaceMuted,
                 foregroundColor: isEligibleFavoriteSource
-                    ? const Color(0xFFBCE4A8)
-                    : const Color(0xFFB0BEC5),
+                    ? MeloColors.success
+                    : MeloColors.textSecondary,
               ),
               ProviderBadge(
-                label: descriptor.status.name,
-                backgroundColor: const Color(0xFF232B35),
-                foregroundColor: const Color(0xFFB9C5D1),
+                label: descriptor.status.name.toUpperCase(),
+                backgroundColor: MeloColors.surfaceMuted,
+                foregroundColor: MeloColors.textSecondary,
               ),
             ],
           ),
@@ -153,7 +157,7 @@ class _ProviderCard extends ConsumerWidget {
               return Text(
                 accountLine,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF9FB0BF),
+                      color: MeloColors.textPrimary,
                     ),
               );
             },
@@ -164,7 +168,14 @@ class _ProviderCard extends ConsumerWidget {
             runSpacing: 8,
             children: [
               for (final capability in descriptor.capabilities)
-                Chip(label: Text(capability.label)),
+                Chip(
+                  label: Text(
+                    capability.label,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  backgroundColor: MeloColors.surfaceMuted,
+                  side: const BorderSide(color: MeloColors.border),
+                ),
             ],
           ),
           if (descriptor.supports(ProviderCapability.authenticate)) ...[
