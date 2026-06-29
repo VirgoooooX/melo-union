@@ -99,7 +99,7 @@ abstract final class MeloTheme {
           backgroundColor: MeloColors.primary600,
           foregroundColor: Colors.white,
           disabledBackgroundColor: MeloColors.primary100,
-          disabledForegroundColor: MeloColors.primary700.withOpacity(.45),
+          disabledForegroundColor: MeloColors.primary700.withValues(alpha: .45),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
           shape: const RoundedRectangleBorder(borderRadius: MeloRadii.md),
           elevation: 0,
@@ -154,7 +154,8 @@ abstract final class MeloTheme {
         indicatorColor: MeloColors.primary600,
         dividerColor: MeloColors.border,
         labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        unselectedLabelStyle:
+            TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

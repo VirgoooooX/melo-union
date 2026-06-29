@@ -1,8 +1,11 @@
 import 'demo_repository.dart';
 import 'managed_snapshot_store.dart';
+import 'netease_session_store.dart';
+import 'netease_session_store_factory.dart';
 import 'snapshot_store_factory.dart';
 
 typedef SnapshotStoreFactory = Future<ManagedSnapshotStore> Function();
+typedef NeteaseSessionStoreFactory = NeteaseSessionStore Function();
 
 final class AppBootstrap {
   AppBootstrap({
@@ -16,12 +19,17 @@ final class AppBootstrap {
 
 Future<AppBootstrap> createAppBootstrap({
   SnapshotStoreFactory createStore = createSnapshotStore,
+  NeteaseSessionStoreFactory createNeteaseStore = createNeteaseSessionStore,
 }) async {
   final managedStore = await createStore();
+  final neteaseSessionStore = createNeteaseStore();
   final snapshot = await managedStore.store?.read();
+  final neteaseCredentials = await neteaseSessionStore.read();
   final repository = DemoRepository.seeded(
     snapshot: snapshot,
     snapshotStore: managedStore.store,
+    neteaseCredentials: neteaseCredentials,
+    neteaseSessionStore: neteaseSessionStore,
   );
 
   return AppBootstrap(

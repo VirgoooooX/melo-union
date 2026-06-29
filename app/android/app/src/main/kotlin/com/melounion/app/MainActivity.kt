@@ -8,6 +8,10 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private companion object {
         const val STORAGE_CHANNEL_NAME = "melo_union/storage"
+        const val CREDENTIALS_CHANNEL_NAME = "melo_union/provider_credentials"
+        const val PROVIDER_CREDENTIALS_PREFS = "melo_union_provider_credentials"
+        const val NETEASE_COOKIE_KEY = "netease_cookie"
+        const val NETEASE_USER_ID_KEY = "netease_user_id"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -64,6 +68,56 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getApplicationSupportDirectory" -> result.success(filesDir.absolutePath)
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CREDENTIALS_CHANNEL_NAME,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "readNeteaseCredentials" -> {
+                    val prefs = getSharedPreferences(PROVIDER_CREDENTIALS_PREFS, MODE_PRIVATE)
+                    val cookie = prefs.getString(NETEASE_COOKIE_KEY, null)
+                    if (cookie.isNullOrBlank()) {
+                        result.success(null)
+                    } else {
+                        result.success(
+                            mapOf(
+                                "cookie" to cookie,
+                                "userId" to prefs.getString(NETEASE_USER_ID_KEY, null),
+                            ),
+                        )
+                    }
+                }
+
+                "writeNeteaseCredentials" -> {
+                    val cookie = call.argument<String>("cookie")
+                    if (cookie.isNullOrBlank()) {
+                        result.error("invalid_credentials", "NetEase cookie must not be empty.", null)
+                        return@setMethodCallHandler
+                    }
+                    val userId = call.argument<String>("userId")
+                    val editor = getSharedPreferences(PROVIDER_CREDENTIALS_PREFS, MODE_PRIVATE).edit()
+                        .putString(NETEASE_COOKIE_KEY, cookie)
+                    if (userId.isNullOrBlank()) {
+                        editor.remove(NETEASE_USER_ID_KEY)
+                    } else {
+                        editor.putString(NETEASE_USER_ID_KEY, userId)
+                    }
+                    editor.apply()
+                    result.success(true)
+                }
+
+                "deleteNeteaseCredentials" -> {
+                    getSharedPreferences(PROVIDER_CREDENTIALS_PREFS, MODE_PRIVATE).edit()
+                        .remove(NETEASE_COOKIE_KEY)
+                        .remove(NETEASE_USER_ID_KEY)
+                        .apply()
+                    result.success(true)
+                }
+
                 else -> result.notImplemented()
             }
         }

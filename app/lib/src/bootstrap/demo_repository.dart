@@ -7,6 +7,7 @@ import 'package:provider_netease/provider_netease.dart';
 
 import '../fakes/fake_music_provider.dart';
 import '../platform/playback_platform_bridge.dart';
+import 'netease_session_store.dart';
 
 final demoRepositoryProvider = ChangeNotifierProvider<DemoRepository>(
   (ref) => DemoRepository.seeded(),
@@ -26,9 +27,12 @@ class DemoRepository extends ChangeNotifier {
     List<DownloadTask> seedDownloadTasks = const [],
     List<LocalMediaItem> seedLocalMediaItems = const [],
     this.snapshotStore,
+    NeteaseCredentials? neteaseCredentials,
+    this.neteaseSessionStore,
     this.playbackBridge = const PlaybackPlatformBridge(),
   })  : favoritesOverrideRegistry =
             favoritesOverrideRegistry ?? FavoritesOverrideRegistry(),
+        _neteaseCredentials = neteaseCredentials,
         _selectedPlaylistId = playlists.listPlaylists().isEmpty
             ? null
             : playlists.listPlaylists().first.id {
@@ -43,11 +47,13 @@ class DemoRepository extends ChangeNotifier {
   factory DemoRepository.seeded({
     MeloDataSnapshot? snapshot,
     MeloSnapshotStore? snapshotStore,
+    NeteaseCredentials? neteaseCredentials,
+    NeteaseSessionStore? neteaseSessionStore,
   }) {
     final alphaId = ProviderId('aurora_stream');
     final betaId = ProviderId('beacon_archive');
     final catalogId = ProviderId('compass_catalog');
-    final netease = NeteaseMusicProvider();
+    final netease = NeteaseMusicProvider(credentials: neteaseCredentials);
 
     final alpha = FakeMusicProvider(
       descriptor: ProviderDescriptor(
@@ -285,6 +291,8 @@ class DemoRepository extends ChangeNotifier {
       seedDownloadTasks: snapshot?.downloadTasks ?? const [],
       seedLocalMediaItems: snapshot?.localMediaItems ?? const [],
       snapshotStore: snapshotStore,
+      neteaseCredentials: neteaseCredentials,
+      neteaseSessionStore: neteaseSessionStore,
       playbackBridge: const PlaybackPlatformBridge(),
     );
     repo.playbackCoordinator.setQueue([
@@ -298,6 +306,7 @@ class DemoRepository extends ChangeNotifier {
   final InMemoryLocalPlaylistRepository playlists;
   final Map<ProviderId, FakeMusicProvider> providers;
   final MeloSnapshotStore? snapshotStore;
+  final NeteaseSessionStore? neteaseSessionStore;
   final PlaybackPlatformBridge playbackBridge;
   final ProviderCapabilityMatrix capabilityMatrix =
       const ProviderCapabilityMatrix();
@@ -309,11 +318,14 @@ class DemoRepository extends ChangeNotifier {
   late final PlaybackCoordinator playbackCoordinator;
   late final DownloadCoordinator downloadCoordinator;
   final FavoritesOverrideRegistry favoritesOverrideRegistry;
+  NeteaseCredentials? _neteaseCredentials;
   String? _selectedPlaylistId;
 
   PlaybackQueueState get queue => playbackCoordinator.queueState;
 
   List<ProviderRegistryEntry> get providerEntries => registry.allEntries();
+
+  bool get hasNeteaseSession => _neteaseCredentials?.hasCookie ?? false;
 
   List<LocalPlaylist> get playlistList => playlists.listPlaylists();
 
@@ -443,12 +455,40 @@ class DemoRepository extends ChangeNotifier {
   }
 
   void toggleProviderAuthentication(ProviderId providerId) {
+    if (providerId == neteaseProviderId) {
+      clearNeteaseCredentials();
+      return;
+    }
     final provider = providers[providerId];
     if (provider == null ||
         !provider.descriptor.supports(ProviderCapability.authenticate)) {
       return;
     }
     provider.setAuthenticated(!provider.isAuthenticated);
+    notifyListeners();
+  }
+
+  Future<void> saveNeteaseCredentials({
+    required String cookie,
+    String? userId,
+  }) async {
+    final credentials = NeteaseCredentials(
+      cookie: cookie.trim(),
+      userId: userId == null || userId.trim().isEmpty ? null : userId.trim(),
+    );
+    if (!credentials.hasCookie) {
+      throw ArgumentError.value(cookie, 'cookie', 'Cookie must not be empty.');
+    }
+    await neteaseSessionStore?.write(credentials);
+    _neteaseCredentials = credentials;
+    _replaceNeteaseProvider(credentials);
+    notifyListeners();
+  }
+
+  Future<void> clearNeteaseCredentials() async {
+    await neteaseSessionStore?.clear();
+    _neteaseCredentials = null;
+    _replaceNeteaseProvider(null);
     notifyListeners();
   }
 
@@ -599,5 +639,13 @@ class DemoRepository extends ChangeNotifier {
       return;
     }
     Future<void>(() => store.write(toSnapshot()));
+  }
+
+  void _replaceNeteaseProvider(NeteaseCredentials? credentials) {
+    final wasEnabled = registry.isEnabled(neteaseProviderId);
+    registry.register(
+      NeteaseMusicProvider(credentials: credentials),
+      enabled: wasEnabled,
+    );
   }
 }

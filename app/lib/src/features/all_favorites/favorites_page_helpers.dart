@@ -11,8 +11,7 @@ class _TrackCover extends StatelessWidget {
     final hue =
         seed.codeUnits.fold<int>(0, (total, value) => total + value) % 360;
     final first = HSLColor.fromAHSL(1, hue.toDouble(), .58, .62).toColor();
-    final second =
-        HSLColor.fromAHSL(1, (hue + 58) % 360, .58, .37).toColor();
+    final second = HSLColor.fromAHSL(1, (hue + 58) % 360, .58, .37).toColor();
     return Container(
       width: 46,
       height: 46,
@@ -35,7 +34,7 @@ class _TrackCover extends StatelessWidget {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(.18),
+                color: Colors.white.withValues(alpha: .18),
                 shape: BoxShape.circle,
               ),
             ),
@@ -44,9 +43,9 @@ class _TrackCover extends StatelessWidget {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(.18),
+              color: Colors.white.withValues(alpha: .18),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(.24)),
+              border: Border.all(color: Colors.white.withValues(alpha: .24)),
             ),
             child: Icon(
               isPlaying ? Icons.graphic_eq_rounded : Icons.music_note_rounded,
@@ -85,7 +84,8 @@ class _SourceTag extends StatelessWidget {
           Container(
             width: 5,
             height: 5,
-            decoration: BoxDecoration(color: foreground, shape: BoxShape.circle),
+            decoration:
+                BoxDecoration(color: foreground, shape: BoxShape.circle),
           ),
           const SizedBox(width: 5),
           Text(

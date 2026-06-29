@@ -70,7 +70,8 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                           color: isPlaying
                               ? MeloColors.primary700
                               : MeloColors.textTertiary,
-                          fontWeight: isPlaying ? FontWeight.w800 : FontWeight.w600,
+                          fontWeight:
+                              isPlaying ? FontWeight.w800 : FontWeight.w600,
                         ),
                   ),
                 ),
@@ -226,7 +227,8 @@ class _TrackIdentity extends StatelessWidget {
               if (sourceCount > 1) ...[
                 const SizedBox(width: 7),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: const BoxDecoration(
                     color: MeloColors.primary50,
                     borderRadius: MeloRadii.pill,
@@ -268,7 +270,6 @@ class _FavoriteSourceDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
     return Dialog(
       shape: const RoundedRectangleBorder(borderRadius: MeloRadii.xl),
       child: ConstrainedBox(
@@ -287,18 +288,20 @@ class _FavoriteSourceDialog extends ConsumerWidget {
                       children: [
                         Text(
                           '管理收藏来源',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           track.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: MeloColors.textSecondary,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: MeloColors.textSecondary,
+                                  ),
                         ),
                       ],
                     ),
@@ -339,7 +342,8 @@ class _FavoriteSourceItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(demoRepositoryProvider);
-    final availability = repository.favoriteWriteAvailability(variant.ref.providerId);
+    final availability =
+        repository.favoriteWriteAvailability(variant.ref.providerId);
     final canWrite = availability.isEnabled;
     return Container(
       padding: const EdgeInsets.all(12),

@@ -102,7 +102,8 @@ class _SidebarItemState extends State<_SidebarItem> {
   @override
   Widget build(BuildContext context) {
     final selected = widget.selected;
-    final foreground = selected ? MeloColors.primary700 : MeloColors.textPrimary;
+    final foreground =
+        selected ? MeloColors.primary700 : MeloColors.textPrimary;
     final background = selected
         ? MeloColors.surfaceSelected
         : _hovered
@@ -138,7 +139,9 @@ class _SidebarItemState extends State<_SidebarItem> {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: selected ? Colors.white.withOpacity(.72) : Colors.transparent,
+                    color: selected
+                        ? Colors.white.withValues(alpha: .72)
+                        : Colors.transparent,
                     borderRadius: MeloRadii.sm,
                   ),
                   child: Icon(
@@ -152,7 +155,8 @@ class _SidebarItemState extends State<_SidebarItem> {
                   AppShellScaffold.titleFor(widget.destination),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: foreground,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w600,
                       ),
                 ),
               ],

@@ -1,9 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:melo_union_app/src/bootstrap/app_bootstrap.dart';
+import 'package:melo_union_app/src/bootstrap/demo_repository.dart';
 import 'package:melo_union_app/src/bootstrap/managed_snapshot_store.dart';
+import 'package:melo_union_app/src/bootstrap/netease_session_store.dart';
 import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
+import 'package:provider_netease/provider_netease.dart';
 
 final class _MemorySnapshotStore implements MeloSnapshotStore {
   _MemorySnapshotStore(this.snapshot);
@@ -26,7 +29,28 @@ final class _MemorySnapshotStore implements MeloSnapshotStore {
   }
 }
 
+final class _MemoryNeteaseSessionStore implements NeteaseSessionStore {
+  _MemoryNeteaseSessionStore([this.credentials]);
+
+  NeteaseCredentials? credentials;
+
+  @override
+  Future<NeteaseCredentials?> read() async => credentials;
+
+  @override
+  Future<void> write(NeteaseCredentials credentials) async {
+    this.credentials = credentials;
+  }
+
+  @override
+  Future<void> clear() async {
+    credentials = null;
+  }
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('createAppBootstrap hydrates repository from snapshot store', () async {
     final ref = ProviderTrackRef(
       providerId: ProviderId('aurora_stream'),
@@ -76,5 +100,67 @@ void main() {
     await bootstrap.close();
 
     expect(closed, isTrue);
+  });
+
+  test('createAppBootstrap injects NetEase credentials from session store',
+      () async {
+    final neteaseStore = _MemoryNeteaseSessionStore(
+      const NeteaseCredentials(cookie: 'MUSIC_U=fake', userId: '42'),
+    );
+
+    final bootstrap = await createAppBootstrap(
+      createStore: () async => ManagedSnapshotStore(store: null),
+      createNeteaseStore: () => neteaseStore,
+    );
+
+    final entry = bootstrap.repository.registry.entryOf(neteaseProviderId);
+
+    expect(entry, isNotNull);
+    expect(entry!.provider.isAuthenticated, isTrue);
+    expect(entry.descriptor.supports(ProviderCapability.authenticate), isTrue);
+    expect(entry.descriptor.supports(ProviderCapability.readFavorites), isTrue);
+  });
+
+  test('DemoRepository can save and clear NetEase session credentials',
+      () async {
+    final neteaseStore = _MemoryNeteaseSessionStore();
+    final repository = DemoRepository.seeded(
+      neteaseSessionStore: neteaseStore,
+    );
+
+    expect(
+      repository.registry
+          .entryOf(neteaseProviderId)!
+          .descriptor
+          .supports(ProviderCapability.readFavorites),
+      isFalse,
+    );
+
+    await repository.saveNeteaseCredentials(
+      cookie: 'MUSIC_U=fake',
+      userId: '42',
+    );
+
+    expect(neteaseStore.credentials?.cookie, 'MUSIC_U=fake');
+    expect(repository.hasNeteaseSession, isTrue);
+    expect(
+      repository.registry
+          .entryOf(neteaseProviderId)!
+          .descriptor
+          .supports(ProviderCapability.readFavorites),
+      isTrue,
+    );
+
+    await repository.clearNeteaseCredentials();
+
+    expect(neteaseStore.credentials, isNull);
+    expect(repository.hasNeteaseSession, isFalse);
+    expect(
+      repository.registry
+          .entryOf(neteaseProviderId)!
+          .descriptor
+          .supports(ProviderCapability.readFavorites),
+      isFalse,
+    );
   });
 }

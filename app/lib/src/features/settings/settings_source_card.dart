@@ -8,7 +8,8 @@ class _MusicSourcesSettings extends ConsumerWidget {
     final repository = ref.watch(demoRepositoryProvider);
     final sources = repository.providerEntries
         .where((entry) =>
-            entry.descriptor.supports(ProviderCapability.authenticate))
+            entry.descriptor.supports(ProviderCapability.authenticate) ||
+            entry.descriptor.id == neteaseProviderId)
         .toList(growable: false);
     return ListView(
       children: [
@@ -61,7 +62,8 @@ class _MusicSourceCard extends ConsumerWidget {
     final signedIn = entry.provider.isAuthenticated;
     final canSyncFavorites =
         descriptor.supports(ProviderCapability.readFavorites);
-    final isNetease = descriptor.id.value.contains('aurora');
+    final isNetease = descriptor.id.value.contains('aurora') ||
+        descriptor.id == neteaseProviderId;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -155,7 +157,9 @@ class _SourceManagementDialog extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '后续真实 Provider 接入后，此处将提供二维码登录、会话状态、同步时间和账号移除操作。',
+              entry.descriptor.id == neteaseProviderId
+                  ? '当前支持导入本机 Cookie 作为 experimental 会话。Cookie 不写入 SQLite 或快照；Android 会保存到应用私有存储，桌面开发也可使用 MELO_NETEASE_COOKIE 环境变量。'
+                  : '后续真实 Provider 接入后，此处将提供二维码登录、会话状态、同步时间和账号移除操作。',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: MeloColors.textSecondary,
                     height: 1.5,
@@ -169,16 +173,150 @@ class _SourceManagementDialog extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
           child: const Text('关闭'),
         ),
-        FilledButton.icon(
-          onPressed: () {
-            repository.toggleProviderAuthentication(entry.descriptor.id);
-            Navigator.pop(context);
-          },
-          icon: Icon(signedIn ? Icons.logout_rounded : Icons.login_rounded),
-          label: Text(signedIn ? '退出登录' : '登录'),
+        if (entry.descriptor.id == neteaseProviderId)
+          FilledButton.icon(
+            onPressed: () async {
+              if (signedIn) {
+                await repository.clearNeteaseCredentials();
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+                return;
+              }
+              Navigator.pop(context);
+              await showDialog<void>(
+                context: context,
+                builder: (context) => const _NeteaseCookieDialog(),
+              );
+            },
+            icon: Icon(signedIn ? Icons.logout_rounded : Icons.login_rounded),
+            label: Text(signedIn ? '清除会话' : '导入 Cookie'),
+          )
+        else
+          FilledButton.icon(
+            onPressed: () {
+              repository.toggleProviderAuthentication(entry.descriptor.id);
+              Navigator.pop(context);
+            },
+            icon: Icon(signedIn ? Icons.logout_rounded : Icons.login_rounded),
+            label: Text(signedIn ? '退出登录' : '登录'),
+          ),
+      ],
+    );
+  }
+}
+
+class _NeteaseCookieDialog extends ConsumerStatefulWidget {
+  const _NeteaseCookieDialog();
+
+  @override
+  ConsumerState<_NeteaseCookieDialog> createState() =>
+      _NeteaseCookieDialogState();
+}
+
+class _NeteaseCookieDialogState extends ConsumerState<_NeteaseCookieDialog> {
+  final _cookieController = TextEditingController();
+  final _userIdController = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _cookieController.dispose();
+    _userIdController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('导入网易云 Cookie'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _cookieController,
+              minLines: 3,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: 'Cookie',
+                hintText: 'MUSIC_U=...; ...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _userIdController,
+              decoration: const InputDecoration(
+                labelText: '用户 ID（可选）',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '仅用于本机账号读取测试；不要提交或分享 Cookie。写收藏、播放和下载仍需后续官方端验证。',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: MeloColors.textSecondary,
+                    height: 1.45,
+                  ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: MeloColors.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: Text(_saving ? '保存中' : '保存会话'),
         ),
       ],
     );
+  }
+
+  Future<void> _save() async {
+    final cookie = _cookieController.text.trim();
+    if (cookie.isEmpty) {
+      setState(() => _error = 'Cookie 不能为空。');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(demoRepositoryProvider).saveNeteaseCredentials(
+            cookie: cookie,
+            userId: _userIdController.text,
+          );
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = '保存失败：$error';
+        });
+      }
+    }
   }
 }
 
@@ -261,6 +399,7 @@ class _StatusChip extends StatelessWidget {
 }
 
 String _sourceName(ProviderId id) {
+  if (id == neteaseProviderId) return '网易云音乐';
   if (id.value.contains('aurora')) return '网易云音乐';
   if (id.value.contains('beacon')) return 'QQ音乐';
   return id.value;

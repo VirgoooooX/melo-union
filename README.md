@@ -8,7 +8,7 @@ MeloUnion 首发目标是接入网易云音乐与 QQ 音乐；架构不把任何
 
 ## Phase 1-5 MVP 运行说明
 
-当前仓库已包含 `app/`、`packages/provider_contract/`、`packages/music_domain/`、`packages/music_data/` 与 experimental `packages/provider_netease/` 的 Phase 1-5 MVP 源码骨架。网易云已作为真实搜索 Provider 注册进系统；账号读取需要后续接入安全存储中的本地会话 Cookie。播放 / 下载仍使用 fake provider；Android 已接入 Media3 `MediaSessionService` 桥接骨架，下载/本地歌单/覆盖规则已有 JSON 快照与 Drift/SQLite 仓储边界，但 fake provider 只返回 `provider://...` 票据 URI，真实音频播放仍依赖后续正式 Provider 解析。具备 Flutter / Dart SDK 后可按下列顺序验证：
+当前仓库已包含 `app/`、`packages/provider_contract/`、`packages/music_domain/`、`packages/music_data/` 与 experimental `packages/provider_netease/` 的 Phase 1-5 MVP 源码骨架。网易云已作为真实搜索 Provider 注册进系统；设置页可导入/清除本机 Cookie 会话以读取账号资料和喜欢列表。播放 / 下载仍使用 fake provider；Android 已接入 Media3 `MediaSessionService` 桥接骨架，下载/本地歌单/覆盖规则已有 JSON 快照与 Drift/SQLite 仓储边界，但 fake provider 只返回 `provider://...` 票据 URI，真实音频播放仍依赖后续正式 Provider 解析。具备 Flutter / Dart SDK 后可按下列顺序验证：
 
 - `cd packages/provider_contract && dart test`
 - `cd packages/music_domain && dart test`

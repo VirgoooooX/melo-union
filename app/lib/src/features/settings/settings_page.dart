@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider_contract/provider_contract.dart';
+import 'package:provider_netease/provider_netease.dart';
 
 import '../../bootstrap/demo_repository.dart';
 import '../../design/melo_tokens.dart';

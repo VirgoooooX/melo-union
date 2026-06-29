@@ -85,7 +85,8 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
       case _FavoriteSort.recent:
         break;
       case _FavoriteSort.title:
-        sorted.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        sorted.sort(
+            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
       case _FavoriteSort.artist:
         sorted.sort(
           (a, b) => a.artists.join(' ').toLowerCase().compareTo(
@@ -193,7 +194,10 @@ class _FavoriteRowSkeleton extends StatelessWidget {
           const SizedBox(width: 12),
           const Expanded(flex: 4, child: _SkeletonTextGroup()),
           const Expanded(flex: 2, child: _SkeletonTextGroup(short: true)),
-          const SizedBox(width: 132, child: _SkeletonBox(width: 64, height: 20, radius: MeloRadii.pill)),
+          const SizedBox(
+              width: 132,
+              child:
+                  _SkeletonBox(width: 64, height: 20, radius: MeloRadii.pill)),
           const SizedBox(width: 58),
           const SizedBox(width: 46),
         ],
@@ -237,7 +241,7 @@ class _SkeletonBox extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: MeloColors.border.withOpacity(.55),
+        color: MeloColors.border.withValues(alpha: .55),
         borderRadius: radius,
       ),
     );
