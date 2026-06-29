@@ -79,14 +79,17 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
               setState(() => _query = '');
             },
             onSortSelected: (value) => setState(() => _sort = value),
-            onPlayAll: () => _playFirstVisible(selected),
+            onPlayAll: () => _playAllVisible(selected),
           ),
           const SizedBox(height: 18),
           Expanded(
-            child: _FavoritesLibraryPanel(
-              selectedProviderId: selected == 'all' ? null : selected,
-              query: _query,
-              sort: _sort,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: _FavoritesLibraryPanel(
+                selectedProviderId: selected == 'all' ? null : selected,
+                query: _query,
+                sort: _sort,
+              ),
             ),
           ),
         ],
@@ -94,7 +97,7 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
     );
   }
 
-  Future<void> _playFirstVisible(String selected) async {
+  Future<void> _playAllVisible(String selected) async {
     final tracks = await ref.read(allFavoritesProvider.future);
     final visible = tracks.where((track) {
       final providerMatch = selected == 'all' ||
@@ -113,7 +116,7 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
       }
       return;
     }
-    await ref.read(demoRepositoryProvider).playUnifiedTrack(visible.first);
+    await ref.read(demoRepositoryProvider).playUnifiedTracks(visible);
   }
 }
 

@@ -49,6 +49,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
           onTap: () => repository.playUnifiedTrack(widget.track),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
             height: 76,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
@@ -64,15 +65,10 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
               children: [
                 SizedBox(
                   width: 38,
-                  child: Text(
-                    isPlaying ? '▶' : '${widget.index}'.padLeft(2, '0'),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isPlaying
-                              ? MeloColors.primary700
-                              : MeloColors.textTertiary,
-                          fontWeight:
-                              isPlaying ? FontWeight.w800 : FontWeight.w600,
-                        ),
+                  child: _RowPlaybackIndicator(
+                    index: widget.index,
+                    hovered: _hovered,
+                    isPlaying: isPlaying,
                   ),
                 ),
                 _TrackCover(
@@ -128,28 +124,41 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                   ),
                 ),
                 SizedBox(
-                  width: 46,
-                  child: IconButton(
-                    tooltip: variants.length > 1
-                        ? '管理多个来源的收藏状态'
-                        : hasFavorite
-                            ? '取消喜欢'
-                            : '喜欢',
-                    onPressed: () => _handleFavoriteTap(
-                      context,
-                      repository,
-                      variants,
-                    ),
-                    splashRadius: 20,
-                    icon: Icon(
-                      hasFavorite
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      color: hasFavorite
-                          ? MeloColors.favorite
-                          : MeloColors.textTertiary,
-                      size: 21,
-                    ),
+                  width: 84,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        tooltip: variants.length > 1
+                            ? '管理多个来源的收藏状态'
+                            : hasFavorite
+                                ? '取消喜欢'
+                                : '喜欢',
+                        onPressed: () => _handleFavoriteTap(
+                          context,
+                          repository,
+                          variants,
+                        ),
+                        splashRadius: 20,
+                        icon: Icon(
+                          hasFavorite
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          color: hasFavorite
+                              ? MeloColors.favorite
+                              : MeloColors.textTertiary,
+                          size: 21,
+                        ),
+                      ),
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 130),
+                        opacity: _hovered || isPlaying ? 1 : 0,
+                        child: IgnorePointer(
+                          ignoring: !_hovered && !isPlaying,
+                          child: _TrackMoreMenu(track: primary),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -176,7 +185,15 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
       return;
     }
 
-    await _toggleSingle(context, repository, variants.first);
+    final source = variants.first;
+    final availability = repository.favoriteWriteAvailability(source.ref.providerId);
+    if (!availability.isEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(availability.reason ?? '此来源无法写回收藏。')),
+      );
+      return;
+    }
+    await _toggleSingle(context, repository, source);
   }
 
   Future<void> _toggleSingle(
@@ -196,6 +213,48 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
         );
       }
     }
+  }
+}
+
+class _RowPlaybackIndicator extends StatelessWidget {
+  const _RowPlaybackIndicator({
+    required this.index,
+    required this.hovered,
+    required this.isPlaying,
+  });
+
+  final int index;
+  final bool hovered;
+  final bool isPlaying;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isPlaying ? MeloColors.primary700 : MeloColors.textTertiary;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 130),
+      child: isPlaying
+          ? Icon(
+              Icons.graphic_eq_rounded,
+              key: const ValueKey('playing'),
+              color: color,
+              size: 18,
+            )
+          : hovered
+              ? Icon(
+                  Icons.play_arrow_rounded,
+                  key: const ValueKey('hover-play'),
+                  color: MeloColors.primary700,
+                  size: 20,
+                )
+              : Text(
+                  '$index'.padLeft(2, '0'),
+                  key: const ValueKey('row-index'),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+    );
   }
 }
 
@@ -263,6 +322,276 @@ class _TrackIdentity extends StatelessWidget {
           ),
         ],
       );
+}
+
+class _TrackMoreMenu extends ConsumerWidget {
+  const _TrackMoreMenu({required this.track});
+
+  final SourceTrack track;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.watch(demoRepositoryProvider);
+    return PopupMenuButton<_TrackMenuAction>(
+      tooltip: '更多操作',
+      icon: const Icon(Icons.more_horiz_rounded, size: 20),
+      offset: const Offset(0, 42),
+      shape: const RoundedRectangleBorder(borderRadius: MeloRadii.md),
+      onSelected: (action) async {
+        if (action == _TrackMenuAction.playNext) {
+          repository.enqueueTrack(track);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('已添加到播放队列末尾。')),
+          );
+          return;
+        }
+        if (action == _TrackMenuAction.addToPlaylist) {
+          await showDialog<void>(
+            context: context,
+            builder: (context) => _AddToPlaylistDialog(track: track),
+          );
+          return;
+        }
+        repository.addDownloadTask(track);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已创建下载任务。')),
+        );
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: _TrackMenuAction.playNext,
+          child: _TrackMenuItem(
+            icon: Icons.queue_music_rounded,
+            label: '加入播放队列',
+          ),
+        ),
+        const PopupMenuItem(
+          value: _TrackMenuAction.addToPlaylist,
+          child: _TrackMenuItem(
+            icon: Icons.playlist_add_rounded,
+            label: '加入本地歌单',
+          ),
+        ),
+        PopupMenuItem(
+          value: _TrackMenuAction.download,
+          enabled: track.isDownloadable,
+          child: _TrackMenuItem(
+            icon: track.isDownloadable
+                ? Icons.download_rounded
+                : Icons.block_rounded,
+            label: track.isDownloadable ? '下载' : '当前来源不支持下载',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+enum _TrackMenuAction { playNext, addToPlaylist, download }
+
+class _TrackMenuItem extends StatelessWidget {
+  const _TrackMenuItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 10),
+          Text(label),
+        ],
+      );
+}
+
+class _AddToPlaylistDialog extends ConsumerWidget {
+  const _AddToPlaylistDialog({required this.track});
+
+  final SourceTrack track;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.watch(demoRepositoryProvider);
+    final playlists = repository.playlistList;
+    return Dialog(
+      shape: const RoundedRectangleBorder(borderRadius: MeloRadii.xl),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 430),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '加入本地歌单',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                track.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: MeloColors.textSecondary,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              if (playlists.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 22),
+                  child: Center(child: Text('还没有本地歌单。')),
+                )
+              else
+                ...[
+                  for (final playlist in playlists) ...[
+                    _PlaylistChoice(
+                      playlist: playlist,
+                      onTap: () {
+                        repository.addTrackToPlaylist(
+                          playlistId: playlist.id,
+                          track: track,
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('已加入“${playlist.name}”。')),
+                        );
+                        Navigator.pop(context);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ],
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final name = await _askForPlaylistName(context);
+                  if (name == null || name.trim().isEmpty) return;
+                  repository.createPlaylist(name.trim());
+                  final target = repository.selectedPlaylistId;
+                  if (target != null) {
+                    repository.addTrackToPlaylist(
+                      playlistId: target,
+                      track: track,
+                    );
+                  }
+                  if (context.mounted) Navigator.pop(context);
+                },
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('新建歌单并加入'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _askForPlaylistName(BuildContext context) async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('新建本地歌单'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '歌单名称'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return name;
+  }
+}
+
+class _PlaylistChoice extends StatelessWidget {
+  const _PlaylistChoice({required this.playlist, required this.onTap});
+
+  final LocalPlaylist playlist;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: MeloRadii.md,
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: MeloColors.surfaceMuted,
+          borderRadius: MeloRadii.md,
+          border: Border.all(color: MeloColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: MeloColors.primary50,
+                borderRadius: MeloRadii.sm,
+              ),
+              child: const Icon(
+                Icons.playlist_play_rounded,
+                color: MeloColors.primary700,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    playlist.name,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${playlist.items.length} 首 · 混合歌单',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textSecondary,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.add_rounded,
+              color: MeloColors.primary700,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _FavoriteSourceDialog extends ConsumerWidget {
@@ -348,8 +677,9 @@ class _FavoriteSourceItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(demoRepositoryProvider);
+    final liveVariant = repository.sourceTrackByRef(variant.ref) ?? variant;
     final availability =
-        repository.favoriteWriteAvailability(variant.ref.providerId);
+        repository.favoriteWriteAvailability(liveVariant.ref.providerId);
     final canWrite = availability.isEnabled;
     return Container(
       padding: const EdgeInsets.all(12),
@@ -360,11 +690,11 @@ class _FavoriteSourceItem extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          _SourceTag(provider: variant.ref.providerId),
+          _SourceTag(provider: liveVariant.ref.providerId),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              variant.isFavorited ? '已收藏到这个来源' : '尚未收藏到这个来源',
+              liveVariant.isFavorited ? '已收藏到这个来源' : '尚未收藏到这个来源',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: MeloColors.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -373,15 +703,15 @@ class _FavoriteSourceItem extends ConsumerWidget {
           ),
           Tooltip(
             message: canWrite
-                ? (variant.isFavorited ? '取消喜欢' : '喜欢')
+                ? (liveVariant.isFavorited ? '取消喜欢' : '喜欢')
                 : availability.reason ?? '此来源无法写回收藏',
             child: IconButton(
               onPressed: canWrite
                   ? () async {
                       try {
                         await repository.toggleFavorite(
-                          track: variant,
-                          liked: !variant.isFavorited,
+                          track: liveVariant,
+                          liked: !liveVariant.isFavorited,
                         );
                       } on ProviderException catch (error) {
                         if (context.mounted) {
@@ -393,12 +723,12 @@ class _FavoriteSourceItem extends ConsumerWidget {
                     }
                   : null,
               icon: Icon(
-                variant.isFavorited
+                liveVariant.isFavorited
                     ? Icons.favorite_rounded
                     : canWrite
                         ? Icons.favorite_border_rounded
                         : Icons.lock_outline_rounded,
-                color: variant.isFavorited
+                color: liveVariant.isFavorited
                     ? MeloColors.favorite
                     : canWrite
                         ? MeloColors.textTertiary
