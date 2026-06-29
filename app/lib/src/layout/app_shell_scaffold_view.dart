@@ -80,12 +80,12 @@ class _MobileShell extends StatelessWidget {
       AppDestination.downloads,
       AppDestination.providers,
     ];
-    final selected = destinations.indexOf(current).clamp(0, destinations.length - 1);
+    final selected = destinations.indexOf(current);
     return Scaffold(
       appBar: AppBar(title: Text(AppShellScaffold.titleFor(current))),
       body: child,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: selected,
+        selectedIndex: selected < 0 ? 0 : selected,
         onDestinationSelected: (index) => context.go(destinations[index].path),
         destinations: [
           for (final item in destinations)
