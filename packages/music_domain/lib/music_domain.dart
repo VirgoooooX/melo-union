@@ -1,0 +1,11 @@
+export 'src/capabilities/provider_capability_matrix.dart';
+export 'src/downloads/download_coordinator.dart';
+export 'src/downloads/download_models.dart';
+export 'src/favorites/favorites_override.dart';
+export 'src/favorites/unified_favorites_service.dart';
+export 'src/playback/playback_coordinator.dart';
+export 'src/playback/playback_queue.dart';
+export 'src/playlists/in_memory_local_playlist_repository.dart';
+export 'src/playlists/local_playlist_models.dart';
+export 'src/playlists/playlist_reference_resolver.dart';
+export 'src/search/capability_aware_search_service.dart';

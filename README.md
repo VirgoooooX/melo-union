@@ -6,6 +6,14 @@ MeloUnion 首发目标是接入网易云音乐与 QQ 音乐；架构不把任何
 
 当前核心体验是：将所有已启用、已登录且支持读取收藏的平台，聚合成一个**虚拟歌单**；同时保留每首歌的原始平台身份。收藏/取消收藏永远写回对应平台。本地自定义歌单可混放任意 Provider 的歌曲引用，下载、播放队列和本地媒体管理独立于收藏逻辑。
 
+## Phase 1-5 MVP 运行说明
+
+当前仓库已包含 `app/`、`packages/provider_contract/` 与 `packages/music_domain/` 的 Phase 1-5 MVP 源码骨架。Provider / 播放 / 下载仍使用 fake provider 与本地内存状态机，不伪造真实平台验证。具备 Flutter / Dart SDK 后可按下列顺序验证：
+
+- `cd packages/provider_contract && dart test`
+- `cd packages/music_domain && dart test`
+- `cd app && flutter pub get && flutter test`
+
 ## 核心体验
 
 ```text
@@ -91,7 +99,7 @@ UI / 本地歌单 / 全部喜欢 / 播放队列
 
 ```text
 melo-union/
-├─ app/                         # Flutter 主应用（后续 flutter create 生成）
+├─ app/                         # Flutter 主应用（含 Android / Windows / Web runner）
 ├─ packages/
 │  ├─ music_domain/             # 实体、值对象、用例与仓储接口
 │  ├─ music_data/               # Drift、缓存、安全存储、仓储实现

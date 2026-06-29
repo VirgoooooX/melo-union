@@ -1,0 +1,5 @@
+name: melo_union
+
+packages:
+  - app
+  - packages/**
