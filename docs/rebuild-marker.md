@@ -1,1 +1,0 @@
-The desktop UI rebuild is in progress on this branch.
