@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 
@@ -11,6 +12,7 @@ import '../features/local_playlists/local_playlists_page.dart';
 import '../features/providers/providers_page.dart';
 import '../features/search/search_page.dart';
 import '../layout/app_shell_scaffold.dart';
+import '../platform/playback_platform_bridge.dart';
 
 final demoRepositoryProvider = ChangeNotifierProvider<DemoRepository>(
   (ref) => DemoRepository.seeded(),
@@ -74,14 +76,24 @@ class DemoRepository extends ChangeNotifier {
     required this.registry,
     required this.playlists,
     required this.providers,
-  }) : _selectedPlaylistId = playlists.listPlaylists().isEmpty
+    FavoritesOverrideRegistry? favoritesOverrideRegistry,
+    List<DownloadTask> seedDownloadTasks = const [],
+    List<LocalMediaItem> seedLocalMediaItems = const [],
+    this.playbackBridge = const PlaybackPlatformBridge(),
+  })  : favoritesOverrideRegistry =
+            favoritesOverrideRegistry ?? FavoritesOverrideRegistry(),
+        _selectedPlaylistId = playlists.listPlaylists().isEmpty
             ? null
             : playlists.listPlaylists().first.id {
     playbackCoordinator = PlaybackCoordinator(registry: registry);
-    downloadCoordinator = DownloadCoordinator(registry: registry);
+    downloadCoordinator = DownloadCoordinator(
+      registry: registry,
+      seedTasks: seedDownloadTasks,
+      seedLocalItems: seedLocalMediaItems,
+    );
   }
 
-  factory DemoRepository.seeded() {
+  factory DemoRepository.seeded({MeloDataSnapshot? snapshot}) {
     final alphaId = ProviderId('aurora_stream');
     final betaId = ProviderId('beacon_archive');
     final catalogId = ProviderId('compass_catalog');
@@ -264,49 +276,50 @@ class DemoRepository extends ChangeNotifier {
     );
 
     final registry = StaticProviderRegistry([alpha, beta, catalog]);
+    final defaultPlaylists = [
+      LocalPlaylist(
+        id: 'playlist_commute',
+        name: 'Morning Commute',
+        items: [
+          LocalPlaylistItem(
+            trackRef: alpha.allTracks().first.ref,
+            cachedTitle: 'Midnight Signal',
+            cachedArtists: const ['Luna Park'],
+            cachedProviderName: 'Aurora Stream',
+            addedAt: DateTime.utc(2026, 6, 28, 7, 30),
+          ),
+          LocalPlaylistItem(
+            trackRef: beta.allTracks()[1].ref,
+            cachedTitle: 'Archive Tape',
+            cachedArtists: const ['Signal Room'],
+            cachedProviderName: 'Beacon Archive',
+            addedAt: DateTime.utc(2026, 6, 28, 7, 32),
+          ),
+        ],
+      ),
+      LocalPlaylist(
+        id: 'playlist_notes',
+        name: 'Crossfade Notes',
+        items: [
+          LocalPlaylistItem(
+            trackRef: beta.allTracks().first.ref,
+            cachedTitle: 'Midnight Signal',
+            cachedArtists: const ['Luna Park'],
+            cachedProviderName: 'Beacon Archive',
+            addedAt: DateTime.utc(2026, 6, 28, 23, 10),
+          ),
+          LocalPlaylistItem(
+            trackRef: catalog.allTracks()[1].ref,
+            cachedTitle: 'Cover Sheet',
+            cachedArtists: const ['Reference Artist'],
+            cachedProviderName: 'Compass Catalog',
+            addedAt: DateTime.utc(2026, 6, 28, 23, 12),
+          ),
+        ],
+      ),
+    ];
     final playlists = InMemoryLocalPlaylistRepository(
-      seedPlaylists: [
-        LocalPlaylist(
-          id: 'playlist_commute',
-          name: 'Morning Commute',
-          items: [
-            LocalPlaylistItem(
-              trackRef: alpha.allTracks().first.ref,
-              cachedTitle: 'Midnight Signal',
-              cachedArtists: const ['Luna Park'],
-              cachedProviderName: 'Aurora Stream',
-              addedAt: DateTime.utc(2026, 6, 28, 7, 30),
-            ),
-            LocalPlaylistItem(
-              trackRef: beta.allTracks()[1].ref,
-              cachedTitle: 'Archive Tape',
-              cachedArtists: const ['Signal Room'],
-              cachedProviderName: 'Beacon Archive',
-              addedAt: DateTime.utc(2026, 6, 28, 7, 32),
-            ),
-          ],
-        ),
-        LocalPlaylist(
-          id: 'playlist_notes',
-          name: 'Crossfade Notes',
-          items: [
-            LocalPlaylistItem(
-              trackRef: beta.allTracks().first.ref,
-              cachedTitle: 'Midnight Signal',
-              cachedArtists: const ['Luna Park'],
-              cachedProviderName: 'Beacon Archive',
-              addedAt: DateTime.utc(2026, 6, 28, 23, 10),
-            ),
-            LocalPlaylistItem(
-              trackRef: catalog.allTracks()[1].ref,
-              cachedTitle: 'Cover Sheet',
-              cachedArtists: const ['Reference Artist'],
-              cachedProviderName: 'Compass Catalog',
-              addedAt: DateTime.utc(2026, 6, 28, 23, 12),
-            ),
-          ],
-        ),
-      ],
+      seedPlaylists: snapshot?.playlists ?? defaultPlaylists,
     );
 
     final repo = DemoRepository._(
@@ -317,6 +330,10 @@ class DemoRepository extends ChangeNotifier {
         betaId: beta,
         catalogId: catalog,
       },
+      favoritesOverrideRegistry: snapshot?.favoritesOverrides,
+      seedDownloadTasks: snapshot?.downloadTasks ?? const [],
+      seedLocalMediaItems: snapshot?.localMediaItems ?? const [],
+      playbackBridge: const PlaybackPlatformBridge(),
     );
     repo.playbackCoordinator.setQueue([
       alpha.allTracks().first,
@@ -328,6 +345,7 @@ class DemoRepository extends ChangeNotifier {
   final StaticProviderRegistry registry;
   final InMemoryLocalPlaylistRepository playlists;
   final Map<ProviderId, FakeMusicProvider> providers;
+  final PlaybackPlatformBridge playbackBridge;
   final ProviderCapabilityMatrix capabilityMatrix =
       const ProviderCapabilityMatrix();
   final UnifiedFavoritesService favoritesService =
@@ -337,8 +355,7 @@ class DemoRepository extends ChangeNotifier {
 
   late final PlaybackCoordinator playbackCoordinator;
   late final DownloadCoordinator downloadCoordinator;
-  final FavoritesOverrideRegistry favoritesOverrideRegistry =
-      FavoritesOverrideRegistry();
+  final FavoritesOverrideRegistry favoritesOverrideRegistry;
   String? _selectedPlaylistId;
 
   PlaybackQueueState get queue => playbackCoordinator.queueState;
@@ -372,6 +389,15 @@ class DemoRepository extends ChangeNotifier {
 
   Future<List<UnifiedFavoriteTrack>> loadAllFavorites() =>
       favoritesService.buildAllFavorites(registry);
+
+  MeloDataSnapshot toSnapshot() {
+    return MeloDataSnapshot(
+      playlists: playlistList,
+      downloadTasks: downloadCoordinator.allTasks,
+      localMediaItems: downloadCoordinator.localItems,
+      favoritesOverrides: favoritesOverrideRegistry,
+    );
+  }
 
   Future<List<ProviderSearchResults>> search(String query) {
     if (query.trim().isEmpty) {
@@ -467,6 +493,7 @@ class DemoRepository extends ChangeNotifier {
   Future<void> playTrack(SourceTrack track) async {
     playbackCoordinator.setQueue([track]);
     await playbackCoordinator.selectTrack(track.ref);
+    await _syncNativePlayback(playWhenReady: true);
     notifyListeners();
   }
 
@@ -475,6 +502,7 @@ class DemoRepository extends ChangeNotifier {
     if (track.variants.isNotEmpty) {
       await playbackCoordinator.selectTrack(track.variants.first.ref);
     }
+    await _syncNativePlayback(playWhenReady: true);
     notifyListeners();
   }
 
@@ -485,16 +513,19 @@ class DemoRepository extends ChangeNotifier {
 
   Future<void> selectTrackInQueue(ProviderTrackRef ref) async {
     await playbackCoordinator.selectTrack(ref);
+    await _syncNativePlayback(playWhenReady: true);
     notifyListeners();
   }
 
   Future<void> queueNext() async {
     await playbackCoordinator.next();
+    await _syncNativePlayback(playWhenReady: true);
     notifyListeners();
   }
 
   Future<void> queuePrevious() async {
     await playbackCoordinator.previous();
+    await _syncNativePlayback(playWhenReady: true);
     notifyListeners();
   }
 
@@ -531,6 +562,48 @@ class DemoRepository extends ChangeNotifier {
 
   Future<void> refreshPlaybackTicket() async {
     await playbackCoordinator.refreshCurrentTicketIfNeeded(force: true);
+    await _syncNativePlayback(playWhenReady: true);
     notifyListeners();
+  }
+
+  Future<void> _syncNativePlayback({required bool playWhenReady}) async {
+    final queue = playbackCoordinator.queueState;
+    final current = queue.current?.track;
+    final currentTicket = playbackCoordinator.currentTicket;
+    if (current == null || currentTicket == null) {
+      return;
+    }
+
+    final nativeItems = <PlatformPlaybackItem>[
+      _nativeItemFor(track: current, ticket: currentTicket),
+    ];
+
+    final nextTicket = playbackCoordinator.nextTicket;
+    if (nextTicket != null) {
+      for (final entry in queue.entries) {
+        if (entry.track.ref == nextTicket.trackRef) {
+          nativeItems
+              .add(_nativeItemFor(track: entry.track, ticket: nextTicket));
+          break;
+        }
+      }
+    }
+
+    await playbackBridge.loadQueue(nativeItems, playWhenReady: playWhenReady);
+  }
+
+  PlatformPlaybackItem _nativeItemFor({
+    required SourceTrack track,
+    required PlaybackTicket ticket,
+  }) {
+    return PlatformPlaybackItem(
+      mediaUri: ticket.mediaUri,
+      title: track.title,
+      artists: track.artists,
+      providerId: track.ref.providerId.value,
+      trackId: track.ref.trackId,
+      headers: ticket.headers,
+      expiresAt: ticket.expiresAt,
+    );
   }
 }

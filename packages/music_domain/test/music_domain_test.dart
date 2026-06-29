@@ -546,6 +546,69 @@ void main() {
       expect(localItem.filePath, startsWith('local://downloads/'));
     });
 
+    test('hydrates persisted task and local library state', () {
+      final localItem = LocalMediaItem(
+        sourceRef: track.ref,
+        title: track.title,
+        artists: track.artists,
+        duration: track.duration,
+        filePath: 'local://downloads/alpha_music/alpha_track_1.mp3',
+        fileSize: 1024,
+        downloadedAt: DateTime.utc(2026, 6, 29),
+      );
+      final persistedTask = DownloadTask(
+        track: track,
+        quality: AudioQuality.standard,
+        status: DownloadStatus.completed,
+        progress: 1,
+        savedFilePath: localItem.filePath,
+        createdAt: DateTime.utc(2026, 6, 28),
+      );
+
+      final coordinator = DownloadCoordinator(
+        registry: StaticProviderRegistry(const []),
+        seedTasks: [persistedTask],
+        seedLocalItems: [localItem],
+      );
+
+      expect(coordinator.isAvailableLocally(track.ref), isTrue);
+      expect(coordinator.getTask(track.ref)?.status, DownloadStatus.completed);
+      expect(coordinator.getTask(track.ref)?.ticket, isNull);
+      expect(coordinator.getLocalItem(track.ref)?.filePath, localItem.filePath);
+    });
+
+    test('removes local media and resets task for redownload', () {
+      final localItem = LocalMediaItem(
+        sourceRef: track.ref,
+        title: track.title,
+        artists: track.artists,
+        duration: track.duration,
+        filePath: 'local://downloads/alpha_music/alpha_track_1.mp3',
+        fileSize: 1024,
+        downloadedAt: DateTime.utc(2026, 6, 29),
+      );
+      final coordinator = DownloadCoordinator(
+        registry: StaticProviderRegistry(const []),
+        seedTasks: [
+          DownloadTask(
+            track: track,
+            quality: AudioQuality.standard,
+            status: DownloadStatus.completed,
+            progress: 1,
+            savedFilePath: localItem.filePath,
+          ),
+        ],
+        seedLocalItems: [localItem],
+      );
+
+      coordinator.removeLocalItem(track.ref);
+
+      expect(coordinator.isAvailableLocally(track.ref), isFalse);
+      expect(coordinator.getTask(track.ref)?.status, DownloadStatus.cancelled);
+      expect(coordinator.getTask(track.ref)?.progress, 0);
+      expect(coordinator.getTask(track.ref)?.savedFilePath, isNull);
+    });
+
     test('handles capability unavailable and disabled reasons', () async {
       final disabledProvider = FakeMusicProvider(
         descriptor: ProviderDescriptor(

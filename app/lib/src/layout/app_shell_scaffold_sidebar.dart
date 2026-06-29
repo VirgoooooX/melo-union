@@ -63,7 +63,8 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = selected ? MeloColors.primary700 : MeloColors.textPrimary;
+    final foreground =
+        selected ? MeloColors.primary700 : MeloColors.textPrimary;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -78,7 +79,8 @@ class _SidebarItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(AppShellScaffold.iconFor(destination, selected), color: foreground, size: 20),
+              Icon(AppShellScaffold.iconFor(destination, selected),
+                  color: foreground, size: 20),
               const SizedBox(width: 12),
               Text(
                 AppShellScaffold.titleFor(destination),

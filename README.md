@@ -8,10 +8,11 @@ MeloUnion 首发目标是接入网易云音乐与 QQ 音乐；架构不把任何
 
 ## Phase 1-5 MVP 运行说明
 
-当前仓库已包含 `app/`、`packages/provider_contract/` 与 `packages/music_domain/` 的 Phase 1-5 MVP 源码骨架。Provider / 播放 / 下载仍使用 fake provider 与本地内存状态机，不伪造真实平台验证。具备 Flutter / Dart SDK 后可按下列顺序验证：
+当前仓库已包含 `app/`、`packages/provider_contract/`、`packages/music_domain/` 与 `packages/music_data/` 的 Phase 1-5 MVP 源码骨架。Provider / 播放 / 下载仍使用 fake provider；Android 已接入 Media3 `MediaSessionService` 桥接骨架，下载/本地歌单/覆盖规则已有 JSON 快照边界，但 fake provider 只返回 `provider://...` 票据 URI，真实音频播放仍依赖后续正式 Provider 解析。具备 Flutter / Dart SDK 后可按下列顺序验证：
 
 - `cd packages/provider_contract && dart test`
 - `cd packages/music_domain && dart test`
+- `cd packages/music_data && dart test`
 - `cd app && flutter pub get && flutter test`
 
 ## 核心体验
@@ -76,7 +77,7 @@ UI / 本地歌单 / 全部喜欢 / 播放队列
 
 ## 当前状态
 
-`planning` — 尚未接入任何平台账号或协议实现。
+`mvp-skeleton` — Phase 1-5 的可运行骨架已通过本机构建/测试；尚未接入任何真实平台账号或协议实现。
 
 第一条工程原则：先完成 Provider Spike，再实现正式 UI。
 
@@ -91,6 +92,7 @@ UI / 本地歌单 / 全部喜欢 / 播放队列
 - [架构与技术设计](docs/architecture.md)
 - [Provider 可扩展性设计](docs/provider-extensibility.md)
 - [开发路线图与验收门槛](docs/roadmap.md)
+- [Phase 1-5 MVP 当前状态](docs/mvp-phase1-5-status.md)
 - [Provider Spike 验证清单](docs/provider-spike.md)
 - [安全、隐私与数据边界](docs/security.md)
 - [架构决策：为何选 Flutter](docs/adr/0001-flutter-first.md)

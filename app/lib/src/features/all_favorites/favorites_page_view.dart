@@ -14,14 +14,21 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
   @override
   Widget build(BuildContext context) {
     final repository = ref.watch(demoRepositoryProvider);
-    final entries = repository.capabilityMatrix.eligibleFavoritesEntries(repository.registry);
+    final entries = repository.capabilityMatrix
+        .eligibleFavoritesEntries(repository.registry);
     final tabs = <ProviderTabItem>[
       const ProviderTabItem(id: 'all', label: '全部喜欢'),
       for (final entry in entries)
-        ProviderTabItem(id: entry.descriptor.id.value, label: providerLabel(entry.descriptor.id)),
-      const ProviderTabItem(id: 'more', label: '更多平台', trailing: Icons.keyboard_arrow_down_rounded),
+        ProviderTabItem(
+            id: entry.descriptor.id.value,
+            label: providerLabel(entry.descriptor.id)),
+      const ProviderTabItem(
+          id: 'more',
+          label: '更多平台',
+          trailing: Icons.keyboard_arrow_down_rounded),
     ];
-    final selected = tabs.any((item) => item.id == _selectedTab) ? _selectedTab : 'all';
+    final selected =
+        tabs.any((item) => item.id == _selectedTab) ? _selectedTab : 'all';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
@@ -35,7 +42,8 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
                   selectedId: selected,
                   onSelected: (value) {
                     if (value == 'more') {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('后续接入的平台会在这里显示。')));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('后续接入的平台会在这里显示。')));
                     } else {
                       setState(() => _selectedTab = value);
                     }
@@ -55,20 +63,32 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
               SizedBox(
                 width: 270,
                 child: TextField(
-                  onChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
-                  decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: '搜索歌曲、歌手或专辑'),
+                  onChanged: (value) =>
+                      setState(() => _query = value.trim().toLowerCase()),
+                  decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search_rounded),
+                      hintText: '搜索歌曲、歌手或专辑'),
                 ),
               ),
               const Spacer(),
-              OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.filter_list_rounded), label: const Text('筛选')),
+              OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.filter_list_rounded),
+                  label: const Text('筛选')),
               const SizedBox(width: 8),
-              FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.play_arrow_rounded), label: const Text('播放全部')),
+              FilledButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('播放全部')),
             ],
           ),
           const SizedBox(height: 16),
           const _FavoritesHeader(),
           const SizedBox(height: 4),
-          Expanded(child: _FavoritesList(selectedProviderId: selected == 'all' ? null : selected, query: _query)),
+          Expanded(
+              child: _FavoritesList(
+                  selectedProviderId: selected == 'all' ? null : selected,
+                  query: _query)),
         ],
       ),
     );
@@ -80,11 +100,15 @@ class _FavoritesHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodySmall?.copyWith(color: MeloColors.textTertiary, fontWeight: FontWeight.w700);
+    final style = Theme.of(context)
+        .textTheme
+        .bodySmall
+        ?.copyWith(color: MeloColors.textTertiary, fontWeight: FontWeight.w700);
     return Container(
       height: 38,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: const BoxDecoration(color: MeloColors.surfaceMuted, borderRadius: MeloRadii.sm),
+      decoration: const BoxDecoration(
+          color: MeloColors.surfaceMuted, borderRadius: MeloRadii.sm),
       child: Row(children: [
         SizedBox(width: 34, child: Text('#', style: style)),
         const SizedBox(width: 48),

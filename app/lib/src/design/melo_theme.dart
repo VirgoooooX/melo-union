@@ -107,7 +107,8 @@ abstract final class MeloTheme {
         indicatorColor: MeloColors.primary600,
         dividerColor: MeloColors.border,
         labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        unselectedLabelStyle:
+            TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
       ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

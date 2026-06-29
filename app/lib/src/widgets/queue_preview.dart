@@ -16,7 +16,8 @@ class _QueuePreview extends ConsumerWidget {
         return ListTile(
           selected: selected,
           onTap: () => repository.selectTrackInQueue(entry.track.ref),
-          leading: Icon(selected ? Icons.equalizer_rounded : Icons.music_note_outlined),
+          leading: Icon(
+              selected ? Icons.equalizer_rounded : Icons.music_note_outlined),
           title: Text(entry.track.title),
           subtitle: Text(entry.track.artists.join(' / ')),
         );

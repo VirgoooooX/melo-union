@@ -263,7 +263,8 @@ class _DownloadTaskRow extends StatelessWidget {
                     IconButton(
                       tooltip: '开始/继续',
                       onPressed: () => repository.startDownload(task.track.ref),
-                      icon: const Icon(Icons.play_arrow, color: MeloColors.success),
+                      icon: const Icon(Icons.play_arrow,
+                          color: MeloColors.success),
                     )
                   else if (task.status == DownloadStatus.downloading ||
                       task.status == DownloadStatus.resolving)
@@ -305,7 +306,8 @@ class _DownloadTaskRow extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 '${task.status.name.toUpperCase()} ${(task.progress * 100).toInt()}%',
-                style: const TextStyle(fontSize: 11, color: MeloColors.textPrimary),
+                style: const TextStyle(
+                    fontSize: 11, color: MeloColors.textPrimary),
               ),
               if (task.error != null) ...[
                 const SizedBox(width: 10),
@@ -315,7 +317,8 @@ class _DownloadTaskRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
-                    style: const TextStyle(color: MeloColors.error, fontSize: 11),
+                    style:
+                        const TextStyle(color: MeloColors.error, fontSize: 11),
                   ),
                 ),
               ],

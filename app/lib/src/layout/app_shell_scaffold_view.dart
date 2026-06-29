@@ -25,7 +25,9 @@ class AppShellScaffold extends ConsumerWidget {
               child: Row(
                 children: [
                   _DesktopSidebar(current: current),
-                  Expanded(child: ColoredBox(color: MeloColors.canvas, child: child)),
+                  Expanded(
+                      child:
+                          ColoredBox(color: MeloColors.canvas, child: child)),
                   if (width >= 1180)
                     const SizedBox(
                       width: MeloDimensions.desktopNowPlayingWidth,
@@ -56,12 +58,18 @@ class AppShellScaffold extends ConsumerWidget {
         AppDestination.providers => '设置',
       };
 
-  static IconData iconFor(AppDestination destination, bool selected) => switch (destination) {
-        AppDestination.favorites => selected ? Icons.favorite : Icons.favorite_outline,
-        AppDestination.playlists => selected ? Icons.library_music : Icons.library_music_outlined,
-        AppDestination.search => selected ? Icons.auto_awesome : Icons.auto_awesome_outlined,
-        AppDestination.downloads => selected ? Icons.download : Icons.download_outlined,
-        AppDestination.providers => selected ? Icons.settings : Icons.settings_outlined,
+  static IconData iconFor(AppDestination destination, bool selected) =>
+      switch (destination) {
+        AppDestination.favorites =>
+          selected ? Icons.favorite : Icons.favorite_outline,
+        AppDestination.playlists =>
+          selected ? Icons.library_music : Icons.library_music_outlined,
+        AppDestination.search =>
+          selected ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+        AppDestination.downloads =>
+          selected ? Icons.download : Icons.download_outlined,
+        AppDestination.providers =>
+          selected ? Icons.settings : Icons.settings_outlined,
       };
 }
 

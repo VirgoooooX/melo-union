@@ -6,15 +6,20 @@ class _TrackCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hue = seed.codeUnits.fold<int>(0, (total, value) => total + value) % 360;
+    final hue =
+        seed.codeUnits.fold<int>(0, (total, value) => total + value) % 360;
     return Container(
       width: 42,
       height: 42,
       decoration: BoxDecoration(
         borderRadius: MeloRadii.sm,
-        gradient: LinearGradient(colors: [HSLColor.fromAHSL(1, hue.toDouble(), .58, .62).toColor(), HSLColor.fromAHSL(1, (hue + 60) % 360, .58, .4).toColor()]),
+        gradient: LinearGradient(colors: [
+          HSLColor.fromAHSL(1, hue.toDouble(), .58, .62).toColor(),
+          HSLColor.fromAHSL(1, (hue + 60) % 360, .58, .4).toColor()
+        ]),
       ),
-      child: const Icon(Icons.music_note_rounded, color: Colors.white, size: 20),
+      child:
+          const Icon(Icons.music_note_rounded, color: Colors.white, size: 20),
     );
   }
 }
@@ -28,10 +33,18 @@ class _SourceTag extends StatelessWidget {
     final isNetease = provider.value.contains('aurora');
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(color: isNetease ? MeloColors.neteaseBackground : MeloColors.qqBackground, borderRadius: MeloRadii.sm),
+      decoration: BoxDecoration(
+          color: isNetease
+              ? MeloColors.neteaseBackground
+              : MeloColors.qqBackground,
+          borderRadius: MeloRadii.sm),
       child: Text(
         providerLabel(provider),
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: isNetease ? MeloColors.neteaseForeground : MeloColors.qqForeground, fontWeight: FontWeight.w700),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: isNetease
+                ? MeloColors.neteaseForeground
+                : MeloColors.qqForeground,
+            fontWeight: FontWeight.w700),
       ),
     );
   }

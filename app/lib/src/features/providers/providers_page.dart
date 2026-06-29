@@ -96,7 +96,7 @@ class _ProviderCard extends ConsumerWidget {
               ),
               Switch(
                 value: entry.isEnabled,
-                activeColor: MeloColors.primary600,
+                activeThumbColor: MeloColors.primary600,
                 onChanged: (value) =>
                     repository.setProviderEnabled(descriptor.id, value),
               ),
@@ -110,7 +110,7 @@ class _ProviderCard extends ConsumerWidget {
               ProviderBadge(
                 label: entry.isEnabled ? '已启用' : '已禁用',
                 backgroundColor: entry.isEnabled
-                    ? MeloColors.success.withOpacity(0.1)
+                    ? MeloColors.success.withValues(alpha: 0.1)
                     : MeloColors.surfaceMuted,
                 foregroundColor: entry.isEnabled
                     ? MeloColors.success
@@ -120,7 +120,7 @@ class _ProviderCard extends ConsumerWidget {
                 label: entry.provider.isAuthenticated ? '已登录' : '未登录',
                 backgroundColor: entry.provider.isAuthenticated
                     ? MeloColors.primary50
-                    : MeloColors.favorite.withOpacity(0.1),
+                    : MeloColors.favorite.withValues(alpha: 0.1),
                 foregroundColor: entry.provider.isAuthenticated
                     ? MeloColors.primary700
                     : MeloColors.favorite,
@@ -128,7 +128,7 @@ class _ProviderCard extends ConsumerWidget {
               ProviderBadge(
                 label: isEligibleFavoriteSource ? '进入全部喜欢' : '不进入全部喜欢',
                 backgroundColor: isEligibleFavoriteSource
-                    ? MeloColors.success.withOpacity(0.1)
+                    ? MeloColors.success.withValues(alpha: 0.1)
                     : MeloColors.surfaceMuted,
                 foregroundColor: isEligibleFavoriteSource
                     ? MeloColors.success

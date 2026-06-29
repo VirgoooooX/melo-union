@@ -5,11 +5,18 @@ import 'download_models.dart';
 class DownloadCoordinator {
   DownloadCoordinator({
     required this.registry,
-  });
+    List<DownloadTask> seedTasks = const [],
+    List<LocalMediaItem> seedLocalItems = const [],
+  })  : _tasks = {
+          for (final task in seedTasks) task.track.ref: task,
+        },
+        _localLibrary = {
+          for (final item in seedLocalItems) item.sourceRef: item,
+        };
 
   final StaticProviderRegistry registry;
-  final Map<ProviderTrackRef, DownloadTask> _tasks = {};
-  final Map<ProviderTrackRef, LocalMediaItem> _localLibrary = {};
+  final Map<ProviderTrackRef, DownloadTask> _tasks;
+  final Map<ProviderTrackRef, LocalMediaItem> _localLibrary;
 
   List<DownloadTask> get allTasks => _tasks.values.toList();
   List<LocalMediaItem> get localItems => _localLibrary.values.toList();
@@ -84,6 +91,19 @@ class DownloadCoordinator {
 
   void removeTask(ProviderTrackRef ref) {
     _tasks.remove(ref);
+  }
+
+  void removeLocalItem(ProviderTrackRef ref) {
+    _localLibrary.remove(ref);
+    final task = _tasks[ref];
+    if (task != null) {
+      _updateTask(task.copyWith(
+        status: DownloadStatus.cancelled,
+        progress: 0.0,
+        ticket: null,
+        savedFilePath: null,
+      ));
+    }
   }
 
   void simulateProgressStep(ProviderTrackRef ref) {

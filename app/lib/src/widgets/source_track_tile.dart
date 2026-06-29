@@ -195,7 +195,8 @@ class SourceTrackTile extends StatelessWidget {
                       message: '已下载到本地',
                       child: IconButton(
                         onPressed: null,
-                        icon: Icon(Icons.check_circle, color: MeloColors.success),
+                        icon:
+                            Icon(Icons.check_circle, color: MeloColors.success),
                       ),
                     ),
                   if (downloadTask != null &&
@@ -225,7 +226,7 @@ class SourceTrackTile extends StatelessWidget {
               ProviderBadge(
                 label: track.isFavorited ? '来源已喜欢' : '来源未喜欢',
                 backgroundColor: track.isFavorited
-                    ? MeloColors.favorite.withOpacity(0.1)
+                    ? MeloColors.favorite.withValues(alpha: 0.1)
                     : MeloColors.surfaceMuted,
                 foregroundColor: track.isFavorited
                     ? MeloColors.favorite
@@ -234,18 +235,18 @@ class SourceTrackTile extends StatelessWidget {
               ProviderBadge(
                 label: track.isPlayable ? '可播放' : '仅目录/补充',
                 backgroundColor: track.isPlayable
-                    ? MeloColors.success.withOpacity(0.1)
-                    : MeloColors.warning.withOpacity(0.1),
-                foregroundColor: track.isPlayable
-                    ? MeloColors.success
-                    : MeloColors.warning,
+                    ? MeloColors.success.withValues(alpha: 0.1)
+                    : MeloColors.warning.withValues(alpha: 0.1),
+                foregroundColor:
+                    track.isPlayable ? MeloColors.success : MeloColors.warning,
               ),
               if (isDownloadSupported) ...[
                 if (downloadTask != null)
                   ProviderBadge(
                     label:
                         '下载: ${_statusLabel(downloadTask!.status)} ${downloadTask!.status == DownloadStatus.downloading ? "(${(downloadTask!.progress * 100).toInt()}%)" : ""}',
-                    backgroundColor: _downloadStatusColor(downloadTask!.status).withOpacity(0.1),
+                    backgroundColor: _downloadStatusColor(downloadTask!.status)
+                        .withValues(alpha: 0.1),
                     foregroundColor: _downloadStatusColor(downloadTask!.status),
                   )
                 else

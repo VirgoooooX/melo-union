@@ -1,0 +1,17 @@
+name: music_data
+description: Persistence codecs and local JSON stores for MeloUnion domain state.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  music_domain:
+    path: ../music_domain
+  provider_contract:
+    path: ../provider_contract
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0
