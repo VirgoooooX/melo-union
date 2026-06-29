@@ -9,6 +9,7 @@ class _DesktopSidebar extends StatelessWidget {
     AppDestination.favorites,
     AppDestination.playlists,
     AppDestination.recommendations,
+    AppDestination.search,
   ];
   static const _utility = [
     AppDestination.downloads,
@@ -26,29 +27,16 @@ class _DesktopSidebar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'MeloUnion',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: MeloColors.primary700,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -.5,
-                      ),
-                ),
-              ),
-              IconButton(
-                tooltip: '搜索',
-                onPressed: () => context.go(AppDestination.search.path),
-                icon: Icon(
-                  Icons.search_rounded,
-                  color: current == AppDestination.search
-                      ? MeloColors.primary700
-                      : MeloColors.textSecondary,
-                ),
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'MeloUnion',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: MeloColors.primary700,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.5,
+                  ),
+            ),
           ),
           const SizedBox(height: 26),
           for (final item in _main) ...[
