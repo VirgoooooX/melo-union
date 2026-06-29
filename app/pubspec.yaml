@@ -7,6 +7,7 @@ environment:
   sdk: ">=3.4.0 <4.0.0"
 
 dependencies:
+  drift: ^2.34.0
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.5.1
@@ -15,6 +16,9 @@ dependencies:
     path: ../packages/music_data
   music_domain:
     path: ../packages/music_domain
+  path: ^1.9.1
+  provider_netease:
+    path: ../packages/provider_netease
   provider_contract:
     path: ../packages/provider_contract
 

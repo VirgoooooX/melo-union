@@ -11,6 +11,7 @@
 - Domain 状态机：`music_domain` 覆盖全部喜欢聚合、本地歌单引用解析、播放队列/预取票据、下载队列和本地媒体条目。
 - 本地数据边界：`music_data` 提供平台无关 JSON 快照编解码，可保存本地歌单、下载队列、本地媒体库和手动合并/拆分/隐藏规则；同时提供 Drift/SQLite 快照仓储入口。IO 与 Drift 入口分别放在 `music_data_io.dart`、`music_data_drift.dart`，避免污染 Flutter web build。App 仓储可注入 `MeloSnapshotStore`，本地歌单、下载队列和本地媒体变更会写回快照。
 - Fake Provider：应用内置 3 个能力不同的 Provider，用于验证 UI 不按具体平台写死，而是读取 descriptor/capability。
+- 网易云 Provider：`packages/provider_netease` 已接入真实网易云 Web 搜索端点，并以 experimental Provider 注册进 app；可注入本地 Cookie 读取账号资料和喜欢列表。写收藏、真实播放票据、下载票据尚未声明能力。
 - 播放桥：Flutter `MethodChannel` 将当前播放票据同步到 Android 原生层；Android runner 注册 Media3 `MediaSessionService` 与 ExoPlayer 队列。
 - 下载骨架：支持创建、暂停、恢复、取消、模拟进度、完成后写入本地媒体库条目、从持久化快照恢复任务/本地媒体条目；下载页已暴露本地媒体清理与重新下载入口。
 
@@ -21,6 +22,7 @@ cd packages/provider_contract; dart test
 cd packages/music_domain; dart test
 cd packages/music_data; dart analyze
 cd packages/music_data; dart test
+cd packages/provider_netease; dart test
 cd spikes/provider_contract_spike; dart test
 cd app; flutter analyze
 cd app; flutter test
@@ -43,7 +45,7 @@ cd app; flutter build windows --debug
 
 ## 尚未完成
 
-- 真实网易云/QQ Provider：当前仍无账号登录、收藏读取/写回、歌单读取、搜索和媒体 URL 解析的真实适配器。
+- 真实 Provider：网易云 experimental Provider 已接入真实搜索，并支持通过注入 Cookie 读取账号资料/喜欢列表；但尚未接入安全存储登录流程、写收藏官方端验证、歌单读取、真实播放 URL 和下载 URL。QQ Provider 仍未接入。
 - 真实播放资源：fake Provider 返回 `provider://...` URI，仅用于验证票据流和桥接，不能代表实际音频播放。
 - Android 后台体验验证：尚未做真机熄屏、蓝牙、通知栏、音频焦点、来电、网络切换和长时间播放验证。
 - Android 下载落盘：当前已具备可持久化快照和恢复入口，但仍未接入 MediaStore/应用私有目录、存储权限和后台恢复执行器。
@@ -52,7 +54,7 @@ cd app; flutter build windows --debug
 
 ## 下一步建议
 
-1. 先选一个真实 Provider 做 Phase 2 闭环 spike：登录、读取喜欢、写回喜欢、解析可播放资源。
-2. 用真实 HTTP media URL 在 Android 真机上验证 Media3 `MediaSessionService`，再补通知栏、音频焦点和蓝牙控制。
-3. 把 Provider 凭证接入系统安全存储，并将生产启动目录接到 `music_data_drift` 仓储。
+1. 继续网易云 Phase 2 闭环：把 Cookie/登录态接入系统安全存储，读取喜欢后做写收藏/取消收藏官方端验证。
+2. 用网易云当前账号允许的真实 HTTP media URL 在 Android 真机上验证 Media3 `MediaSessionService`，再补通知栏、音频焦点和蓝牙控制。
+3. 将生产启动目录接到 `music_data_drift` 仓储。
 4. 基于已可构建的 Windows runner 实现 SMTC native bridge。

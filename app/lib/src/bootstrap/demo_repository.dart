@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
+import 'package:provider_netease/provider_netease.dart';
 
 import '../fakes/fake_music_provider.dart';
 import '../platform/playback_platform_bridge.dart';
@@ -46,6 +47,7 @@ class DemoRepository extends ChangeNotifier {
     final alphaId = ProviderId('aurora_stream');
     final betaId = ProviderId('beacon_archive');
     final catalogId = ProviderId('compass_catalog');
+    final netease = NeteaseMusicProvider();
 
     final alpha = FakeMusicProvider(
       descriptor: ProviderDescriptor(
@@ -224,7 +226,7 @@ class DemoRepository extends ChangeNotifier {
       ],
     );
 
-    final registry = StaticProviderRegistry([alpha, beta, catalog]);
+    final registry = StaticProviderRegistry([alpha, beta, catalog, netease]);
     final defaultPlaylists = [
       LocalPlaylist(
         id: 'playlist_commute',

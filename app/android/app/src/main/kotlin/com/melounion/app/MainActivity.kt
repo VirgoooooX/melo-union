@@ -6,6 +6,10 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private companion object {
+        const val STORAGE_CHANNEL_NAME = "melo_union/storage"
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -50,6 +54,16 @@ class MainActivity : FlutterActivity() {
 
                 "status" -> result.success(MeloPlaybackService.statusSnapshot())
 
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            STORAGE_CHANNEL_NAME,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getApplicationSupportDirectory" -> result.success(filesDir.absolutePath)
                 else -> result.notImplemented()
             }
         }
