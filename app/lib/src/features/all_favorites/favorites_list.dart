@@ -113,14 +113,17 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
         sorted.sort(
           (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
         );
+        break;
       case _FavoriteSort.artist:
         sorted.sort(
           (a, b) => a.artists.join(' ').toLowerCase().compareTo(
                 b.artists.join(' ').toLowerCase(),
               ),
         );
+        break;
       case _FavoriteSort.duration:
         sorted.sort((a, b) => a.duration.compareTo(b.duration));
+        break;
     }
     return sorted;
   }
@@ -174,7 +177,7 @@ class _FavoritesTableHeader extends StatelessWidget {
           Expanded(flex: 2, child: Text('专辑', style: labelStyle)),
           SizedBox(width: 132, child: Text('来源', style: labelStyle)),
           SizedBox(width: 58, child: Text('时长', style: labelStyle)),
-          const SizedBox(width: 46),
+          const SizedBox(width: 84),
         ],
       ),
     );
@@ -273,7 +276,7 @@ class _FavoriteRowSkeleton extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 58),
-          const SizedBox(width: 46),
+          const SizedBox(width: 84),
         ],
       ),
     );
