@@ -8,11 +8,11 @@ class _DesktopSidebar extends StatelessWidget {
   static const _main = [
     AppDestination.favorites,
     AppDestination.playlists,
-    AppDestination.search,
+    AppDestination.recommendations,
   ];
   static const _utility = [
     AppDestination.downloads,
-    AppDestination.providers,
+    AppDestination.settings,
   ];
 
   @override
@@ -26,18 +26,31 @@ class _DesktopSidebar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
       child: Column(
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'MeloUnion',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: MeloColors.primary700,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -.5,
-                  ),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'MeloUnion',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: MeloColors.primary700,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -.5,
+                      ),
+                ),
+              ),
+              IconButton(
+                tooltip: '搜索 · Ctrl+K',
+                onPressed: () => context.go(AppDestination.search.path),
+                icon: Icon(
+                  Icons.search_rounded,
+                  color: current == AppDestination.search
+                      ? MeloColors.primary700
+                      : MeloColors.textSecondary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 26),
           for (final item in _main) ...[
             _SidebarItem(destination: item, selected: item == current),
             const SizedBox(height: 6),
@@ -78,7 +91,11 @@ class _SidebarItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(AppShellScaffold.iconFor(destination, selected), color: foreground, size: 20),
+              Icon(
+                AppShellScaffold.iconFor(destination, selected),
+                color: foreground,
+                size: 20,
+              ),
               const SizedBox(width: 12),
               Text(
                 AppShellScaffold.titleFor(destination),
