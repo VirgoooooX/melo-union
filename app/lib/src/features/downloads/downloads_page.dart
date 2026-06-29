@@ -60,7 +60,12 @@ class DownloadsPage extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 20),
-                      Expanded(child: _LocalMediaPanel(items: completedItems)),
+                      Expanded(
+                        child: _LocalMediaPanel(
+                          items: completedItems,
+                          repository: repository,
+                        ),
+                      ),
                     ],
                   )
                 : Column(
@@ -72,7 +77,12 @@ class DownloadsPage extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      Expanded(child: _LocalMediaPanel(items: completedItems)),
+                      Expanded(
+                        child: _LocalMediaPanel(
+                          items: completedItems,
+                          repository: repository,
+                        ),
+                      ),
                     ],
                   ),
           ),
@@ -127,9 +137,13 @@ class _DownloadTaskPanel extends StatelessWidget {
 }
 
 class _LocalMediaPanel extends StatelessWidget {
-  const _LocalMediaPanel({required this.items});
+  const _LocalMediaPanel({
+    required this.items,
+    required this.repository,
+  });
 
   final List<LocalMediaItem> items;
+  final DemoRepository repository;
 
   @override
   Widget build(BuildContext context) {
@@ -142,7 +156,10 @@ class _LocalMediaPanel extends StatelessWidget {
         separatorBuilder: (context, index) => const Divider(
           color: MeloColors.border,
         ),
-        itemBuilder: (context, index) => _LocalMediaRow(item: items[index]),
+        itemBuilder: (context, index) => _LocalMediaRow(
+          item: items[index],
+          repository: repository,
+        ),
       ),
     );
   }
@@ -337,9 +354,13 @@ class _DownloadTaskRow extends StatelessWidget {
 }
 
 class _LocalMediaRow extends StatelessWidget {
-  const _LocalMediaRow({required this.item});
+  const _LocalMediaRow({
+    required this.item,
+    required this.repository,
+  });
 
   final LocalMediaItem item;
+  final DemoRepository repository;
 
   @override
   Widget build(BuildContext context) {
@@ -401,6 +422,28 @@ class _LocalMediaRow extends StatelessWidget {
                   color: MeloColors.textSecondary,
                   fontSize: 10,
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 8),
+          PopupMenuButton<String>(
+            tooltip: '本地媒体操作',
+            onSelected: (value) {
+              switch (value) {
+                case 'redownload':
+                  repository.redownloadLocalMedia(item.sourceRef);
+                case 'remove':
+                  repository.removeLocalMedia(item.sourceRef);
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'redownload',
+                child: Text('重新下载'),
+              ),
+              PopupMenuItem(
+                value: 'remove',
+                child: Text('清理本地文件'),
               ),
             ],
           ),

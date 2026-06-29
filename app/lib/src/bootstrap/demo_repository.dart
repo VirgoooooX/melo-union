@@ -24,6 +24,7 @@ class DemoRepository extends ChangeNotifier {
     FavoritesOverrideRegistry? favoritesOverrideRegistry,
     List<DownloadTask> seedDownloadTasks = const [],
     List<LocalMediaItem> seedLocalMediaItems = const [],
+    this.snapshotStore,
     this.playbackBridge = const PlaybackPlatformBridge(),
   })  : favoritesOverrideRegistry =
             favoritesOverrideRegistry ?? FavoritesOverrideRegistry(),
@@ -38,7 +39,10 @@ class DemoRepository extends ChangeNotifier {
     );
   }
 
-  factory DemoRepository.seeded({MeloDataSnapshot? snapshot}) {
+  factory DemoRepository.seeded({
+    MeloDataSnapshot? snapshot,
+    MeloSnapshotStore? snapshotStore,
+  }) {
     final alphaId = ProviderId('aurora_stream');
     final betaId = ProviderId('beacon_archive');
     final catalogId = ProviderId('compass_catalog');
@@ -278,6 +282,7 @@ class DemoRepository extends ChangeNotifier {
       favoritesOverrideRegistry: snapshot?.favoritesOverrides,
       seedDownloadTasks: snapshot?.downloadTasks ?? const [],
       seedLocalMediaItems: snapshot?.localMediaItems ?? const [],
+      snapshotStore: snapshotStore,
       playbackBridge: const PlaybackPlatformBridge(),
     );
     repo.playbackCoordinator.setQueue([
@@ -290,6 +295,7 @@ class DemoRepository extends ChangeNotifier {
   final StaticProviderRegistry registry;
   final InMemoryLocalPlaylistRepository playlists;
   final Map<ProviderId, FakeMusicProvider> providers;
+  final MeloSnapshotStore? snapshotStore;
   final PlaybackPlatformBridge playbackBridge;
   final ProviderCapabilityMatrix capabilityMatrix =
       const ProviderCapabilityMatrix();
@@ -344,6 +350,10 @@ class DemoRepository extends ChangeNotifier {
     );
   }
 
+  Future<void> persistNow() async {
+    await snapshotStore?.write(toSnapshot());
+  }
+
   Future<List<ProviderSearchResults>> search(String query) {
     if (query.trim().isEmpty) {
       return Future.value(const []);
@@ -367,6 +377,7 @@ class DemoRepository extends ChangeNotifier {
     }
     final created = playlists.createPlaylist(name);
     _selectedPlaylistId = created.id;
+    _persistSoon();
     notifyListeners();
   }
 
@@ -378,6 +389,7 @@ class DemoRepository extends ChangeNotifier {
       return;
     }
     playlists.renamePlaylist(playlistId: playlistId, nextName: nextName);
+    _persistSoon();
     notifyListeners();
   }
 
@@ -386,6 +398,7 @@ class DemoRepository extends ChangeNotifier {
     if (_selectedPlaylistId == playlistId) {
       _selectedPlaylistId = playlistList.isEmpty ? null : playlistList.first.id;
     }
+    _persistSoon();
     notifyListeners();
   }
 
@@ -394,6 +407,7 @@ class DemoRepository extends ChangeNotifier {
     required SourceTrack track,
   }) {
     playlists.addTrack(playlistId: playlistId, track: track);
+    _persistSoon();
     notifyListeners();
   }
 
@@ -402,6 +416,7 @@ class DemoRepository extends ChangeNotifier {
     required ProviderTrackRef trackRef,
   }) {
     playlists.removeTrack(playlistId: playlistId, trackRef: trackRef);
+    _persistSoon();
     notifyListeners();
   }
 
@@ -477,31 +492,55 @@ class DemoRepository extends ChangeNotifier {
   void addDownloadTask(SourceTrack track,
       {AudioQuality quality = AudioQuality.standard}) {
     downloadCoordinator.addTask(track, quality: quality);
+    _persistSoon();
     notifyListeners();
   }
 
   Future<void> startDownload(ProviderTrackRef ref) async {
     await downloadCoordinator.startTask(ref);
+    _persistSoon();
     notifyListeners();
   }
 
   void pauseDownload(ProviderTrackRef ref) {
     downloadCoordinator.pauseTask(ref);
+    _persistSoon();
     notifyListeners();
   }
 
   Future<void> resumeDownload(ProviderTrackRef ref) async {
     await downloadCoordinator.resumeTask(ref);
+    _persistSoon();
     notifyListeners();
   }
 
   void cancelDownload(ProviderTrackRef ref) {
     downloadCoordinator.cancelTask(ref);
+    _persistSoon();
+    notifyListeners();
+  }
+
+  void removeLocalMedia(ProviderTrackRef ref) {
+    downloadCoordinator.removeLocalItem(ref);
+    _persistSoon();
+    notifyListeners();
+  }
+
+  void redownloadLocalMedia(ProviderTrackRef ref) {
+    final track = sourceTrackByRef(ref);
+    if (track == null) {
+      removeLocalMedia(ref);
+      return;
+    }
+    downloadCoordinator.removeLocalItem(ref);
+    downloadCoordinator.addTask(track);
+    _persistSoon();
     notifyListeners();
   }
 
   void simulateDownloadProgress(ProviderTrackRef ref) {
     downloadCoordinator.simulateProgressStep(ref);
+    _persistSoon();
     notifyListeners();
   }
 
@@ -550,5 +589,13 @@ class DemoRepository extends ChangeNotifier {
       headers: ticket.headers,
       expiresAt: ticket.expiresAt,
     );
+  }
+
+  void _persistSoon() {
+    final store = snapshotStore;
+    if (store == null) {
+      return;
+    }
+    Future<void>(() => store.write(toSnapshot()));
   }
 }

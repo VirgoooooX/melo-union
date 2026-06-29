@@ -1,0 +1,140 @@
+import 'package:drift/native.dart';
+import 'package:music_data/music_data_drift.dart';
+import 'package:music_domain/music_domain.dart';
+import 'package:provider_contract/provider_contract.dart';
+import 'package:test/test.dart';
+
+void main() {
+  late MeloDriftDatabase database;
+  late DriftMeloDataStore store;
+
+  setUp(() {
+    database = MeloDriftDatabase(NativeDatabase.memory());
+    store = DriftMeloDataStore(database: database);
+  });
+
+  tearDown(() async {
+    await database.close();
+  });
+
+  final providerId = ProviderId('aurora_stream');
+  final sourceRef = ProviderTrackRef(
+    providerId: providerId,
+    trackId: 'alpha_midnight',
+    extraIds: const {'album_id': 'aurora_001'},
+  );
+  final alternateRef = ProviderTrackRef(
+    providerId: ProviderId('beacon_archive'),
+    trackId: 'beta_midnight',
+  );
+
+  SourceTrack sourceTrack() {
+    return SourceTrack(
+      ref: sourceRef,
+      title: 'Midnight Signal',
+      artists: const ['Luna Park'],
+      album: 'Neon Hours',
+      duration: const Duration(minutes: 3, seconds: 10),
+      isFavorited: true,
+      isDownloadable: true,
+    );
+  }
+
+  test('writes and restores local MVP state through Drift tables', () async {
+    final track = sourceTrack();
+    final overrides = FavoritesOverrideRegistry()
+      ..addMergeOverride(sourceRef, alternateRef)
+      ..hideTrack(alternateRef);
+
+    await store.write(
+      MeloDataSnapshot(
+        playlists: [
+          LocalPlaylist(
+            id: 'playlist_commute',
+            name: 'Morning Commute',
+            items: [
+              LocalPlaylistItem(
+                trackRef: sourceRef,
+                cachedTitle: track.title,
+                cachedArtists: track.artists,
+                cachedProviderName: 'Aurora Stream',
+                addedAt: DateTime.utc(2026, 6, 29, 8),
+              ),
+            ],
+          ),
+        ],
+        downloadTasks: [
+          DownloadTask(
+            track: track,
+            quality: AudioQuality.high,
+            status: DownloadStatus.paused,
+            progress: 0.5,
+            ticket: DownloadTicket(
+              mediaUri: Uri.parse('https://example.test/private-download'),
+              headers: const {'Authorization': 'Bearer secret'},
+              expiresAt: DateTime.utc(2026, 6, 29, 9),
+              trackRef: sourceRef,
+              quality: AudioQuality.high,
+            ),
+            createdAt: DateTime.utc(2026, 6, 29, 8, 30),
+          ),
+        ],
+        localMediaItems: [
+          LocalMediaItem(
+            sourceRef: sourceRef,
+            title: track.title,
+            artists: track.artists,
+            duration: track.duration,
+            filePath: 'local://downloads/aurora_stream/alpha_midnight.mp3',
+            fileSize: 4096,
+            downloadedAt: DateTime.utc(2026, 6, 29, 9),
+          ),
+        ],
+        favoritesOverrides: overrides,
+      ),
+    );
+
+    final taskRows = await database.select(database.storedDownloadTasks).get();
+    expect(taskRows.single.payloadJson, isNot(contains('private-download')));
+    expect(taskRows.single.payloadJson, isNot(contains('Bearer secret')));
+
+    final restored = await store.read();
+
+    expect(restored.playlists.single.id, 'playlist_commute');
+    expect(restored.playlists.single.items.single.trackRef, sourceRef);
+    expect(restored.downloadTasks.single.status, DownloadStatus.paused);
+    expect(restored.downloadTasks.single.ticket, isNull);
+    expect(restored.localMediaItems.single.sourceRef, sourceRef);
+    expect(restored.favoritesOverrides.shouldMerge(sourceRef, alternateRef),
+        isTrue);
+    expect(restored.favoritesOverrides.hiddenTracks, contains(alternateRef));
+  });
+
+  test('overwrites previous snapshot atomically and can clear all rows',
+      () async {
+    await store.write(
+      MeloDataSnapshot(
+        playlists: [LocalPlaylist(id: 'playlist_a', name: 'A')],
+        downloadTasks: [
+          DownloadTask(track: sourceTrack(), quality: AudioQuality.low),
+        ],
+      ),
+    );
+    await store.write(
+      MeloDataSnapshot(
+        playlists: [LocalPlaylist(id: 'playlist_b', name: 'B')],
+      ),
+    );
+
+    var restored = await store.read();
+    expect(restored.playlists.single.id, 'playlist_b');
+    expect(restored.downloadTasks, isEmpty);
+
+    await store.clear();
+
+    restored = await store.read();
+    expect(restored.playlists, isEmpty);
+    expect(restored.downloadTasks, isEmpty);
+    expect(restored.localMediaItems, isEmpty);
+  });
+}

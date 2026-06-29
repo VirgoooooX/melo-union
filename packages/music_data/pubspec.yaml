@@ -7,11 +7,16 @@ environment:
   sdk: ">=3.4.0 <4.0.0"
 
 dependencies:
+  drift: ^2.34.0
   music_domain:
     path: ../music_domain
+  path: ^1.9.1
   provider_contract:
     path: ../provider_contract
+  sqlite3: ^3.3.3
 
 dev_dependencies:
+  build_runner: ^2.15.0
+  drift_dev: ^2.34.1+1
   lints: ^5.0.0
   test: ^1.25.0
