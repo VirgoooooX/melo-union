@@ -12,3 +12,9 @@ Current scope is intentionally conservative:
 
 Do not commit Cookie values, request logs containing Cookie headers, or playback
 URLs. Credentials must eventually move behind platform secure storage.
+
+Run a non-authenticated live search smoke with:
+
+```powershell
+dart run tool/netease_smoke.dart 孤勇者
+```
