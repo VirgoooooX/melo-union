@@ -14,54 +14,79 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final favorites = ref.watch(allFavoritesProvider);
-    return Container(
-      decoration: BoxDecoration(
-        color: MeloColors.surface,
-        borderRadius: MeloRadii.lg,
-        border: Border.all(color: MeloColors.border),
-        boxShadow: MeloShadows.card,
-      ),
-      child: favorites.when(
-        loading: () => const _FavoritesLoadingState(),
-        error: (error, _) => _FavoritesErrorState(
-          message: '喜欢列表加载失败：$error',
-          onRetry: () => ref.invalidate(allFavoritesProvider),
+    return SizedBox(
+      width: double.infinity,
+      child: Container(
+        decoration: BoxDecoration(
+          color: MeloColors.surface,
+          borderRadius: MeloRadii.lg,
+          border: Border.all(color: MeloColors.border),
+          boxShadow: MeloShadows.card,
         ),
-        data: (tracks) {
-          final visible = _filterAndSort(tracks);
-          return Column(
-            children: [
-              _FavoritesTableHeader(
-                count: visible.length,
-                sourceCount: visible
-                    .expand((track) => track.variants)
-                    .map((variant) => variant.ref.providerId.value)
-                    .toSet()
-                    .length,
-              ),
-              const Divider(height: 1, color: MeloColors.border),
-              Expanded(
-                child: visible.isEmpty
-                    ? const _FavoritesEmptyState()
-                    : Scrollbar(
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          itemCount: visible.length,
-                          separatorBuilder: (_, __) => const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Divider(height: 1, color: MeloColors.border),
-                          ),
-                          itemBuilder: (context, index) => _FavoriteRow(
-                            index: index + 1,
-                            track: visible[index],
-                            providerId: selectedProviderId,
-                          ),
-                        ),
+        child: favorites.when(
+          loading: () => const _FavoritesLoadingState(),
+          error: (error, _) => _FavoritesErrorState(
+            message: '喜欢列表加载失败：$error',
+            onRetry: () => ref.invalidate(allFavoritesProvider),
+          ),
+          data: (tracks) {
+            final visible = _filterAndSort(tracks);
+            final sourceCount = visible
+                .expand((track) => track.variants)
+                .map((variant) => variant.ref.providerId.value)
+                .toSet()
+                .length;
+            if (visible.isEmpty) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _FavoritesTableHeader(count: 0, sourceCount: 0),
+                  const Divider(height: 1, color: MeloColors.border),
+                  const SizedBox(height: 282, child: _FavoritesEmptyState()),
+                ],
+              );
+            }
+
+            final rowsToShow = visible.length > 6 ? 6 : visible.length;
+            final listHeight = (rowsToShow * 77.0) + 12.0;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _FavoritesTableHeader(
+                  count: visible.length,
+                  sourceCount: sourceCount,
+                ),
+                const Divider(height: 1, color: MeloColors.border),
+                SizedBox(
+                  height: listHeight,
+                  child: Scrollbar(
+                    child: ListView.separated(
+                      physics: visible.length > 6
+                          ? const ClampingScrollPhysics()
+                          : const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      itemCount: visible.length,
+                      separatorBuilder: (_, __) => const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Divider(height: 1, color: MeloColors.border),
                       ),
-              ),
-            ],
-          );
-        },
+                      itemBuilder: (context, index) => _FavoriteRow(
+                        index: index + 1,
+                        track: visible[index],
+                        providerId: selectedProviderId,
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: MeloColors.border),
+                _FavoritesFooter(
+                  count: visible.length,
+                  hasMore: visible.length > 6,
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -85,7 +110,9 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
       case _FavoriteSort.recent:
         break;
       case _FavoriteSort.title:
-        sorted.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        sorted.sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
       case _FavoriteSort.artist:
         sorted.sort(
           (a, b) => a.artists.join(' ').toLowerCase().compareTo(
@@ -154,17 +181,61 @@ class _FavoritesTableHeader extends StatelessWidget {
   }
 }
 
+class _FavoritesFooter extends StatelessWidget {
+  const _FavoritesFooter({required this.count, required this.hasMore});
+
+  final int count;
+  final bool hasMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.favorite_outline_rounded,
+              size: 15,
+              color: MeloColors.textTertiary,
+            ),
+            const SizedBox(width: 7),
+            Text(
+              hasMore ? '已加载前 6 首，滚动查看更多' : '已显示全部 $count 首喜欢歌曲',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: MeloColors.textTertiary,
+                  ),
+            ),
+            const Spacer(),
+            Text(
+              '收藏状态按来源独立维护',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: MeloColors.textQuaternary,
+                    fontSize: 11,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _FavoritesLoadingState extends StatelessWidget {
   const _FavoritesLoadingState();
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         const _FavoritesTableHeader(count: 0, sourceCount: 0),
         const Divider(height: 1, color: MeloColors.border),
-        Expanded(
+        SizedBox(
+          height: 474,
           child: ListView.separated(
+            physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(vertical: 6),
             itemCount: 6,
             separatorBuilder: (_, __) => const Padding(
@@ -193,7 +264,14 @@ class _FavoriteRowSkeleton extends StatelessWidget {
           const SizedBox(width: 12),
           const Expanded(flex: 4, child: _SkeletonTextGroup()),
           const Expanded(flex: 2, child: _SkeletonTextGroup(short: true)),
-          const SizedBox(width: 132, child: _SkeletonBox(width: 64, height: 20, radius: MeloRadii.pill)),
+          const SizedBox(
+            width: 132,
+            child: _SkeletonBox(
+              width: 64,
+              height: 20,
+              radius: MeloRadii.pill,
+            ),
+          ),
           const SizedBox(width: 58),
           const SizedBox(width: 46),
         ],
@@ -212,9 +290,17 @@ class _SkeletonTextGroup extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SkeletonBox(width: short ? 76 : 144, height: 13, radius: MeloRadii.sm),
+        _SkeletonBox(
+          width: short ? 76 : 144,
+          height: 13,
+          radius: MeloRadii.sm,
+        ),
         const SizedBox(height: 8),
-        _SkeletonBox(width: short ? 48 : 96, height: 10, radius: MeloRadii.sm),
+        _SkeletonBox(
+          width: short ? 48 : 96,
+          height: 10,
+          radius: MeloRadii.sm,
+        ),
       ],
     );
   }
@@ -294,24 +380,27 @@ class _FavoritesErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.cloud_off_rounded,
-            color: MeloColors.textTertiary,
-            size: 34,
-          ),
-          const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('重试'),
-          ),
-        ],
+    return SizedBox(
+      height: 280,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: MeloColors.textTertiary,
+              size: 34,
+            ),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('重试'),
+            ),
+          ],
+        ),
       ),
     );
   }
