@@ -148,4 +148,9 @@ final class FakeMusicProvider implements MusicProvider {
       quality: quality,
     );
   }
+
+  @override
+  Future<String?> getLyrics(ProviderTrackRef track) async {
+    return '[00:00.00] lyrics';
+  }
 }

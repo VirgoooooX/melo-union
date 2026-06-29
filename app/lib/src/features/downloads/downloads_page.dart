@@ -5,6 +5,7 @@ import 'package:provider_contract/provider_contract.dart';
 
 import '../../bootstrap/demo_repository.dart';
 import '../../design/melo_tokens.dart';
+import '../../fakes/fake_music_provider.dart';
 
 class DownloadsPage extends ConsumerWidget {
   const DownloadsPage({super.key});
@@ -92,11 +93,21 @@ class DownloadsPage extends ConsumerWidget {
   }
 
   static void _addDemoTask(DemoRepository repository) {
-    final auroraProvider = repository.providers[ProviderId('aurora_stream')];
-    if (auroraProvider == null) {
+    FakeMusicProvider? provider;
+    for (final p in repository.providers.values) {
+      if (p.descriptor.supports(ProviderCapability.resolveDownload)) {
+        provider = p;
+        break;
+      }
+    }
+    provider ??= repository.providers.values.isEmpty
+        ? null
+        : repository.providers.values.first;
+    if (provider == null) {
       return;
     }
-    final candidates = auroraProvider.allTracks();
+    final candidates = provider.allTracks();
+    if (candidates.isEmpty) return;
     final unqueued = candidates.firstWhere(
       (track) =>
           !repository.downloadCoordinator.isAvailableLocally(track.ref) &&

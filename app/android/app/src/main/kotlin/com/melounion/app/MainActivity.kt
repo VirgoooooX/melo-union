@@ -4,6 +4,9 @@ import android.content.Intent
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
+import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 
 class MainActivity : FlutterActivity() {
     private companion object {
@@ -78,7 +81,7 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "readNeteaseCredentials" -> {
-                    val prefs = getSharedPreferences(PROVIDER_CREDENTIALS_PREFS, MODE_PRIVATE)
+                    val prefs = getEncryptedPrefs()
                     val cookie = prefs.getString(NETEASE_COOKIE_KEY, null)
                     if (cookie.isNullOrBlank()) {
                         result.success(null)
@@ -99,7 +102,7 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
                     val userId = call.argument<String>("userId")
-                    val editor = getSharedPreferences(PROVIDER_CREDENTIALS_PREFS, MODE_PRIVATE).edit()
+                    val editor = getEncryptedPrefs().edit()
                         .putString(NETEASE_COOKIE_KEY, cookie)
                     if (userId.isNullOrBlank()) {
                         editor.remove(NETEASE_USER_ID_KEY)
@@ -111,7 +114,7 @@ class MainActivity : FlutterActivity() {
                 }
 
                 "deleteNeteaseCredentials" -> {
-                    getSharedPreferences(PROVIDER_CREDENTIALS_PREFS, MODE_PRIVATE).edit()
+                    getEncryptedPrefs().edit()
                         .remove(NETEASE_COOKIE_KEY)
                         .remove(NETEASE_USER_ID_KEY)
                         .apply()
@@ -120,6 +123,34 @@ class MainActivity : FlutterActivity() {
 
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    private fun getEncryptedPrefs(): SharedPreferences {
+        return try {
+            val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+            EncryptedSharedPreferences.create(
+                PROVIDER_CREDENTIALS_PREFS,
+                masterKeyAlias,
+                applicationContext,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            try {
+                val sharedPrefsFile = java.io.File(filesDir.parent, "shared_prefs/$PROVIDER_CREDENTIALS_PREFS.xml")
+                if (sharedPrefsFile.exists()) {
+                    sharedPrefsFile.delete()
+                }
+            } catch (ignored: Exception) {}
+            val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+            EncryptedSharedPreferences.create(
+                PROVIDER_CREDENTIALS_PREFS,
+                masterKeyAlias,
+                applicationContext,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
         }
     }
 

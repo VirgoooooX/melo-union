@@ -16,7 +16,10 @@ class DesktopPlayerBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          _PlayerArtwork(seed: current?.title ?? 'melo'),
+          _PlayerArtwork(
+            seed: current?.title ?? 'melo',
+            artwork: current?.artwork,
+          ),
           const SizedBox(width: MeloSpacing.sm),
           SizedBox(
             width: 210,
@@ -93,11 +96,32 @@ class DesktopPlayerBar extends ConsumerWidget {
 }
 
 class _PlayerArtwork extends StatelessWidget {
-  const _PlayerArtwork({required this.seed});
+  const _PlayerArtwork({required this.seed, this.artwork});
   final String seed;
+  final Uri? artwork;
 
   @override
   Widget build(BuildContext context) {
+    if (artwork != null && artwork!.toString().isNotEmpty) {
+      return ClipRRect(
+        borderRadius: MeloRadii.sm,
+        child: Image.network(
+          artwork!.toString(),
+          width: 46,
+          height: 46,
+          fit: BoxFit.cover,
+          headers: const {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://music.163.com',
+          },
+          errorBuilder: (_, __, ___) => _buildPlaceholder(),
+        ),
+      );
+    }
+    return _buildPlaceholder();
+  }
+
+  Widget _buildPlaceholder() {
     final hue = seed.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
     return Container(
       width: 46,

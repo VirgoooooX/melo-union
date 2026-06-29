@@ -15,7 +15,7 @@ class RecommendationsPage extends ConsumerStatefulWidget {
 }
 
 class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
-  String _selectedProvider = 'aurora_stream';
+  String _selectedProvider = 'netease_cloud_music';
 
   @override
   Widget build(BuildContext context) {
@@ -150,7 +150,7 @@ class _RecommendationHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isNetease = providerId.contains('aurora');
+    final isNetease = providerId.contains('aurora') || providerId.contains('netease');
     return Container(
       height: 150,
       width: double.infinity,
@@ -213,7 +213,7 @@ class _Cover extends StatelessWidget {
 }
 
 String _providerLabel(ProviderId id) {
-  if (id.value.contains('aurora')) return '网易云';
+  if (id.value.contains('aurora') || id.value.contains('netease')) return '网易云';
   if (id.value.contains('beacon')) return 'QQ音乐';
   return id.value;
 }

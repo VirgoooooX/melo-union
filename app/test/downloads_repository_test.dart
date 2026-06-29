@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:melo_union_app/src/bootstrap/demo_repository.dart';
+import 'package:melo_union_app/src/fakes/fake_music_provider.dart';
 import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
@@ -43,7 +44,30 @@ void main() {
       isFavorited: true,
       isDownloadable: true,
     );
+    final alphaId = ProviderId('aurora_stream');
+    final alpha = FakeMusicProvider(
+      descriptor: ProviderDescriptor(
+        id: alphaId,
+        displayName: 'Aurora Stream',
+        capabilities: const {
+          ProviderCapability.resolveDownload,
+        },
+      ),
+      profile: null,
+      seedTracks: [
+        SourceTrack(
+          ref: ref,
+          title: 'Midnight Signal',
+          artists: const ['Luna Park'],
+          duration: const Duration(minutes: 3, seconds: 10),
+          isFavorited: true,
+          isDownloadable: true,
+        ),
+      ],
+    );
+
     final repository = DemoRepository.seeded(
+      additionalProviders: [alpha],
       snapshot: MeloDataSnapshot(
         downloadTasks: [
           DownloadTask(

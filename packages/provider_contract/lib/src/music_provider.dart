@@ -28,4 +28,6 @@ abstract interface class MusicProvider {
     required ProviderTrackRef track,
     required AudioQuality quality,
   });
+
+  Future<String?> getLyrics(ProviderTrackRef track);
 }

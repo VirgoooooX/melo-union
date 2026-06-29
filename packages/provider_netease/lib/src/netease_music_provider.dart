@@ -30,13 +30,18 @@ final class NeteaseMusicProvider implements MusicProvider {
         _now = now ?? DateTime.now {
     descriptor = ProviderDescriptor(
       id: neteaseProviderId,
-      displayName: 'NetEase Cloud Music',
+      displayName: '网易云音乐',
       capabilities: {
         ProviderCapability.search,
         ProviderCapability.artwork,
+        ProviderCapability.resolvePlayback,
+        ProviderCapability.resolveDownload,
+        ProviderCapability.lyrics,
         if (credentials?.hasCookie ?? false) ...{
           ProviderCapability.authenticate,
           ProviderCapability.readFavorites,
+          ProviderCapability.writeFavorites,
+          ProviderCapability.readDailyRecommendations,
         },
       },
       status: ProviderStatus.experimental,
@@ -89,19 +94,63 @@ final class NeteaseMusicProvider implements MusicProvider {
       );
     }
 
-    final likedPayload = await _getJson(
-      '/api/song/like/get',
-      query: {'uid': userId},
+    // 1. Fetch user's playlists to locate the "Liked Music" playlist ID (always the first one)
+    final playlistsPayload = await _getJson(
+      '/api/user/playlist',
+      query: {
+        'uid': userId,
+        'limit': '1',
+      },
       authenticated: true,
     );
-    final rawIds = likedPayload['ids'] as List<Object?>? ?? const [];
-    final ids = rawIds.map((id) => id.toString()).toList(growable: false);
+    final playlists = playlistsPayload['playlist'] as List<Object?>? ?? const [];
+    if (playlists.isEmpty) {
+      throw Exception('Failed to locate NetEase user liked music playlist.');
+    }
+    final firstPlaylist = playlists.first as Map<Object?, Object?>;
+    final playlistId = firstPlaylist['id'];
+
+    // 2. Fetch the playlist details to retrieve complete track IDs and "at" timestamps
+    final detailPayload = await _getJson(
+      '/api/v6/playlist/detail',
+      query: {
+        'id': playlistId.toString(),
+        'n': '0', // Minimal chunk tracks returned, we use trackIds for full listing
+      },
+      authenticated: true,
+    );
+    final playlistObj = detailPayload['playlist'] as Map<Object?, Object?>?;
+    if (playlistObj == null) {
+      throw Exception('Failed to load NetEase liked music playlist details.');
+    }
+    final trackIdsObj = playlistObj['trackIds'] as List<Object?>? ?? const [];
+
+    final idToAt = <String, int>{};
+    final ids = <String>[];
+    for (final item in trackIdsObj) {
+      if (item is Map<Object?, Object?>) {
+        final idStr = item['id'].toString();
+        final atVal = item['at'] as int? ?? 0;
+        ids.add(idStr);
+        idToAt[idStr] = atVal;
+      }
+    }
+
+    // 3. Fetch song details in chunks of 200
     final tracks = <SourceTrack>[];
     for (final chunk in _chunks(ids, 200)) {
       tracks.addAll(
         await _songDetails(chunk, favoritedIds: ids.toSet()),
       );
     }
+
+    // 4. Sort descending by the liked timestamp "at" (newest first)
+    tracks.sort((a, b) {
+      final atA = idToAt[a.ref.trackId] ?? 0;
+      final atB = idToAt[b.ref.trackId] ?? 0;
+      return atB.compareTo(atA);
+    });
+
     return FavoriteSnapshot(providerId: descriptor.id, tracks: tracks);
   }
 
@@ -134,12 +183,31 @@ final class NeteaseMusicProvider implements MusicProvider {
     required ProviderTrackRef track,
     required bool liked,
   }) async {
-    _unsupported(ProviderCapability.writeFavorites);
+    _requireCapability(ProviderCapability.writeFavorites);
+    await _getJson(
+      '/api/song/like',
+      query: {
+        'trackId': track.trackId,
+        'like': liked.toString(),
+        'time': '30000',
+      },
+      authenticated: true,
+    );
   }
 
   @override
   Future<List<SourceTrack>> getDailyRecommendations() async {
-    _unsupported(ProviderCapability.readDailyRecommendations);
+    _requireCapability(ProviderCapability.readDailyRecommendations);
+    final payload = await _getJson(
+      '/api/v1/discovery/recommend/songs',
+      authenticated: true,
+    );
+    final data = _jsonMap(payload['data']);
+    final dailySongs = data['dailySongs'] as List<Object?>? ?? const [];
+    return dailySongs
+        .whereType<Map<Object?, Object?>>()
+        .map((song) => _trackFromSong(_stringMap(song)))
+        .toList(growable: false);
   }
 
   @override
@@ -147,7 +215,19 @@ final class NeteaseMusicProvider implements MusicProvider {
     required ProviderTrackRef track,
     required AudioQuality quality,
   }) async {
-    _unsupported(ProviderCapability.resolvePlayback);
+    _requireCapability(ProviderCapability.resolvePlayback);
+    final br = quality == AudioQuality.high ? 320000 : 128000;
+    final resolvedUrl = await _resolvePlayerUrl(track.trackId, br);
+    final playUri = resolvedUrl != null
+        ? Uri.parse(resolvedUrl).replace(scheme: 'https')
+        : Uri.parse('https://music.163.com/song/media/outer/url?id=${track.trackId}.mp3');
+    return PlaybackTicket(
+      mediaUri: playUri,
+      headers: _headers(authenticated: isAuthenticated),
+      expiresAt: _now().add(const Duration(hours: 2)),
+      trackRef: track,
+      quality: quality,
+    );
   }
 
   @override
@@ -155,7 +235,62 @@ final class NeteaseMusicProvider implements MusicProvider {
     required ProviderTrackRef track,
     required AudioQuality quality,
   }) async {
-    _unsupported(ProviderCapability.resolveDownload);
+    _requireCapability(ProviderCapability.resolveDownload);
+    final br = quality == AudioQuality.high ? 320000 : 128000;
+    final resolvedUrl = await _resolvePlayerUrl(track.trackId, br);
+    final downloadUri = resolvedUrl != null
+        ? Uri.parse(resolvedUrl).replace(scheme: 'https')
+        : Uri.parse('https://music.163.com/song/media/outer/url?id=${track.trackId}.mp3');
+    return DownloadTicket(
+      mediaUri: downloadUri,
+      headers: _headers(authenticated: isAuthenticated),
+      expiresAt: _now().add(const Duration(hours: 12)),
+      trackRef: track,
+      quality: quality,
+      fileExtension: 'mp3',
+    );
+  }
+
+  Future<String?> _resolvePlayerUrl(String songId, int br) async {
+    try {
+      final payload = await _getJson(
+        '/api/song/enhance/player/url',
+        query: {
+          'id': songId,
+          'ids': '[$songId]',
+          'br': br.toString(),
+        },
+        authenticated: isAuthenticated,
+      );
+      final data = payload['data'] as List<Object?>? ?? const [];
+      if (data.isNotEmpty) {
+        final item = data.first as Map<Object?, Object?>?;
+        if (item != null) {
+          final url = item['url'] as String?;
+          if (url != null && url.isNotEmpty) {
+            return url;
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  @override
+  Future<String?> getLyrics(ProviderTrackRef track) async {
+    _requireCapability(ProviderCapability.lyrics);
+    final payload = await _getJson(
+      '/api/song/lyric',
+      query: {
+        'id': track.trackId,
+        'lv': '-1',
+        'tv': '-1',
+        'kv': '-1',
+      },
+      authenticated: false,
+    );
+    final lrc = _jsonMap(payload['lrc']);
+    return lrc['lyric']?.toString();
   }
 
   Future<List<SourceTrack>> _songDetails(
@@ -206,12 +341,13 @@ final class NeteaseMusicProvider implements MusicProvider {
           .where((artist) => artist.isNotEmpty)
           .toList(growable: false),
       album: album['name']?.toString(),
-      duration:
-          Duration(milliseconds: (song['duration'] as num?)?.toInt() ?? 0),
+      duration: Duration(
+          milliseconds:
+              (song['duration'] as num? ?? song['dt'] as num?)?.toInt() ?? 0),
       isFavorited: favoritedIds.contains(id) || song['starred'] == true,
       artwork: _optionalUri(album['picUrl'] ?? album['blurPicUrl']),
       isPlayable: status == null || status == 0,
-      isDownloadable: false,
+      isDownloadable: true,
       isrc: song['isrc']?.toString(),
     ).copyWith(
       isPlayable: (status == null || status == 0) && fee != 4,

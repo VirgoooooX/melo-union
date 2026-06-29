@@ -32,12 +32,15 @@
 
 - 不提交 Cookie、二维码会话、授权头或真实账号资料。
 - 不把 Cookie 写入 SQLite、测试 fixture、日志或文档。
-- Android 端 Cookie 通过 `melo_union/provider_credentials` MethodChannel 写入应用私有 SharedPreferences；桌面开发可使用 `MELO_NETEASE_COOKIE` / `MELO_NETEASE_USER_ID` 环境变量或当前进程内存会话。
+- Android 端 Cookie 通过 `melo_union/provider_credentials` MethodChannel 写入系统级加密的 SharedPreferences (EncryptedSharedPreferences)；Windows 桌面环境通过 MethodChannel 写入 Windows 凭据管理器 (Credential Manager)；也可使用 `MELO_NETEASE_COOKIE` / `MELO_NETEASE_USER_ID` 环境变量或当前进程内存会话。
 - 不持久化播放/下载 URL 和 headers。
 - 不使用公共账号池、第三方代登录或绕过会员/地区/版权限制的接口。
 
 ## 下一步
 
-1. 将 Android 私有存储升级为系统级加密存储，并补 Windows Credential Manager 实现。
-2. 使用测试账号验证 `readFavorites` 与官方客户端一致。
-3. 在完成官方端抽检前，不开放写收藏、播放票据和下载票据能力。
+1. 使用测试账号验证 `readFavorites` 与官方客户端一致。
+2. 在完成官方端抽检前，不开放写收藏、播放票据和下载票据能力。
+
+## 已完成的下一步
+
+- 将 Android 私有存储升级为系统级加密存储，并补 Windows Credential Manager 实现。

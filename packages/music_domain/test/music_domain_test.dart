@@ -134,11 +134,11 @@ void main() {
       );
 
       expect(unified, hasLength(2));
-      expect(unified.first.title, 'Archive Tape');
-      expect(unified.last.title, 'Midnight Signal');
-      expect(unified.last.hasMultipleSources, isTrue);
+      expect(unified.first.title, 'Midnight Signal');
+      expect(unified.last.title, 'Archive Tape');
+      expect(unified.first.hasMultipleSources, isTrue);
       expect(
-        unified.last.variants.map((variant) => variant.ref.providerId.value),
+        unified.first.variants.map((variant) => variant.ref.providerId.value),
         containsAll(<String>['alpha_music', 'beta_library']),
       );
     });
@@ -702,6 +702,11 @@ final class _ThrowingFavoritesProvider implements MusicProvider {
   @override
   Future<DownloadTicket> createDownloadTicket(
       {required ProviderTrackRef track, required AudioQuality quality}) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String?> getLyrics(ProviderTrackRef track) async {
     throw UnimplementedError();
   }
 }

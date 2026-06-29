@@ -39,7 +39,7 @@ class SourceTrackTile extends StatelessWidget {
 
   Color _getProviderBg(ProviderId providerId) {
     final val = providerId.value.toLowerCase();
-    if (val.contains('aurora')) return MeloColors.neteaseBackground;
+    if (val.contains('aurora') || val.contains('netease')) return MeloColors.neteaseBackground;
     if (val.contains('beacon')) return MeloColors.qqBackground;
     if (val.contains('local')) return MeloColors.localBackground;
     return MeloColors.surfaceMuted;
@@ -47,7 +47,7 @@ class SourceTrackTile extends StatelessWidget {
 
   Color _getProviderFg(ProviderId providerId) {
     final val = providerId.value.toLowerCase();
-    if (val.contains('aurora')) return MeloColors.neteaseForeground;
+    if (val.contains('aurora') || val.contains('netease')) return MeloColors.neteaseForeground;
     if (val.contains('beacon')) return MeloColors.qqForeground;
     if (val.contains('local')) return MeloColors.localForeground;
     return MeloColors.textSecondary;

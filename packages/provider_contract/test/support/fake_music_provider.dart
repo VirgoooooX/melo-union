@@ -137,6 +137,21 @@ final class FakeMusicProvider implements MusicProvider {
     );
   }
 
+  @override
+  Future<String?> getLyrics(ProviderTrackRef track) async {
+    _requireCapability(ProviderCapability.lyrics);
+    _requireAuthenticatedIfNeeded();
+    final existing = _tracks[track.trackId];
+    if (existing == null) {
+      throw ProviderTrackNotFoundException(
+        providerId: descriptor.id,
+        track: track,
+        message: 'Track ${track.trackId} is unknown.',
+      );
+    }
+    return '[00:00.00] Fake lyrics for ${existing.title}';
+  }
+
   void _requireCapability(ProviderCapability capability) {
     if (!descriptor.supports(capability)) {
       throw CapabilityUnavailableException(

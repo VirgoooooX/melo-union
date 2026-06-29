@@ -103,17 +103,7 @@ final class UnifiedFavoritesService {
       }
     }
 
-    groups.sort((left, right) {
-      final byTitle = left.representative.title.toLowerCase().compareTo(
-            right.representative.title.toLowerCase(),
-          );
-      if (byTitle != 0) {
-        return byTitle;
-      }
-      return left.representative.artists.join(',').toLowerCase().compareTo(
-            right.representative.artists.join(',').toLowerCase(),
-          );
-    });
+
 
     final tracks = [
       for (var index = 0; index < groups.length; index++)

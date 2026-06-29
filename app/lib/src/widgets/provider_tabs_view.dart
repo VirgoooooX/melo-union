@@ -14,8 +14,16 @@ class ProviderTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
       height: MeloDimensions.desktopProviderTabsHeight,
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: MeloColors.border,
+            width: 1.0,
+          ),
+        ),
+      ),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -56,9 +64,11 @@ class _ProviderTabButtonState extends State<_ProviderTabButton> {
     final item = widget.item;
     final color = selected
         ? MeloColors.primary700
-        : item.enabled
-            ? MeloColors.textSecondary
-            : MeloColors.textTertiary;
+        : _hovered && item.enabled
+            ? MeloColors.textPrimary
+            : item.enabled
+                ? MeloColors.textSecondary
+                : MeloColors.textTertiary;
 
     return Semantics(
       button: true,
@@ -73,31 +83,19 @@ class _ProviderTabButtonState extends State<_ProviderTabButton> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             curve: Curves.easeOutCubic,
-            height: 42,
-            padding: const EdgeInsets.symmetric(horizontal: 15),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: selected
-                  ? MeloColors.surfaceSelected
-                  : _hovered && item.enabled
-                      ? MeloColors.surfaceHover
-                      : Colors.transparent,
-              borderRadius: MeloRadii.md,
-              border: Border.all(
-                color: selected ? MeloColors.primary100 : Colors.transparent,
+              border: Border(
+                bottom: BorderSide(
+                  color: selected ? MeloColors.primary700 : Colors.transparent,
+                  width: 3.0,
+                ),
               ),
-              boxShadow: selected ? MeloShadows.control : const [],
             ),
+            alignment: Alignment.center,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (selected) ...[
-                  const Icon(
-                    Icons.radio_button_checked_rounded,
-                    size: 12,
-                    color: MeloColors.primary600,
-                  ),
-                  const SizedBox(width: 7),
-                ],
                 Text(
                   item.label,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(

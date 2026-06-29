@@ -75,7 +75,13 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                         ),
                   ),
                 ),
-                _TrackCover(seed: widget.track.title, isPlaying: isPlaying),
+                _TrackCover(
+                  seed: widget.track.title,
+                  isPlaying: isPlaying,
+                  artwork: widget.track.variants
+                      .firstWhere((v) => v.artwork != null, orElse: () => primary)
+                      .artwork,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 4,

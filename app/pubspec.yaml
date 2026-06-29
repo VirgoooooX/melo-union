@@ -21,6 +21,8 @@ dependencies:
     path: ../packages/provider_netease
   provider_contract:
     path: ../packages/provider_contract
+  just_audio: ^0.9.43
+  just_audio_windows: ^0.2.2
 
 dev_dependencies:
   flutter_lints: ^5.0.0

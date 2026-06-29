@@ -124,7 +124,7 @@ class _SearchTrackRow extends ConsumerWidget {
         repository.favoriteWriteAvailability(track.ref.providerId);
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: _SearchCover(seed: track.title),
+      leading: _SearchCover(seed: track.title, artwork: track.artwork),
       title: Text(
         track.title,
         style: const TextStyle(fontWeight: FontWeight.w700),
@@ -189,12 +189,36 @@ class _SearchTrackRow extends ConsumerWidget {
 }
 
 class _SearchCover extends StatelessWidget {
-  const _SearchCover({required this.seed});
+  const _SearchCover({required this.seed, this.artwork});
 
   final String seed;
+  final Uri? artwork;
 
   @override
   Widget build(BuildContext context) {
+    if (artwork != null && artwork!.toString().isNotEmpty) {
+      return ClipRRect(
+        borderRadius: MeloRadii.sm,
+        child: Image.network(
+          artwork!.toString(),
+          width: 42,
+          height: 42,
+          fit: BoxFit.cover,
+          headers: const {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://music.163.com',
+          },
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('SEARCH IMAGE ERROR: $error for url: $artwork');
+            return _buildPlaceholder();
+          },
+        ),
+      );
+    }
+    return _buildPlaceholder();
+  }
+
+  Widget _buildPlaceholder() {
     final hue = seed.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
     return Container(
       width: 42,
@@ -220,7 +244,8 @@ class _SourcePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final netease = providerId.value.contains('aurora');
+    final netease = providerId.value.contains('aurora') ||
+        providerId.value.contains('netease');
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(

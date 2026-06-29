@@ -1,13 +1,49 @@
 part of 'all_favorites_page.dart';
 
 class _TrackCover extends StatelessWidget {
-  const _TrackCover({required this.seed, required this.isPlaying});
+  const _TrackCover({
+    required this.seed,
+    required this.isPlaying,
+    this.artwork,
+  });
 
   final String seed;
   final bool isPlaying;
+  final Uri? artwork;
 
   @override
   Widget build(BuildContext context) {
+    if (artwork != null && artwork!.toString().isNotEmpty) {
+      return Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          borderRadius: MeloRadii.md,
+          boxShadow: isPlaying ? MeloShadows.control : const [],
+        ),
+        child: ClipRRect(
+          borderRadius: MeloRadii.md,
+          child: Image.network(
+            artwork!.toString(),
+            width: 46,
+            height: 46,
+            fit: BoxFit.cover,
+            headers: const {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Referer': 'https://music.163.com',
+            },
+            errorBuilder: (context, error, stackTrace) {
+              debugPrint('TRACK IMAGE ERROR: $error for url: $artwork');
+              return _buildPlaceholder();
+            },
+          ),
+        ),
+      );
+    }
+    return _buildPlaceholder();
+  }
+
+  Widget _buildPlaceholder() {
     final hue =
         seed.codeUnits.fold<int>(0, (total, value) => total + value) % 360;
     final first = HSLColor.fromAHSL(1, hue.toDouble(), .58, .62).toColor();
@@ -66,7 +102,7 @@ class _SourceTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isNetease = provider.value.contains('aurora');
+    final isNetease = provider.value.contains('aurora') || provider.value.contains('netease');
     final foreground =
         isNetease ? MeloColors.neteaseForeground : MeloColors.qqForeground;
     final background =
@@ -103,7 +139,7 @@ class _SourceTag extends StatelessWidget {
 }
 
 String providerLabel(ProviderId id) {
-  if (id.value.contains('aurora')) return '网易云';
+  if (id.value.contains('aurora') || id.value.contains('netease')) return '网易云';
   if (id.value.contains('beacon')) return 'QQ音乐';
   return id.value;
 }

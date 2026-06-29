@@ -151,7 +151,7 @@ class _SearchIdleState extends StatelessWidget {
 }
 
 String _displayProviderName(ProviderId id) {
-  if (id.value.contains('aurora')) return '网易云';
+  if (id.value.contains('aurora') || id.value.contains('netease')) return '网易云';
   if (id.value.contains('beacon')) return 'QQ音乐';
   return id.value;
 }

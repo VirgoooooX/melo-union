@@ -45,16 +45,16 @@ cd app; flutter build windows --debug
 
 ## 尚未完成
 
-- 真实 Provider：网易云 experimental Provider 已接入真实搜索，并支持通过设置页导入本机 Cookie 读取账号资料/喜欢列表；但 Android 端当前只是应用私有存储，尚未升级到系统级加密存储，且未完成写收藏官方端验证、歌单读取、真实播放 URL 和下载 URL。QQ Provider 仍未接入。
+- 真实 Provider：网易云 experimental Provider 已接入真实搜索，并支持通过设置页导入本机 Cookie 读取账号资料/喜欢列表；已将 Android 端与 Windows 端会话升级至系统级加密存储，但尚未完成写收藏官方端验证、歌单读取、真实播放 URL 和下载 URL。QQ Provider 仍未接入。
 - 真实播放资源：fake Provider 返回 `provider://...` URI，仅用于验证票据流和桥接，不能代表实际音频播放。
 - Android 后台体验验证：尚未做真机熄屏、蓝牙、通知栏、音频焦点、来电、网络切换和长时间播放验证。
 - Android 下载落盘：当前已具备可持久化快照和恢复入口，但仍未接入 MediaStore/应用私有目录、存储权限和后台恢复执行器。
 - Windows SMTC：Windows runner 已可构建，但未接入原生 SMTC 插件。
-- 持久化：JSON 快照边界、Drift/SQLite 本地数据仓储和 App 层快照写回已落地；网易云会话已从 SQLite/快照分离并接入 Android 应用私有存储与桌面环境变量/内存会话。系统级加密安全存储和其他 Provider 会话保存仍未落地。
+- 持久化：JSON 快照边界、Drift/SQLite 本地数据仓储和 App 层快照写回已落地；网易云会话已从 SQLite/快照分离，Android 接入系统加密存储 (EncryptedSharedPreferences)，Windows 接入系统凭据管理器 (Credential Manager)。
 
 ## 下一步建议
 
-1. 继续网易云 Phase 2 闭环：把 Cookie/登录态升级到系统级安全存储，读取喜欢后做写收藏/取消收藏官方端验证。
+1. 网易云 Phase 2 闭环：使用已落地的系统安全存储，并在读取喜欢后进行写收藏/取消收藏官方端验证。
 2. 用网易云当前账号允许的真实 HTTP media URL 在 Android 真机上验证 Media3 `MediaSessionService`，再补通知栏、音频焦点和蓝牙控制。
 3. 将生产启动目录接到 `music_data_drift` 仓储。
 4. 基于已可构建的 Windows runner 实现 SMTC native bridge。
