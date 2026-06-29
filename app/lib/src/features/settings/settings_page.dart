@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:music_domain/music_domain.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 import '../../bootstrap/demo_repository.dart';
 import '../../design/melo_tokens.dart';
-import '../../widgets/provider_tabs.dart';
+import '../../presentation/app_destination.dart';
 
-part 'search_page_view.dart';
-part 'search_results.dart';
+part 'settings_page_view.dart';
+part 'settings_source_card.dart';

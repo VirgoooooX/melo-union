@@ -10,11 +10,12 @@ void main() {
     expect(find.text('全部喜欢'), findsWidgets);
     expect(find.text('推荐'), findsWidgets);
     expect(find.text('歌单'), findsWidgets);
-    expect(find.text('下载'), findsWidgets);
+    expect(find.text('搜索'), findsWidgets);
+    expect(find.text('设置'), findsWidgets);
 
-    await tester.tap(find.text('下载').first);
+    await tester.tap(find.text('设置').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('离线下载与本地媒体'), findsOneWidget);
+    expect(find.text('管理音乐来源、播放行为、下载与应用偏好。'), findsOneWidget);
   });
 }

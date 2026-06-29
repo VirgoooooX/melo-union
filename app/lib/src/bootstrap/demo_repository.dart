@@ -1,17 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 import '../fakes/fake_music_provider.dart';
-import '../features/all_favorites/all_favorites_page.dart';
-import '../features/downloads/downloads_page.dart';
-import '../features/local_playlists/local_playlists_page.dart';
-import '../features/providers/providers_page.dart';
-import '../features/search/search_page.dart';
-import '../layout/app_shell_scaffold.dart';
 import '../platform/playback_platform_bridge.dart';
 
 final demoRepositoryProvider = ChangeNotifierProvider<DemoRepository>(
@@ -22,54 +15,6 @@ final allFavoritesProvider = FutureProvider<List<UnifiedFavoriteTrack>>((ref) {
   final repository = ref.watch(demoRepositoryProvider);
   return repository.loadAllFavorites();
 });
-
-final appRouterProvider = Provider<GoRouter>((ref) {
-  return GoRouter(
-    initialLocation: AppDestination.favorites.path,
-    routes: [
-      ShellRoute(
-        builder: (context, state, child) => AppShellScaffold(
-          location: state.uri.toString(),
-          child: child,
-        ),
-        routes: [
-          GoRoute(
-            path: AppDestination.favorites.path,
-            builder: (context, state) => const AllFavoritesPage(),
-          ),
-          GoRoute(
-            path: AppDestination.search.path,
-            builder: (context, state) => const SearchPage(),
-          ),
-          GoRoute(
-            path: AppDestination.playlists.path,
-            builder: (context, state) => const LocalPlaylistsPage(),
-          ),
-          GoRoute(
-            path: AppDestination.downloads.path,
-            builder: (context, state) => const DownloadsPage(),
-          ),
-          GoRoute(
-            path: AppDestination.providers.path,
-            builder: (context, state) => const ProvidersPage(),
-          ),
-        ],
-      ),
-    ],
-  );
-});
-
-enum AppDestination {
-  favorites('/favorites'),
-  search('/search'),
-  playlists('/playlists'),
-  downloads('/downloads'),
-  providers('/providers');
-
-  const AppDestination(this.path);
-
-  final String path;
-}
 
 class DemoRepository extends ChangeNotifier {
   DemoRepository._({
