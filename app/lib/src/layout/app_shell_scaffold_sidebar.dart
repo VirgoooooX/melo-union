@@ -39,7 +39,7 @@ class _DesktopSidebar extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: '搜索 · Ctrl+K',
+                tooltip: '搜索',
                 onPressed: () => context.go(AppDestination.search.path),
                 icon: Icon(
                   Icons.search_rounded,
