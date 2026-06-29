@@ -1,0 +1,41 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+coverage/
+
+# Android
+app/.cxx/
+android/.gradle/
+android/local.properties
+android/key.properties
+*.keystore
+*.jks
+
+# Windows
+windows/flutter/ephemeral/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Secrets and runtime data
+.env
+.env.*
+!.env.example
+*.cookie
+*.cookies
+*.token
+*.session
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+secrets/
+
+# Downloads and local media
+downloads/
+media/
