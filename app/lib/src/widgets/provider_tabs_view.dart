@@ -18,6 +18,8 @@ class ProviderTabs extends StatelessWidget {
       height: MeloDimensions.desktopProviderTabsHeight,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        clipBehavior: Clip.none,
         itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(width: MeloSpacing.xs),
         itemBuilder: (context, index) => _ProviderTabButton(
@@ -30,7 +32,7 @@ class ProviderTabs extends StatelessWidget {
   }
 }
 
-class _ProviderTabButton extends StatelessWidget {
+class _ProviderTabButton extends StatefulWidget {
   const _ProviderTabButton({
     required this.item,
     required this.selected,
@@ -42,40 +44,74 @@ class _ProviderTabButton extends StatelessWidget {
   final ValueChanged<String> onSelected;
 
   @override
+  State<_ProviderTabButton> createState() => _ProviderTabButtonState();
+}
+
+class _ProviderTabButtonState extends State<_ProviderTabButton> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
+    final selected = widget.selected;
+    final item = widget.item;
     final color = selected
         ? MeloColors.primary700
         : item.enabled
             ? MeloColors.textSecondary
             : MeloColors.textTertiary;
-    return InkWell(
-      onTap: item.enabled ? () => onSelected(item.id) : null,
-      borderRadius: MeloRadii.sm,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? MeloColors.primary50 : Colors.transparent,
-          borderRadius: MeloRadii.sm,
-          border: Border.all(
-            color: selected ? MeloColors.primary100 : Colors.transparent,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              item.label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: color,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  ),
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: item.label,
+      child: MouseRegion(
+        cursor: item.enabled ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: item.enabled ? () => widget.onSelected(item.id) : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            height: 42,
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            decoration: BoxDecoration(
+              color: selected
+                  ? MeloColors.surfaceSelected
+                  : _hovered && item.enabled
+                      ? MeloColors.surfaceHover
+                      : Colors.transparent,
+              borderRadius: MeloRadii.md,
+              border: Border.all(
+                color: selected ? MeloColors.primary100 : Colors.transparent,
+              ),
+              boxShadow: selected ? MeloShadows.control : const [],
             ),
-            if (item.trailing != null) ...[
-              const SizedBox(width: 4),
-              Icon(item.trailing, color: color, size: 16),
-            ],
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (selected) ...[
+                  const Icon(
+                    Icons.radio_button_checked_rounded,
+                    size: 12,
+                    color: MeloColors.primary600,
+                  ),
+                  const SizedBox(width: 7),
+                ],
+                Text(
+                  item.label,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: color,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                      ),
+                ),
+                if (item.trailing != null) ...[
+                  const SizedBox(width: 4),
+                  Icon(item.trailing, color: color, size: 16),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );

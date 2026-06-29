@@ -21,31 +21,22 @@ class _DesktopSidebar extends StatelessWidget {
     return Container(
       width: MeloDimensions.desktopSidebarWidth,
       decoration: const BoxDecoration(
-        color: MeloColors.surface,
+        color: MeloColors.canvasSoft,
         border: Border(right: BorderSide(color: MeloColors.border)),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'MeloUnion',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: MeloColors.primary700,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -.5,
-                  ),
-            ),
-          ),
-          const SizedBox(height: 26),
+          const _BrandLockup(),
+          const SizedBox(height: 34),
           for (final item in _main) ...[
             _SidebarItem(destination: item, selected: item == current),
             const SizedBox(height: 6),
           ],
           const Spacer(),
-          const Divider(color: MeloColors.border),
-          const SizedBox(height: 12),
+          Container(height: 1, color: MeloColors.border),
+          const SizedBox(height: 14),
           for (final item in _utility) ...[
             _SidebarItem(destination: item, selected: item == current),
             const SizedBox(height: 6),
@@ -56,44 +47,116 @@ class _DesktopSidebar extends StatelessWidget {
   }
 }
 
-class _SidebarItem extends StatelessWidget {
+class _BrandLockup extends StatelessWidget {
+  const _BrandLockup();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: MeloColors.primary700,
+            borderRadius: MeloRadii.sm,
+            boxShadow: MeloShadows.control,
+          ),
+          child: const Icon(
+            Icons.graphic_eq_rounded,
+            color: Colors.white,
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'MeloUnion',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: MeloColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.45,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SidebarItem extends StatefulWidget {
   const _SidebarItem({required this.destination, required this.selected});
 
   final AppDestination destination;
   final bool selected;
 
   @override
+  State<_SidebarItem> createState() => _SidebarItemState();
+}
+
+class _SidebarItemState extends State<_SidebarItem> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final foreground =
-        selected ? MeloColors.primary700 : MeloColors.textPrimary;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => context.go(destination.path),
-        borderRadius: MeloRadii.sm,
-        child: Ink(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: selected ? MeloColors.primary50 : Colors.transparent,
-            borderRadius: MeloRadii.sm,
-          ),
-          child: Row(
-            children: [
-              Icon(
-                AppShellScaffold.iconFor(destination, selected),
-                color: foreground,
-                size: 20,
+    final selected = widget.selected;
+    final foreground = selected ? MeloColors.primary700 : MeloColors.textPrimary;
+    final background = selected
+        ? MeloColors.surfaceSelected
+        : _hovered
+            ? MeloColors.surfaceHover
+            : Colors.transparent;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: AppShellScaffold.titleFor(widget.destination),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: () => context.go(widget.destination.path),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            height: 46,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: MeloRadii.md,
+              border: Border.all(
+                color: selected ? MeloColors.primary100 : Colors.transparent,
               ),
-              const SizedBox(width: 12),
-              Text(
-                AppShellScaffold.titleFor(destination),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: foreground,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-              ),
-            ],
+              boxShadow: selected ? MeloShadows.control : const [],
+            ),
+            child: Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: selected ? Colors.white.withOpacity(.72) : Colors.transparent,
+                    borderRadius: MeloRadii.sm,
+                  ),
+                  child: Icon(
+                    AppShellScaffold.iconFor(widget.destination, selected),
+                    color: foreground,
+                    size: 19,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  AppShellScaffold.titleFor(widget.destination),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: foreground,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                      ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

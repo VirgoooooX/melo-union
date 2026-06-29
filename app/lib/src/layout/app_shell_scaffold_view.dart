@@ -26,15 +26,28 @@ class AppShellScaffold extends ConsumerWidget {
                 children: [
                   _DesktopSidebar(current: current),
                   Expanded(
-                    child: ColoredBox(
-                      color: MeloColors.canvas,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            MeloColors.canvasSoft,
+                            MeloColors.canvas,
+                          ],
+                        ),
+                      ),
                       child: child,
                     ),
                   ),
                   if (width >= 1180)
-                    const SizedBox(
+                    Container(
                       width: MeloDimensions.desktopNowPlayingWidth,
-                      child: RightSidebar(),
+                      decoration: const BoxDecoration(
+                        color: MeloColors.surface,
+                        border: Border(left: BorderSide(color: MeloColors.border)),
+                      ),
+                      child: const RightSidebar(),
                     ),
                 ],
               ),
