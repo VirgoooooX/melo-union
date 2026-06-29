@@ -67,7 +67,6 @@ class _SourceResultSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
     final providerName = _displayProviderName(group.provider.id);
     return Container(
       decoration: BoxDecoration(
@@ -137,33 +136,33 @@ class _SearchTrackRow extends ConsumerWidget {
             onPressed: track.isPlayable ? () => repository.playTrack(track) : null,
             icon: const Icon(Icons.play_arrow_rounded),
           ),
-          IconButton(
-            tooltip: availability.canWrite
-                ? (track.isFavorited ? '取消喜欢' : '喜欢')
-                : availability.reason,
-            onPressed: availability.canWrite
-                ? () async {
-                    try {
-                      await repository.toggleFavorite(
-                        track: track,
-                        liked: !track.isFavorited,
-                      );
-                    } on ProviderException catch (error) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(error.message)),
+          Tooltip(
+            message: availability.reason ?? (track.isFavorited ? '取消喜欢' : '喜欢'),
+            child: IconButton(
+              onPressed: availability.isEnabled
+                  ? () async {
+                      try {
+                        await repository.toggleFavorite(
+                          track: track,
+                          liked: !track.isFavorited,
                         );
+                      } on ProviderException catch (error) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(error.message)),
+                          );
+                        }
                       }
                     }
-                  }
-                : null,
-            icon: Icon(
-              track.isFavorited
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
-              color: track.isFavorited
-                  ? MeloColors.favorite
-                  : MeloColors.textTertiary,
+                  : null,
+              icon: Icon(
+                track.isFavorited
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                color: track.isFavorited
+                    ? MeloColors.favorite
+                    : MeloColors.textTertiary,
+              ),
             ),
           ),
           PopupMenuButton<String>(
