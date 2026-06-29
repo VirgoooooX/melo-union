@@ -179,7 +179,15 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
       return;
     }
 
-    await _toggleSingle(context, repository, variants.first);
+    final source = variants.first;
+    final availability = repository.favoriteWriteAvailability(source.ref.providerId);
+    if (!availability.isEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(availability.reason ?? '此来源无法写回收藏。')),
+      );
+      return;
+    }
+    await _toggleSingle(context, repository, source);
   }
 
   Future<void> _toggleSingle(
@@ -324,23 +332,24 @@ class _TrackMoreMenu extends ConsumerWidget {
       offset: const Offset(0, 42),
       shape: const RoundedRectangleBorder(borderRadius: MeloRadii.md),
       onSelected: (action) async {
-        switch (action) {
-          case _TrackMenuAction.playNext:
-            repository.enqueueTrack(track);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('已添加到播放队列末尾。')),
-            );
-          case _TrackMenuAction.addToPlaylist:
-            await showDialog<void>(
-              context: context,
-              builder: (context) => _AddToPlaylistDialog(track: track),
-            );
-          case _TrackMenuAction.download:
-            repository.addDownloadTask(track);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('已创建下载任务。')),
-            );
+        if (action == _TrackMenuAction.playNext) {
+          repository.enqueueTrack(track);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('已添加到播放队列末尾。')),
+          );
+          return;
         }
+        if (action == _TrackMenuAction.addToPlaylist) {
+          await showDialog<void>(
+            context: context,
+            builder: (context) => _AddToPlaylistDialog(track: track),
+          );
+          return;
+        }
+        repository.addDownloadTask(track);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已创建下载任务。')),
+        );
       },
       itemBuilder: (context) => [
         const PopupMenuItem(
@@ -451,10 +460,10 @@ class _AddToPlaylistDialog extends ConsumerWidget {
                           playlistId: playlist.id,
                           track: track,
                         );
-                        Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('已加入“${playlist.name}”。')),
                         );
+                        Navigator.pop(context);
                       },
                     ),
                     const SizedBox(height: 8),
