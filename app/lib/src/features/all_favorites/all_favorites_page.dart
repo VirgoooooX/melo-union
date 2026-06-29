@@ -8,5 +8,6 @@ import '../../design/melo_tokens.dart';
 import '../../widgets/provider_tabs.dart';
 
 part 'favorites_page_view.dart';
-part 'favorites_page_rows.dart';
+part 'favorites_list.dart';
+part 'favorite_row.dart';
 part 'favorites_page_helpers.dart';
