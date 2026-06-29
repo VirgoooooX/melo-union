@@ -25,7 +25,12 @@ class AppShellScaffold extends ConsumerWidget {
               child: Row(
                 children: [
                   _DesktopSidebar(current: current),
-                  Expanded(child: ColoredBox(color: MeloColors.canvas, child: child)),
+                  Expanded(
+                    child: ColoredBox(
+                      color: MeloColors.canvas,
+                      child: child,
+                    ),
+                  ),
                   if (width >= 1180)
                     const SizedBox(
                       width: MeloDimensions.desktopNowPlayingWidth,
@@ -51,17 +56,19 @@ class AppShellScaffold extends ConsumerWidget {
   static String titleFor(AppDestination destination) => switch (destination) {
         AppDestination.favorites => '喜欢',
         AppDestination.playlists => '歌单',
-        AppDestination.search => '推荐',
+        AppDestination.recommendations => '推荐',
+        AppDestination.search => '搜索',
         AppDestination.downloads => '下载',
-        AppDestination.providers => '设置',
+        AppDestination.settings => '设置',
       };
 
   static IconData iconFor(AppDestination destination, bool selected) => switch (destination) {
         AppDestination.favorites => selected ? Icons.favorite : Icons.favorite_outline,
         AppDestination.playlists => selected ? Icons.library_music : Icons.library_music_outlined,
-        AppDestination.search => selected ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+        AppDestination.recommendations => selected ? Icons.auto_awesome : Icons.auto_awesome_outlined,
+        AppDestination.search => Icons.search_rounded,
         AppDestination.downloads => selected ? Icons.download : Icons.download_outlined,
-        AppDestination.providers => selected ? Icons.settings : Icons.settings_outlined,
+        AppDestination.settings => selected ? Icons.settings : Icons.settings_outlined,
       };
 }
 
@@ -76,13 +83,23 @@ class _MobileShell extends StatelessWidget {
     const destinations = [
       AppDestination.favorites,
       AppDestination.playlists,
+      AppDestination.recommendations,
       AppDestination.search,
-      AppDestination.downloads,
-      AppDestination.providers,
+      AppDestination.settings,
     ];
     final selected = destinations.indexOf(current);
     return Scaffold(
-      appBar: AppBar(title: Text(AppShellScaffold.titleFor(current))),
+      appBar: AppBar(
+        title: Text(AppShellScaffold.titleFor(current)),
+        actions: [
+          if (current != AppDestination.search)
+            IconButton(
+              tooltip: '搜索',
+              onPressed: () => context.go(AppDestination.search.path),
+              icon: const Icon(Icons.search_rounded),
+            ),
+        ],
+      ),
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: selected < 0 ? 0 : selected,
