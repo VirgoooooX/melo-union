@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider_contract/provider_contract.dart';
 
-import '../../bootstrap/demo_repository.dart';
+import '../../bootstrap/demo_repository.dart' hide AppDestination;
 import '../../design/melo_tokens.dart';
 import '../../presentation/app_destination.dart';
 
