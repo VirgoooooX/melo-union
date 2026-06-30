@@ -55,6 +55,15 @@ void main() {
     final provider = QqMusicProvider(
       client: _FakeClient((request) {
         expect(request.url.path, '/cgi-bin/musicu.fcg');
+        final decoded = jsonDecode(
+          utf8.decode((request as http.Request).bodyBytes),
+        ) as Map<String, Object?>;
+        final req = decoded['req_0'] as Map<String, Object?>;
+        final param = req['param'] as Map<String, Object?>;
+        expect(param['songmid'], ['song_mid_1']);
+        expect(param['filename'], ['C400media_mid_1.m4a']);
+        expect(param['uin'], '0');
+        expect(request.headers['content-type'], contains('application/json'));
         return http.Response.bytes(
           utf8.encode(jsonEncode({
             'code': 0,
@@ -91,12 +100,76 @@ void main() {
     );
     expect(playback.mediaUri.toString(),
         'https://stream.qq.test/C400media_mid_1.m4a?vkey=abc');
+    expect(playback.headers, isEmpty);
 
     final download = await provider.createDownloadTicket(
       track: ref,
       quality: AudioQuality.standard,
     );
     expect(download.fileExtension, 'm4a');
+  });
+
+  test('playback falls back to alternate QQ filename formats', () async {
+    final filenames = <String>[];
+    final provider = QqMusicProvider(
+      credentials: const QqMusicCredentials(
+        cookie: 'uin=o12345; qqmusic_key=abc',
+      ),
+      client: _FakeClient((request) {
+        final decoded = jsonDecode(
+          utf8.decode((request as http.Request).bodyBytes),
+        ) as Map<String, Object?>;
+        final req = decoded['req_0'] as Map<String, Object?>;
+        final param = req['param'] as Map<String, Object?>;
+        final filename = (param['filename'] as List<Object?>).single as String;
+        filenames.add(filename);
+
+        expect(param['songmid'], ['song_mid_1']);
+        expect(param['uin'], '12345');
+        expect((decoded['comm'] as Map<String, Object?>)['uin'], 12345);
+
+        final purl =
+            filename.startsWith('M500') ? 'M500media_mid_1.mp3?vkey=abc' : '';
+        return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'code': 0,
+            'req_0': {
+              'code': 0,
+              'data': {
+                'sip': ['http://stream.qq.test/'],
+                'midurlinfo': [
+                  {
+                    'songmid': 'song_mid_1',
+                    'filename': filename,
+                    'purl': purl,
+                    'result': purl.isEmpty ? -105 : 0,
+                  },
+                ],
+              },
+            },
+          })),
+          200,
+        );
+      }),
+      musicuUri: Uri.parse('https://qq.test/cgi-bin/musicu.fcg'),
+      now: () => DateTime.utc(2026, 6, 30),
+    );
+
+    final playback = await provider.createPlaybackTicket(
+      track: ProviderTrackRef(
+        providerId: qqMusicProviderId,
+        trackId: 'song_mid_1',
+        extraIds: const {
+          'song_mid': 'song_mid_1',
+          'media_mid': 'media_mid_1',
+        },
+      ),
+      quality: AudioQuality.standard,
+    );
+
+    expect(filenames.take(2), ['C400media_mid_1.m4a', 'M500media_mid_1.mp3']);
+    expect(playback.mediaUri.toString(),
+        'https://stream.qq.test/M500media_mid_1.mp3?vkey=abc');
   });
 
   test('lyrics maps plain lyric response', () async {
@@ -271,7 +344,8 @@ void main() {
     expect(snapshot.tracks[0].artists, ['周杰伦']);
     expect(snapshot.tracks[0].likedAtSource, 'qq_import');
     expect(snapshot.tracks[0].likedAtPrecision, 'unknown');
-    expect(snapshot.tracks[0].likedAt, isNotNull);
+    // likedAt is null; it gets assigned by the service layer registry sync
+    expect(snapshot.tracks[0].likedAt, isNull);
   });
 
   test('getProfile returns uin from cookie', () async {
@@ -279,8 +353,8 @@ void main() {
       credentials: QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
     );
     final profile = await provider.getProfile();
-    expect(profile?.accountId, 'o12345');
-    expect(profile?.displayName, 'o12345');
+    expect(profile?.accountId, '12345');
+    expect(profile?.displayName, '12345');
   });
 
   test('getProfile throws when signed out', () async {
@@ -381,6 +455,7 @@ void main() {
                       'songlist': [
                         {
                           'songmid': 's1',
+                          'media_mid': 'm1',
                           'songname': 'Song One',
                           'albummid': 'a1',
                           'interval': 200,
@@ -411,6 +486,7 @@ void main() {
     expect(tracks, hasLength(2));
     expect(tracks[0].title, 'Song One');
     expect(tracks[0].artists, ['Artist A']);
+    expect(tracks[0].ref.extraIds['media_mid'], 'm1');
     expect(tracks[1].title, 'Song Two');
   });
 
@@ -428,6 +504,7 @@ void main() {
                 {
                   'data': {
                     'songmid': 'fav_001',
+                    'media_mid': 'fav_media_001',
                     'songname': 'Favorite Song',
                     'albummid': 'fav_alb',
                     'interval': 250,
@@ -449,6 +526,7 @@ void main() {
     expect(tracks, hasLength(1));
     expect(tracks[0].title, 'Favorite Song');
     expect(tracks[0].isFavorited, isTrue);
+    expect(tracks[0].ref.extraIds['media_mid'], 'fav_media_001');
   });
 
   test('getRecommendedPlaylists maps musicu.fcg hot recommend', () async {
@@ -505,6 +583,7 @@ void main() {
                 'songList': [
                   {
                     'mid': 'rec_001',
+                    'file': {'media_mid': 'rec_media_001'},
                     'name': '推荐曲目',
                     'album': {'mid': 'rec_alb', 'name': '推荐专辑'},
                     'interval': 210,
@@ -525,6 +604,7 @@ void main() {
     expect(tracks, isNotEmpty);
     expect(tracks[0].title, '推荐曲目');
     expect(tracks[0].ref.trackId, 'rec_001');
+    expect(tracks[0].ref.extraIds['media_mid'], 'rec_media_001');
     expect(tracks[0].artists, ['推荐歌手']);
   });
 
@@ -557,7 +637,9 @@ void main() {
                     'songname': '热门歌曲',
                     'albummid': 'hot_alb',
                     'interval': 200,
-                    'singer': [{'name': '热门歌手'}],
+                    'singer': [
+                      {'name': '热门歌手'}
+                    ],
                   },
                 ],
               },

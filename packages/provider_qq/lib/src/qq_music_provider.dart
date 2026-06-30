@@ -390,6 +390,7 @@ final class QqMusicProvider implements MusicProvider {
       tracks.add(_trackFromProfileSong(songData));
     }
 
+    // likedAt assigned by the service layer during registry sync.
     return FavoriteSnapshot(providerId: descriptor.id, tracks: tracks);
   }
 
@@ -501,8 +502,7 @@ final class QqMusicProvider implements MusicProvider {
                   playlistId: map['content_id']?.toString() ?? '',
                   name: map['title']?.toString() ?? '推荐歌单',
                   cover: _parseQqCover(map['cover']?.toString()),
-                  trackCount:
-                      (map['song_cnt'] as num?)?.toInt() ??
+                  trackCount: (map['song_cnt'] as num?)?.toInt() ??
                       (map['song_count'] as num?)?.toInt() ??
                       0,
                   playCount: (map['listen_num'] as num?)?.toInt(),
@@ -543,8 +543,7 @@ final class QqMusicProvider implements MusicProvider {
       ).replace(queryParameters: favParams);
       final favPayload = await _fcgRequest(favUri);
       final favData = _jsonMap(favPayload['data']);
-      final totalSong =
-          (favData['totalsong'] as num?)?.toInt() ?? 0;
+      final totalSong = (favData['totalsong'] as num?)?.toInt() ?? 0;
       if (totalSong > 0) {
         playlists.add(ProviderPlaylist(
           providerId: descriptor.id,
@@ -572,12 +571,22 @@ final class QqMusicProvider implements MusicProvider {
       final createdPayload = await _fcgRequest(createdUri);
       final data = _jsonMap(createdPayload['data']);
 
-      for (final listKey in ['disslist', 'list']) {
+      for (final listKey in [
+        'disslist',
+        'list',
+        'DissList',
+        'List',
+        'cdlist',
+        'CDList'
+      ]) {
         final items = data[listKey] as List<Object?>? ?? const [];
         for (final item in items) {
           if (item is! Map<Object?, Object?>) continue;
           final map = _stringMap(item);
-          final dissId = map['dissid']?.toString() ?? '';
+          final dissId = map['dissid']?.toString() ??
+              map['tid']?.toString() ??
+              map['DirID']?.toString() ??
+              '';
           if (dissId.isEmpty || seen.contains(dissId)) continue;
           seen.add(dissId);
           playlists.add(_playlistFromDiss(map));
@@ -585,7 +594,7 @@ final class QqMusicProvider implements MusicProvider {
       }
     } catch (_) {}
 
-    // 3. Profile-ordered playlists (collected/saved).
+    // 3. Profile-ordered playlists (collected).
     try {
       final orderParams = _profileOrderAssetParams(uin, '3', 0, 100);
       final orderUri = Uri.parse(
@@ -711,7 +720,7 @@ final class QqMusicProvider implements MusicProvider {
     final resolved = await _resolveMedia(track, quality);
     return PlaybackTicket(
       mediaUri: resolved.uri,
-      headers: _headers(),
+      headers: const {},
       expiresAt: _now().add(const Duration(hours: 2)),
       trackRef: track,
       quality: quality,
@@ -754,6 +763,7 @@ final class QqMusicProvider implements MusicProvider {
   SourceTrack _trackFromSearch(Map<String, Object?> item) {
     final songMid =
         item['songmid']?.toString() ?? item['mid']?.toString() ?? '';
+    final mediaMid = _mediaMidFromSong(item, songMid);
     final albumMid = item['albummid']?.toString() ?? '';
     final artists = item['singer'] as List<Object?>? ?? const [];
     return SourceTrack(
@@ -762,8 +772,7 @@ final class QqMusicProvider implements MusicProvider {
         trackId: songMid,
         extraIds: {
           if (songMid.isNotEmpty) 'song_mid': songMid,
-          if (item['media_mid'] != null)
-            'media_mid': item['media_mid'].toString(),
+          if (mediaMid.isNotEmpty) 'media_mid': mediaMid,
           if (albumMid.isNotEmpty) 'album_mid': albumMid,
         },
       ),
@@ -791,9 +800,29 @@ final class QqMusicProvider implements MusicProvider {
     ProviderTrackRef track,
     AudioQuality quality,
   ) async {
-    final songMid = track.extraIds['media_mid'] ??
-        track.extraIds['song_mid'] ??
-        track.trackId;
+    for (final filename in _filenameCandidatesFor(track, quality)) {
+      final resolved = await _resolveMediaWithFilename(
+        track: track,
+        filename: filename,
+      );
+      if (resolved != null) {
+        return resolved;
+      }
+    }
+
+    throw ProviderTrackNotFoundException(
+      providerId: descriptor.id,
+      track: track,
+      message: 'QQ Music did not return a playable URL for this track.',
+    );
+  }
+
+  Future<_ResolvedQqMedia?> _resolveMediaWithFilename({
+    required ProviderTrackRef track,
+    required String filename,
+  }) async {
+    final songMid = track.extraIds['song_mid'] ?? track.trackId;
+    final uin = _extractUin() ?? '0';
     final body = jsonEncode({
       'req_0': {
         'module': 'vkey.GetVkeyServer',
@@ -802,21 +831,28 @@ final class QqMusicProvider implements MusicProvider {
           'guid': '10000',
           'songmid': [songMid],
           'songtype': [0],
-          'uin': '0',
+          'uin': uin,
           'loginflag': 1,
           'platform': '20',
-          'filename': [_filenameFor(track, quality)],
+          'filename': [filename],
         },
       },
       'comm': {
-        'uin': 0,
+        'uin': int.tryParse(uin) ?? 0,
         'format': 'json',
         'ct': 24,
         'cv': 0,
       },
     });
     final response = await _client
-        .post(_musicuUri, headers: _headers(), body: body)
+        .post(
+          _musicuUri,
+          headers: {
+            ..._headers(),
+            'Content-Type': 'application/json',
+          },
+          body: body,
+        )
         .timeout(const Duration(seconds: 15));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ProviderException(
@@ -829,10 +865,9 @@ final class QqMusicProvider implements MusicProvider {
     final root = decoded is Map<Object?, Object?> ? _stringMap(decoded) : null;
     final req = _jsonMap(root?['req_0']);
     final data = _jsonMap(req['data']);
-    final midUrlInfo = data['midurlinfo'] as List<Object?>? ?? const [];
-    final info = midUrlInfo.whereType<Map<Object?, Object?>>().isEmpty
-        ? const <String, Object?>{}
-        : _stringMap(midUrlInfo.whereType<Map<Object?, Object?>>().first);
+    final info = _firstPlayableMidUrlInfo(
+      data['midurlinfo'] as List<Object?>? ?? const [],
+    );
     final purl = info['purl']?.toString() ?? '';
     final sip = data['sip'] as List<Object?>? ?? const [];
     final host = sip.map((item) => item?.toString() ?? '').firstWhere(
@@ -840,30 +875,89 @@ final class QqMusicProvider implements MusicProvider {
           orElse: () => 'https://dl.stream.qqmusic.qq.com/',
         );
     if (purl.isEmpty) {
-      throw ProviderTrackNotFoundException(
-        providerId: descriptor.id,
-        track: track,
-        message: 'QQ Music did not return a playable URL for this track.',
-      );
+      return null;
     }
     return _ResolvedQqMedia(
       uri: Uri.parse(host).resolve(purl).replace(scheme: 'https'),
-      fileExtension: purl.contains('.flac') ? 'flac' : 'm4a',
+      fileExtension: _extensionForPurl(purl),
     );
   }
 
-  String _filenameFor(ProviderTrackRef track, AudioQuality quality) {
+  Map<String, Object?> _firstPlayableMidUrlInfo(List<Object?> midUrlInfo) {
+    for (final item in midUrlInfo.whereType<Map<Object?, Object?>>()) {
+      final info = _stringMap(item);
+      final purl = info['purl']?.toString() ?? '';
+      if (purl.isNotEmpty) {
+        return info;
+      }
+    }
+    return const {};
+  }
+
+  List<String> _filenameCandidatesFor(
+    ProviderTrackRef track,
+    AudioQuality quality,
+  ) {
     final mediaMid = track.extraIds['media_mid'] ??
         track.extraIds['song_mid'] ??
         track.trackId;
-    final prefix = switch (quality) {
-      AudioQuality.low => 'C200',
-      AudioQuality.standard => 'C400',
-      AudioQuality.high => 'M800',
-      AudioQuality.lossless => 'F000',
-    };
-    final extension = quality == AudioQuality.lossless ? 'flac' : 'm4a';
-    return '$prefix$mediaMid.$extension';
+    final filenames = <String>[];
+
+    void add(String filename) {
+      if (!filenames.contains(filename)) {
+        filenames.add(filename);
+      }
+    }
+
+    void addQuality(AudioQuality item) {
+      switch (item) {
+        case AudioQuality.low:
+          add('C200$mediaMid.m4a');
+          add('M500$mediaMid.mp3');
+        case AudioQuality.standard:
+          add('C400$mediaMid.m4a');
+          add('M500$mediaMid.mp3');
+        case AudioQuality.high:
+          add('M800$mediaMid.mp3');
+        case AudioQuality.lossless:
+          add('F000$mediaMid.flac');
+      }
+    }
+
+    addQuality(quality);
+    for (final fallback in switch (quality) {
+      AudioQuality.low => const [
+          AudioQuality.standard,
+          AudioQuality.high,
+          AudioQuality.lossless,
+        ],
+      AudioQuality.standard => const [
+          AudioQuality.low,
+          AudioQuality.high,
+          AudioQuality.lossless,
+        ],
+      AudioQuality.high => const [
+          AudioQuality.standard,
+          AudioQuality.low,
+          AudioQuality.lossless,
+        ],
+      AudioQuality.lossless => const [
+          AudioQuality.high,
+          AudioQuality.standard,
+          AudioQuality.low,
+        ],
+    }) {
+      addQuality(fallback);
+    }
+    return filenames;
+  }
+
+  String _extensionForPurl(String purl) {
+    final path = Uri.tryParse(purl)?.path.toLowerCase() ?? purl.toLowerCase();
+    if (path.endsWith('.flac')) return 'flac';
+    if (path.endsWith('.mp3')) return 'mp3';
+    if (path.endsWith('.m4a')) return 'm4a';
+    return 'm4a';
   }
 
   Future<Map<String, Object?>> _getJson(Uri uri) async {
@@ -1226,15 +1320,27 @@ final class QqMusicProvider implements MusicProvider {
   }
 
   /// Extracts the QQ Music user identifier (uin) from login cookies.
+  /// Returns a numeric uin string, or null if unavailable.
+  /// QQ often stores uin as encrypted "o0723255953" — we strip the leading "o"
+  /// to get the numeric ID that the API requires.
   String? _extractUin() {
     final cookie = _credentials?.cookie ?? '';
     if (cookie.isEmpty) return null;
-    for (final key in ['uin', 'musicid', 'wxuin', 'euin', 'p_uin', 'userid']) {
+    for (final key in [
+      'uin',
+      'musicid',
+      'wxuin',
+      'p_uin',
+      'userid',
+      'superuin',
+      'pt2gguin'
+    ]) {
       final pattern = RegExp('(?:^|;)\\s*$key\\s*=\\s*([^;]+)');
       final match = pattern.firstMatch(cookie);
       if (match != null) {
-        final value = match.group(1)?.trim();
-        if (value != null && value.isNotEmpty && value != '0') return value;
+        final raw = match.group(1)?.trim() ?? '';
+        final digits = raw.startsWith('o') ? raw.substring(1) : raw;
+        if (digits.isNotEmpty && digits != '0') return digits;
       }
     }
     return null;
@@ -1302,8 +1408,7 @@ final class QqMusicProvider implements MusicProvider {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ProviderException(
         providerId: descriptor.id,
-        message:
-            'QQ Musicu request failed with HTTP ${response.statusCode}.',
+        message: 'QQ Musicu request failed with HTTP ${response.statusCode}.',
       );
     }
     final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -1344,9 +1449,10 @@ final class QqMusicProvider implements MusicProvider {
   }
 
   /// Converts a QQ profile-order song map to [SourceTrack].
-  /// Sets likedAt to the current time (fetch time) as a qq_import marker.
+  /// likedAt and source are assigned later by the service layer.
   SourceTrack _trackFromProfileSong(Map<String, Object?> songData) {
     final songmid = songData['songmid']?.toString() ?? '';
+    final mediaMid = _mediaMidFromSong(songData, songmid);
     final albumMid = songData['albummid']?.toString() ?? '';
     final artists = songData['singer'] as List<Object?>? ?? const [];
     return _buildQqTrack(
@@ -1360,8 +1466,8 @@ final class QqMusicProvider implements MusicProvider {
       album: songData['albumname']?.toString(),
       intervalSeconds: (songData['interval'] as num?)?.toInt() ?? 0,
       isFavorited: true,
+      mediaMid: mediaMid,
       albumMid: albumMid,
-      likedAt: _now().toUtc(),
       likedAtSource: 'qq_import',
       likedAtPrecision: 'unknown',
     );
@@ -1374,15 +1480,14 @@ final class QqMusicProvider implements MusicProvider {
   ///   - albumname / album.name (album name)
   ///   - albummid / album.mid (album mid)
   SourceTrack _trackFromPlaylistSong(Map<String, Object?> song) {
-    final songmid = song['songmid']?.toString() ??
-        song['mid']?.toString() ??
-        '';
-    final albumMid = song['albummid']?.toString() ??
-        _nestedString(song['album'], 'mid') ??
-        '';
+    final songmid =
+        song['songmid']?.toString() ?? song['mid']?.toString() ?? '';
+    final mediaMid = _mediaMidFromSong(song, songmid);
+    final albumMid =
+        song['albummid']?.toString() ?? _nestedString(song['album'], 'mid');
     final artists = song['singer'] as List<Object?>? ?? const [];
-    final albumName = song['albumname']?.toString() ??
-        _nestedString(song['album'], 'name');
+    final albumName =
+        song['albumname']?.toString() ?? _nestedString(song['album'], 'name');
     return _buildQqTrack(
       songmid: songmid,
       title: song['songname']?.toString() ??
@@ -1396,6 +1501,7 @@ final class QqMusicProvider implements MusicProvider {
       album: albumName,
       intervalSeconds: (song['interval'] as num?)?.toInt() ?? 0,
       isFavorited: false,
+      mediaMid: mediaMid,
       albumMid: albumMid,
     );
   }
@@ -1409,6 +1515,19 @@ final class QqMusicProvider implements MusicProvider {
     return '';
   }
 
+  String _mediaMidFromSong(Map<String, Object?> song, String songmid) {
+    return _firstNonEmpty([
+      song['media_mid']?.toString(),
+      song['mediaMid']?.toString(),
+      song['strMediaMid']?.toString(),
+      song['filemedia_mid']?.toString(),
+      _nestedString(song['file'], 'media_mid'),
+      _nestedString(song['file'], 'mediaMid'),
+      _nestedString(song['file'], 'strMediaMid'),
+      songmid,
+    ]);
+  }
+
   /// Shared SourceTrack builder for QQ Music songs.
   SourceTrack _buildQqTrack({
     required String songmid,
@@ -1417,6 +1536,7 @@ final class QqMusicProvider implements MusicProvider {
     String? album,
     required int intervalSeconds,
     required bool isFavorited,
+    String? mediaMid,
     String? albumMid,
     DateTime? likedAt,
     String? likedAtSource,
@@ -1428,6 +1548,7 @@ final class QqMusicProvider implements MusicProvider {
         trackId: songmid,
         extraIds: {
           if (songmid.isNotEmpty) 'song_mid': songmid,
+          if (mediaMid != null && mediaMid.isNotEmpty) 'media_mid': mediaMid,
           if (albumMid != null && albumMid.isNotEmpty) 'album_mid': albumMid,
         },
       ),
@@ -1452,8 +1573,7 @@ final class QqMusicProvider implements MusicProvider {
   /// Handles both fcg_user_created_diss (disslist) and
   /// fcg_get_profile_order_asset (cdlist) response formats.
   ProviderPlaylist _playlistFromDiss(Map<String, Object?> item) {
-    final dissId =
-        item['dissid']?.toString() ?? item['tid']?.toString() ?? '';
+    final dissId = item['dissid']?.toString() ?? item['tid']?.toString() ?? '';
     return ProviderPlaylist(
       providerId: descriptor.id,
       playlistId: dissId,
@@ -1498,6 +1618,7 @@ final class QqMusicProvider implements MusicProvider {
         album: value(5).isNotEmpty ? value(5) : null,
         intervalSeconds: int.tryParse(value(7)) ?? 0,
         isFavorited: false,
+        mediaMid: value(0).isNotEmpty ? value(0) : null,
         albumMid: value(4).isNotEmpty ? value(4) : null,
       );
     }

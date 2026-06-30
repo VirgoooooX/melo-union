@@ -155,7 +155,7 @@ class _FavoritesTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final labelStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: MeloColors.textTertiary,
+          color: MeloColors.textSecondary,
           fontWeight: FontWeight.w700,
           letterSpacing: .2,
         );
@@ -245,8 +245,11 @@ class _FavoriteRowSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
+    return Container(
+      height: MeloListMetrics.rowHeight,
+      padding: const EdgeInsets.symmetric(
+        horizontal: MeloListMetrics.rowHorizontalPadding,
+      ),
       child: Row(
         children: [
           const SizedBox(width: 32),
@@ -255,7 +258,11 @@ class _FavoriteRowSkeleton extends StatelessWidget {
             flex: 3,
             child: Row(
               children: [
-                _SkeletonBox(width: 34, height: 34, radius: MeloRadii.sm),
+                _SkeletonBox(
+                  width: MeloListMetrics.trackCoverSize,
+                  height: MeloListMetrics.trackCoverSize,
+                  radius: MeloRadii.sm,
+                ),
                 const SizedBox(width: 12),
                 const Expanded(child: _SkeletonTextGroup()),
               ],

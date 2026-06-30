@@ -253,8 +253,12 @@ final class NeteaseMusicProvider implements MusicProvider {
         (await _songDetails(chunk, favoritedIds: ids.toSet())).map((track) {
           final at = idToAt[track.ref.trackId];
           if (at != null && at > 0) {
+            // at is in milliseconds (≥1e12) or seconds (<1e12); auto-detect.
+            final likedAt = at > 1000000000000
+                ? DateTime.fromMillisecondsSinceEpoch(at, isUtc: true)
+                : DateTime.fromMillisecondsSinceEpoch(at * 1000, isUtc: true);
             return track.copyWith(
-              likedAt: DateTime.fromMillisecondsSinceEpoch(at, isUtc: true),
+              likedAt: likedAt,
               likedAtSource: 'netease_raw',
               likedAtPrecision: 'exact',
             );

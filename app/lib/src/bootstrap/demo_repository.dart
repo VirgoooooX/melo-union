@@ -256,6 +256,9 @@ class DemoRepository extends ChangeNotifier {
   bool _isAdvancingAfterCompletion = false;
   PlaybackRepeatMode _repeatMode = PlaybackRepeatMode.off;
 
+  /// Incremented on login/logout/toggle to trigger [allFavoritesProvider] refresh.
+
+
   PlaybackQueueState get queue => playbackCoordinator.queueState;
 
   bool get isPlaying => _audioPlayer.playing;
@@ -561,8 +564,30 @@ class DemoRepository extends ChangeNotifier {
     }
     await qqMusicSessionStore?.write(credentials);
     _qqMusicCredentials = credentials;
+    // Clear old QQ registry entries so the next pull re-spreads timestamps.
+    _clearQqRegistryEntries();
     _replaceQqMusicProvider(credentials);
     notifyListeners();
+  }
+
+  Future<void> clearQqMusicCredentials() async {
+    await qqMusicSessionStore?.clear();
+    _qqMusicCredentials = null;
+    _clearQqRegistryEntries();
+    _replaceQqMusicProvider(null);
+    notifyListeners();
+  }
+
+  void _clearQqRegistryEntries() {
+    final toRemove = <ProviderTrackRef>[];
+    for (final ref in favoritesOverrideRegistry.likedAtTracking.keys) {
+      if (ref.providerId == qqMusicProviderId) {
+        toRemove.add(ref);
+      }
+    }
+    for (final ref in toRemove) {
+      favoritesOverrideRegistry.removeLikedAt(ref);
+    }
   }
 
   Future<QqMusicQrLoginSession> createQqMusicQrLoginSession(
@@ -580,13 +605,6 @@ class DemoRepository extends ChangeNotifier {
       await saveQqMusicCredentials(credentials);
     }
     return result;
-  }
-
-  Future<void> clearQqMusicCredentials() async {
-    await qqMusicSessionStore?.clear();
-    _qqMusicCredentials = null;
-    _replaceQqMusicProvider(null);
-    notifyListeners();
   }
 
   Future<void> playTrack(SourceTrack track) async {

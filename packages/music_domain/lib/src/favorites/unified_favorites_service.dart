@@ -20,30 +20,18 @@ final class UnifiedFavoriteTrack {
 
   bool get hasMultipleSources => variants.length > 1;
 
-  /// Best available liked-at metadata across all variants.
-  /// Prefers app_action (exact) over sync_detected (approximate) over anything else.
+  /// Best available liked-at metadata across all variants (latest DateTime wins).
   LikedAtMetadata? get bestLikedAt {
     LikedAtMetadata? best;
     for (final variant in variants) {
       final candidate = _metadataFromTrack(variant);
-      if (candidate == null) continue;
-      if (best == null || _rank(candidate) > _rank(best)) {
+      if (candidate?.likedAt == null) continue;
+      final bestTime = best?.likedAt;
+      if (bestTime == null || candidate!.likedAt!.isAfter(bestTime)) {
         best = candidate;
       }
     }
     return best;
-  }
-
-  static int _rank(LikedAtMetadata m) {
-    if (m.source == LikedAtMetadata.sourceAppAction &&
-        m.precision == LikedAtMetadata.precisionExact) {
-      return 4;
-    }
-    if (m.source == LikedAtMetadata.sourceAppAction) return 3;
-    if (m.source == LikedAtMetadata.sourceNeteaseRaw) return 3;
-    if (m.source == LikedAtMetadata.sourceSyncDetected) return 2;
-    if (m.source == LikedAtMetadata.sourceQqImport) return 1;
-    return 0;
   }
 
   static LikedAtMetadata? _metadataFromTrack(SourceTrack track) {
@@ -90,26 +78,61 @@ final class UnifiedFavoritesService {
     final groups = <_FavoriteGroup>[];
 
     // Sync QQ / external-source liked-at to the registry:
-    //   First detection → record current time as likedAt (qq_import / sync_detected).
-    //   Already seen → do nothing (registry keeps the original detection time).
+    //   First detection → spread based on position within the new batch.
+    //   Already seen → do nothing (registry keeps the original frozen value).
     if (overrides != null) {
-      final now = DateTime.now().toUtc();
       for (final snapshot in snapshots) {
+        // Collect newly seen tracks (preserving QQ's songlist order)
+        final newTracks = <SourceTrack>[];
         for (final track in snapshot.tracks) {
-          if (track.likedAtSource == 'qq_import' ||
-              track.likedAtSource == null) {
-            final existing = overrides.likedAtFor(track.ref);
-            if (existing == null) {
-              // First time we've seen this track → freeze the current time.
-              overrides.recordLikedAt(
-                track.ref,
-                LikedAtMetadata(
-                  likedAt: now,
-                  source: LikedAtMetadata.sourceQqImport,
-                  precision: LikedAtMetadata.precisionUnknown,
-                ),
-              );
+          if (track.likedAtSource == 'qq_import') {
+            if (overrides.likedAtFor(track.ref) == null) {
+              newTracks.add(track);
             }
+          }
+        }
+        if (newTracks.isEmpty) continue;
+
+        // Determine span: from last sync to now.
+        // The last sync time ≈ the newest registry entry's likedAt for QQ.
+        final now = DateTime.now().toUtc();
+        DateTime? lastSync;
+        for (final entry in overrides.likedAtTracking.entries) {
+          if (entry.value.source == LikedAtMetadata.sourceQqImport &&
+              entry.value.likedAt != null) {
+            if (lastSync == null ||
+                entry.value.likedAt!.isAfter(lastSync)) {
+              lastSync = entry.value.likedAt;
+            }
+          }
+        }
+        final refTime = lastSync ?? now.subtract(const Duration(days: 180));
+        final span = now.difference(refTime);
+        if (span.inSeconds <= 0) {
+          // All get now if no elapsed time.
+          for (var i = 0; i < newTracks.length; i++) {
+            overrides.recordLikedAt(
+              newTracks[i].ref,
+              LikedAtMetadata(
+                likedAt: now,
+                source: LikedAtMetadata.sourceQqImport,
+                precision: LikedAtMetadata.precisionUnknown,
+              ),
+            );
+          }
+        } else {
+          final interval = Duration(
+            seconds: (span.inSeconds ~/ newTracks.length).clamp(1, 86400 * 180),
+          );
+          for (var i = 0; i < newTracks.length; i++) {
+            overrides.recordLikedAt(
+              newTracks[i].ref,
+              LikedAtMetadata(
+                likedAt: now.subtract(interval * i),
+                source: LikedAtMetadata.sourceQqImport,
+                precision: LikedAtMetadata.precisionUnknown,
+              ),
+            );
           }
         }
       }
@@ -182,6 +205,10 @@ final class UnifiedFavoritesService {
       }
     }
 
+    // Sort all groups by liked-at descending (newest first), across all providers.
+    groups.sort((a, b) => _bestLikedAt(b.variants)
+        .compareTo(_bestLikedAt(a.variants)));
+
     final tracks = [
       for (var index = 0; index < groups.length; index++)
         UnifiedFavoriteTrack(
@@ -226,6 +253,34 @@ final class UnifiedFavoritesService {
         track.artists.isEmpty ? 'unknown' : _normalize(track.artists.first);
     return '${index}_${_normalize(track.title)}_$artistSlug'
         .replaceAll(' ', '_');
+  }
+
+  /// Returns the best available liked-at DateTime from a list of variants.
+  /// Picks the latest (newest) DateTime; no liked-at → DateTime(1900) → end.
+  /// For merged groups (same song from multiple providers), netease_raw
+  /// timestamp takes precedence over qq_import.
+  static DateTime _bestLikedAt(List<SourceTrack> variants) {
+    // Priority 1: netease_raw (authoritative when same song exists on QQ too)
+    for (final track in variants) {
+      if (track.likedAtSource == 'netease_raw' && track.likedAt != null) {
+        return track.likedAt!;
+      }
+    }
+    // Priority 2: app_action (user liked via this client)
+    for (final track in variants) {
+      if (track.likedAtSource == 'app_action' && track.likedAt != null) {
+        return track.likedAt!;
+      }
+    }
+    // Fallback: latest DateTime across all variants
+    DateTime? best;
+    for (final track in variants) {
+      if (track.likedAt != null &&
+          (best == null || track.likedAt!.isAfter(best))) {
+        best = track.likedAt;
+      }
+    }
+    return best ?? DateTime(1900);
   }
 }
 

@@ -98,8 +98,10 @@ class _ProviderCard extends ConsumerWidget {
               Switch(
                 value: entry.isEnabled,
                 activeThumbColor: MeloColors.primary600,
-                onChanged: (value) =>
-                    repository.setProviderEnabled(descriptor.id, value),
+                onChanged: (value) {
+                  repository.setProviderEnabled(descriptor.id, value);
+                  ref.invalidate(allFavoritesProvider);
+                },
               ),
             ],
           ),
@@ -182,9 +184,12 @@ class _ProviderCard extends ConsumerWidget {
           if (descriptor.supports(ProviderCapability.authenticate)) ...[
             const SizedBox(height: 14),
             OutlinedButton.icon(
-              onPressed: () => repository.toggleProviderAuthentication(
-                descriptor.id,
-              ),
+              onPressed: () {
+                repository.toggleProviderAuthentication(
+                  descriptor.id,
+                );
+                ref.invalidate(allFavoritesProvider);
+              },
               icon: Icon(
                 entry.provider.isAuthenticated ? Icons.logout : Icons.login,
               ),

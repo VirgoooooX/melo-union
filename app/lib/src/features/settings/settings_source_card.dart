@@ -316,6 +316,7 @@ class _NeteaseQrLoginDialogState extends ConsumerState<_NeteaseQrLoginDialog> {
       final result = await ref
           .read(demoRepositoryProvider)
           .checkNeteaseQrLoginSession(session);
+      ref.invalidate(allFavoritesProvider);
       if (!mounted) return;
       setState(() => _status = result.status);
       if (result.status == NeteaseQrLoginStatus.authorized) {
@@ -458,6 +459,7 @@ class _QqQrLoginDialogState extends ConsumerState<_QqQrLoginDialog> {
           await ref.read(demoRepositoryProvider).checkQqMusicQrLoginSession(
                 session,
               );
+      ref.invalidate(allFavoritesProvider);
       if (!mounted) return;
       setState(() => _status = result.status);
       if (result.status == QqMusicQrLoginStatus.authorized) {
@@ -718,6 +720,7 @@ class _NeteaseCookieDialogState extends ConsumerState<_NeteaseCookieDialog> {
             cookie: cookie,
             userId: _userIdController.text,
           );
+      ref.invalidate(allFavoritesProvider);
       if (mounted) {
         Navigator.pop(context);
       }

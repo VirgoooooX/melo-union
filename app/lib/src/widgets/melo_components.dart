@@ -235,30 +235,31 @@ class _MeloPlaylistCardState extends State<MeloPlaylistCard> {
             ),
           ),
           child: ClipRect(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: MeloPlaylistCover(
-                    title: widget.title,
-                    cover: widget.cover,
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1,
+                    child: MeloPlaylistCover(
+                      title: widget.title,
+                      cover: widget.cover,
+                    ),
                   ),
-                ),
-                SizedBox(height: widget.compact ? 8 : 10),
-                Text(
-                  widget.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: MeloColors.textPrimary,
-                        fontWeight: FontWeight.w800,
-                        height: 1.18,
-                      ),
-                ),
-                const SizedBox(height: 3),
-                Expanded(
-                  child: Text(
+                  SizedBox(height: widget.compact ? 8 : 10),
+                  Text(
+                    widget.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: MeloColors.textPrimary,
+                          fontWeight: FontWeight.w800,
+                          height: 1.18,
+                        ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
                     widget.subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -267,8 +268,8 @@ class _MeloPlaylistCardState extends State<MeloPlaylistCard> {
                           fontWeight: FontWeight.w500,
                         ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

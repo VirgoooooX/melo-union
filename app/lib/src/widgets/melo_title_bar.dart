@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:window_manager/window_manager.dart';
 import '../design/melo_tokens.dart';
 
@@ -62,12 +63,12 @@ class _MeloTitleBarState extends State<MeloTitleBar> with WindowListener {
           const SizedBox(width: 22),
           Text(
             'MeloUnion',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: MeloColors.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
+            style: GoogleFonts.montserrat(
+              color: const Color(0xFF0F172A),
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
+            ),
           ),
           Expanded(
             child: GestureDetector(

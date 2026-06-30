@@ -24,7 +24,7 @@ class _PlaylistGrid extends StatelessWidget {
         crossAxisCount: count,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: .78,
+        childAspectRatio: .70,
       ),
       itemCount: playlists.length + 1,
       itemBuilder: (context, index) {
@@ -173,7 +173,7 @@ class _RemotePlaylistGrid extends StatelessWidget {
         crossAxisCount: count,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: .78,
+        childAspectRatio: .70,
       ),
       itemCount: playlists.length,
       itemBuilder: (context, index) {

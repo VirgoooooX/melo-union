@@ -30,14 +30,14 @@ class _DesktopSidebar extends StatelessWidget {
         children: [
           for (final item in _main) ...[
             _SidebarItem(destination: item, selected: item == current),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
           ],
           const SizedBox(height: 34),
           Container(height: 1, color: MeloColors.border),
           const SizedBox(height: 26),
           for (final item in _utility) ...[
             _SidebarItem(destination: item, selected: item == current),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
           ],
           const Spacer(),
         ],
@@ -83,8 +83,8 @@ class _SidebarItemState extends State<_SidebarItem> {
           child: AnimatedContainer(
             duration: Duration.zero,
             curve: Curves.easeOutCubic,
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: background,
               borderRadius: MeloRadii.sm,
@@ -97,15 +97,16 @@ class _SidebarItemState extends State<_SidebarItem> {
                 Icon(
                   AppShellScaffold.iconFor(widget.destination, selected),
                   color: foreground,
-                  size: 21,
+                  size: 23,
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 16),
                 Text(
                   AppShellScaffold.titleFor(widget.destination),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: foreground,
+                        fontSize: 16,
                         fontWeight:
-                            selected ? FontWeight.w700 : FontWeight.w600,
+                            selected ? FontWeight.w800 : FontWeight.w700,
                       ),
                 ),
               ],

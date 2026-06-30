@@ -22,7 +22,8 @@ class AppShellScaffold extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
+      body: DragToResizeArea(
+        resizeEdgeSize: 6,
         child: Container(
           decoration: const BoxDecoration(
             color: MeloColors.surface,
@@ -38,52 +39,68 @@ class AppShellScaffold extends ConsumerWidget {
               children: [
                 const MeloTitleBar(),
                 Expanded(
-                  child: Row(
+                  child: Stack(
                     children: [
-                      _DesktopSidebar(current: current, width: leftWidth),
-                      _ResizeGrip(
-                        isLeft: true,
-                        onDrag: (delta) {
-                          ref
-                              .read(sidebarWidthsProvider.notifier)
-                              .updateLeft(leftWidth + delta);
-                        },
-                      ),
-                      Expanded(
-                        child: DecoratedBox(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                MeloColors.canvasSoft,
-                                MeloColors.canvas,
-                              ],
+                      Row(
+                        children: [
+                          _DesktopSidebar(current: current, width: leftWidth),
+                          Expanded(
+                            child: DecoratedBox(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    MeloColors.canvasSoft,
+                                    MeloColors.canvas,
+                                  ],
+                                ),
+                              ),
+                              child: child,
                             ),
                           ),
-                          child: child,
-                        ),
+                          if (width >= 1180)
+                            Container(
+                              width: rightWidth,
+                              decoration: const BoxDecoration(
+                                color: MeloColors.surface,
+                                border: Border(
+                                  left: BorderSide(color: MeloColors.border),
+                                ),
+                              ),
+                              child: const RightSidebar(),
+                            ),
+                        ],
                       ),
-                      if (width >= 1180) ...[
-                        _ResizeGrip(
-                          isLeft: false,
+                      Positioned(
+                        left: leftWidth - 4,
+                        top: 0,
+                        bottom: 0,
+                        width: 8,
+                        child: _ResizeGrip(
+                          isLeft: true,
                           onDrag: (delta) {
                             ref
                                 .read(sidebarWidthsProvider.notifier)
-                                .updateRight(rightWidth - delta);
+                                .updateLeft(leftWidth + delta);
                           },
                         ),
-                        Container(
-                          width: rightWidth,
-                          decoration: const BoxDecoration(
-                            color: MeloColors.surface,
-                            border: Border(
-                              left: BorderSide(color: MeloColors.border),
-                            ),
+                      ),
+                      if (width >= 1180)
+                        Positioned(
+                          right: rightWidth - 4,
+                          top: 0,
+                          bottom: 0,
+                          width: 8,
+                          child: _ResizeGrip(
+                            isLeft: false,
+                            onDrag: (delta) {
+                              ref
+                                  .read(sidebarWidthsProvider.notifier)
+                                  .updateRight(rightWidth - delta);
+                            },
                           ),
-                          child: const RightSidebar(),
                         ),
-                      ],
                     ],
                   ),
                 ),
@@ -203,8 +220,8 @@ class _ResizeGripState extends State<_ResizeGrip> {
           child: Center(
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              width: _hovered ? 2 : 1,
-              color: _hovered ? MeloColors.primary500 : MeloColors.border,
+              width: 2,
+              color: _hovered ? MeloColors.primary500 : Colors.transparent,
             ),
           ),
         ),
