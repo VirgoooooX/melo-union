@@ -170,7 +170,7 @@ class _FavoritesLoadingState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const _FavoritesTableHeader(count: 0, sourceCount: 0),
+        const _FavoritesTableHeader(),
         const Divider(height: 1, color: MeloColors.border),
         Expanded(
           child: ListView.separated(

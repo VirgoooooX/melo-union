@@ -235,6 +235,7 @@ class _FavoritesToolbar extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
               decoration: InputDecoration(
+                filled: false,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
