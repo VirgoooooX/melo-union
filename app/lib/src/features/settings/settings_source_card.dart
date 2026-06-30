@@ -193,7 +193,9 @@ class _SourceManagementDialog extends ConsumerWidget {
               Navigator.pop(context);
               await showDialog<void>(
                 context: context,
-                builder: (context) => const _NeteaseCookieDialog(),
+                builder: (context) => entry.descriptor.id == qqMusicProviderId
+                    ? const _QqCookieDialog()
+                    : const _NeteaseCookieDialog(),
               );
             },
             icon: Icon(signedIn ? Icons.logout_rounded : Icons.login_rounded),
@@ -210,7 +212,9 @@ class _SourceManagementDialog extends ConsumerWidget {
                         Navigator.pop(context);
                         showDialog<void>(
                           context: context,
-                          builder: (context) => const _NeteaseCookieDialog(),
+                          builder: (context) => entry.descriptor.id == qqMusicProviderId
+                              ? const _QqCookieDialog()
+                              : const _NeteaseCookieDialog(),
                         );
                       },
                 child: const Text('导入 Cookie'),
@@ -719,6 +723,110 @@ class _NeteaseCookieDialogState extends ConsumerState<_NeteaseCookieDialog> {
       await ref.read(demoRepositoryProvider).saveNeteaseCredentials(
             cookie: cookie,
             userId: _userIdController.text,
+          );
+      ref.invalidate(allFavoritesProvider);
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = '保存失败：$error';
+        });
+      }
+    }
+  }
+}
+
+class _QqCookieDialog extends ConsumerStatefulWidget {
+  const _QqCookieDialog();
+
+  @override
+  ConsumerState<_QqCookieDialog> createState() =>
+      _QqCookieDialogState();
+}
+
+class _QqCookieDialogState extends ConsumerState<_QqCookieDialog> {
+  final _cookieController = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _cookieController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('导入 QQ 音乐 Cookie'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _cookieController,
+              minLines: 3,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: 'Cookie',
+                hintText: 'pgv_pvid=...; ...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '仅用于本机账号读取测试；不要提交或分享 Cookie。写收藏、播放和下载仍需后续官方端验证。',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: MeloColors.textSecondary,
+                    height: 1.45,
+                  ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: MeloColors.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: Text(_saving ? '保存中' : '保存会话'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    final cookie = _cookieController.text.trim();
+    if (cookie.isEmpty) {
+      setState(() => _error = 'Cookie 不能为空。');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(demoRepositoryProvider).saveQqMusicCredentials(
+            QqMusicCredentials(cookie: cookie),
           );
       ref.invalidate(allFavoritesProvider);
       if (mounted) {

@@ -55,6 +55,7 @@ class DemoRepository extends ChangeNotifier {
     this.qqMusicSessionStore,
     this.playbackBridge = const PlaybackPlatformBridge(),
     AudioQuality playbackQuality = AudioQuality.standard,
+    double volume = 1.0,
   })  : favoritesOverrideRegistry =
             favoritesOverrideRegistry ?? FavoritesOverrideRegistry(),
         _neteaseCredentials = neteaseCredentials,
@@ -71,6 +72,7 @@ class DemoRepository extends ChangeNotifier {
       seedTasks: seedDownloadTasks,
       seedLocalItems: seedLocalMediaItems,
     );
+    _audioPlayer.setVolume(volume);
     // Notify UI when audio player state changes (play/pause/complete)
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
@@ -217,6 +219,7 @@ class DemoRepository extends ChangeNotifier {
       qqMusicSessionStore: qqMusicSessionStore,
       playbackBridge: const PlaybackPlatformBridge(),
       playbackQuality: snapshot?.playbackQuality ?? AudioQuality.standard,
+      volume: snapshot?.volume ?? 1.0,
     );
     final allSeededTracks = [
       for (final provider in additionalProviders.whereType<FakeMusicProvider>())
@@ -257,7 +260,6 @@ class DemoRepository extends ChangeNotifier {
   PlaybackRepeatMode _repeatMode = PlaybackRepeatMode.off;
 
   /// Incremented on login/logout/toggle to trigger [allFavoritesProvider] refresh.
-
 
   PlaybackQueueState get queue => playbackCoordinator.queueState;
 
@@ -333,11 +335,12 @@ class DemoRepository extends ChangeNotifier {
   PlaylistReferenceResolver get playlistResolver =>
       PlaylistReferenceResolver(registry);
 
-  Future<List<UnifiedFavoriteTrack>> loadAllFavorites() =>
-      favoritesService.buildAllFavoritesWithResult(
+  Future<List<UnifiedFavoriteTrack>> loadAllFavorites() => favoritesService
+      .buildAllFavoritesWithResult(
         registry,
         overrides: favoritesOverrideRegistry,
-      ).then((r) => r.tracks);
+      )
+      .then((r) => r.tracks);
 
   Future<List<SourceTrack>> loadRecommendations(ProviderId providerId) async {
     final entry = registry.entryOf(providerId);
@@ -385,6 +388,7 @@ class DemoRepository extends ChangeNotifier {
       downloadTasks: downloadCoordinator.allTasks,
       localMediaItems: downloadCoordinator.localItems,
       playbackQuality: playbackQuality,
+      volume: volume,
       favoritesOverrides: favoritesOverrideRegistry,
     );
   }
@@ -471,6 +475,10 @@ class DemoRepository extends ChangeNotifier {
       );
     }
     await entry.provider.setFavorite(track: track.ref, liked: liked);
+
+    // Optimistically update the queue track so the UI (e.g. player bar heart)
+    // reflects the new state immediately.
+    playbackCoordinator.updateFavoriteState(track.ref, liked);
 
     if (liked) {
       // Record app-action liked-at timestamp (precise).
@@ -798,6 +806,7 @@ class DemoRepository extends ChangeNotifier {
   Future<void> setVolume(double value) async {
     await _audioPlayer.setVolume(value.clamp(0.0, 1.0));
     notifyListeners();
+    _persistSoon();
   }
 
   Future<void> setPlaybackQuality(AudioQuality quality) async {
@@ -850,6 +859,7 @@ class DemoRepository extends ChangeNotifier {
       try {
         final url = currentTicket.mediaUri.toString();
         debugPrint('AUDIO: playing "${current.title}"');
+        await _audioPlayer.stop();
         await _audioPlayer.setUrl(
           url,
           headers: currentTicket.headers.isEmpty ? null : currentTicket.headers,

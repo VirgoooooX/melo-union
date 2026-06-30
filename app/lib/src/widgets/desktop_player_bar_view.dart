@@ -148,7 +148,7 @@ class _CurrentTrackSummary extends StatelessWidget {
   }
 }
 
-class _FavoriteButton extends StatelessWidget {
+class _FavoriteButton extends ConsumerStatefulWidget {
   const _FavoriteButton({
     required this.track,
     required this.repository,
@@ -158,30 +158,71 @@ class _FavoriteButton extends StatelessWidget {
   final DemoRepository repository;
 
   @override
+  ConsumerState<_FavoriteButton> createState() => _FavoriteButtonState();
+}
+
+class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
+  bool _liked = false;
+  ProviderTrackRef? _lastRef;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncFromWidget();
+  }
+
+  void _syncFromWidget() {
+    _liked = widget.track?.isFavorited ?? false;
+    _lastRef = widget.track?.ref;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final current = track;
-    final liked = current?.isFavorited ?? false;
+    // Re-sync local state when a different track starts playing.
+    final currentRef = widget.track?.ref;
+    if (currentRef != _lastRef) {
+      _liked = widget.track?.isFavorited ?? false;
+      _lastRef = currentRef;
+    }
+
+    final liked = _liked;
     return IconButton(
       tooltip: liked ? '取消喜欢' : '喜欢',
       visualDensity: VisualDensity.compact,
-      onPressed: current == null
+      onPressed: widget.track == null
           ? null
           : () async {
+              final current = widget.track!;
               final availability =
-                  repository.favoriteWriteAvailability(current.ref.providerId);
+                  widget.repository.favoriteWriteAvailability(current.ref.providerId);
               if (!availability.isEnabled) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(availability.reason ?? '此来源无法写回收藏。')),
                 );
                 return;
               }
+              final newLiked = !liked;
+              // Optimistic UI update — flip immediately.
+              setState(() => _liked = newLiked);
               try {
-                await repository.toggleFavorite(
+                await widget.repository.toggleFavorite(
                   track: current,
-                  liked: !liked,
+                  liked: newLiked,
                 );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(newLiked ? '已收藏' : '已取消收藏'),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                }
+                // Refresh "All Favorites" list on next read.
+                ref.invalidate(allFavoritesProvider);
               } on ProviderException catch (error) {
                 if (context.mounted) {
+                  // Revert optimistic update on failure.
+                  setState(() => _liked = newLiked);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(error.message)),
                   );

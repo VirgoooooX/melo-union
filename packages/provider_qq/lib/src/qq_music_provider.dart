@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 import 'package:provider_contract/provider_contract.dart';
 
@@ -382,13 +381,38 @@ final class QqMusicProvider implements MusicProvider {
     final songlist = data['songlist'] as List<Object?>? ?? const [];
 
     final tracks = <SourceTrack>[];
+    // ignore: avoid_print
+    if (songlist.isNotEmpty) {
+      final firstMap = songlist.first;
+      if (firstMap is Map) {
+        // ignore: avoid_print
+        print('First songlist item keys: ${firstMap.keys}');
+        // ignore: avoid_print
+        print('First songlist item details: $firstMap');
+      }
+    }
+    // ignore: avoid_print
+    print('--- QQ Music Favorites raw API parsing ---');
     for (final item in songlist) {
       if (item is! Map<Object?, Object?>) continue;
       final songData = _jsonMap(item['data']);
       final songmid = songData['songmid']?.toString() ?? '';
       if (songmid.isEmpty) continue;
-      tracks.add(_trackFromProfileSong(songData));
+      final timeVal = item['time'];
+      DateTime? likedAt;
+      if (timeVal is num && timeVal > 0) {
+        likedAt = DateTime.fromMillisecondsSinceEpoch(timeVal.toInt() * 1000,
+            isUtc: true);
+      }
+      final track = _trackFromProfileSong(songData, likedAt: likedAt);
+      // ignore: avoid_print
+      print('Parsed track: "${track.title}" - raw timeVal: $timeVal - likedAt: $likedAt');
+      tracks.add(track);
     }
+    // ignore: avoid_print
+    print('Total parsed favorites: ${tracks.length}');
+    // ignore: avoid_print
+    print('-----------------------------------------');
 
     // likedAt assigned by the service layer during registry sync.
     return FavoriteSnapshot(providerId: descriptor.id, tracks: tracks);
@@ -427,7 +451,46 @@ final class QqMusicProvider implements MusicProvider {
     required bool liked,
   }) async {
     _requireCapability(ProviderCapability.writeFavorites);
-    // Succeed silently for demo purposes
+    final uin = _extractUin();
+    if (uin == null || uin.isEmpty) {
+      throw AuthenticationRequiredException(
+        providerId: descriptor.id,
+        message: 'QQ Music uin is required to write favorites.',
+      );
+    }
+    final songMid = track.extraIds['song_mid'] ?? track.trackId;
+    if (songMid.isEmpty) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ Music song mid is required to write favorites.',
+      );
+    }
+
+    final result = await _musicuRequest({
+      'comm': {
+        'uin': int.tryParse(uin) ?? 0,
+        'format': 'json',
+        'ct': 19,
+        'cv': 0,
+      },
+      'fav': {
+        'module': 'music.songFav.SongFavServer',
+        'method': 'SetSongFav',
+        'param': {
+          'songmid': songMid,
+          'fav': liked ? 1 : 0,
+          'time': 3,
+        },
+      },
+    });
+
+    final favCode = _jsonMap(result['fav'])['code'];
+    if (favCode is num && favCode != 0) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ Music favorite request failed with code $favCode.',
+      );
+    }
   }
 
   @override
@@ -639,11 +702,16 @@ final class QqMusicProvider implements MusicProvider {
       final payload = await _fcgRequest(uri);
       final data = _jsonMap(payload['data']);
       final songlist = data['songlist'] as List<Object?>? ?? const [];
-      return songlist
-          .whereType<Map<Object?, Object?>>()
-          .map((item) => _trackFromProfileSong(_jsonMap(item['data'])))
-          .where((t) => t.ref.trackId.isNotEmpty)
-          .toList(growable: false);
+      return songlist.whereType<Map<Object?, Object?>>().map((item) {
+        final songData = _jsonMap(item['data']);
+        final timeVal = item['time'];
+        DateTime? likedAt;
+        if (timeVal is num && timeVal > 0) {
+          likedAt = DateTime.fromMillisecondsSinceEpoch(timeVal.toInt() * 1000,
+              isUtc: true);
+        }
+        return _trackFromProfileSong(songData, likedAt: likedAt);
+      }).where((t) => t.ref.trackId.isNotEmpty).toList(growable: false);
     }
 
     // Dir-type playlists → fcg_musiclist_getinfo.fcg
@@ -718,9 +786,11 @@ final class QqMusicProvider implements MusicProvider {
   }) async {
     _requireCapability(ProviderCapability.resolvePlayback);
     final resolved = await _resolveMedia(track, quality);
+    // ignore: avoid_print
+    print('QQ Music resolved playback URI: ${resolved.uri}');
     return PlaybackTicket(
       mediaUri: resolved.uri,
-      headers: const {},
+      headers: _headers(),
       expiresAt: _now().add(const Duration(hours: 2)),
       trackRef: track,
       quality: quality,
@@ -869,6 +939,8 @@ final class QqMusicProvider implements MusicProvider {
       data['midurlinfo'] as List<Object?>? ?? const [],
     );
     final purl = info['purl']?.toString() ?? '';
+    // ignore: avoid_print
+    print('QQ Music resolved purl for filename $filename: $purl');
     final sip = data['sip'] as List<Object?>? ?? const [];
     final host = sip.map((item) => item?.toString() ?? '').firstWhere(
           (item) => item.isNotEmpty,
@@ -1450,7 +1522,10 @@ final class QqMusicProvider implements MusicProvider {
 
   /// Converts a QQ profile-order song map to [SourceTrack].
   /// likedAt and source are assigned later by the service layer.
-  SourceTrack _trackFromProfileSong(Map<String, Object?> songData) {
+  SourceTrack _trackFromProfileSong(
+    Map<String, Object?> songData, {
+    DateTime? likedAt,
+  }) {
     final songmid = songData['songmid']?.toString() ?? '';
     final mediaMid = _mediaMidFromSong(songData, songmid);
     final albumMid = songData['albummid']?.toString() ?? '';
@@ -1468,8 +1543,9 @@ final class QqMusicProvider implements MusicProvider {
       isFavorited: true,
       mediaMid: mediaMid,
       albumMid: albumMid,
+      likedAt: likedAt,
       likedAtSource: 'qq_import',
-      likedAtPrecision: 'unknown',
+      likedAtPrecision: likedAt != null ? 'exact' : 'unknown',
     );
   }
 

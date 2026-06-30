@@ -100,7 +100,7 @@ void main() {
     );
     expect(playback.mediaUri.toString(),
         'https://stream.qq.test/C400media_mid_1.m4a?vkey=abc');
-    expect(playback.headers, isEmpty);
+    expect(playback.headers['Referer'], 'https://y.qq.com/');
 
     final download = await provider.createDownloadTicket(
       track: ref,
@@ -653,6 +653,70 @@ void main() {
     final tracks = await provider.getDailyRecommendations();
     expect(tracks, isNotEmpty);
     expect(tracks[0].title, '热门歌曲');
+  });
+
+  test('authenticated setFavorite calls SetSongFav via musicu.fcg', () async {
+    final trackRef = ProviderTrackRef(
+      providerId: qqMusicProviderId,
+      trackId: 'mid_002',
+      extraIds: const {'song_mid': 'mid_002'},
+    );
+    final provider = QqMusicProvider(
+      client: _FakeClient((request) {
+        expect(request.url.path, contains('musicu.fcg'));
+        final body =
+            request is http.Request ? utf8.decode(request.bodyBytes) : '';
+        final decoded = jsonDecode(body) as Map<String, Object?>;
+        final fav = decoded['fav'];
+        expect(fav, isNotNull);
+        final params =
+            (fav as Map<String, Object?>)['param'] as Map<String, Object?>?;
+        expect(params?['songmid'], 'mid_002');
+        expect(params?['fav'], 1);
+        return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'code': 0,
+            'fav': {'code': 0},
+          })),
+          200,
+        );
+      }),
+      credentials: QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+    );
+
+    await expectLater(
+      provider.setFavorite(track: trackRef, liked: true),
+      completes,
+    );
+  });
+
+  test('unauthenticated setFavorite throws AuthenticationRequiredException',
+      () async {
+    final provider = QqMusicProvider();
+    final trackRef = ProviderTrackRef(
+      providerId: qqMusicProviderId,
+      trackId: 'mid_002',
+    );
+
+    await expectLater(
+      () => provider.setFavorite(track: trackRef, liked: true),
+      throwsA(isA<AuthenticationRequiredException>()),
+    );
+  });
+
+  test('setFavorite without song mid throws ProviderException', () async {
+    final provider = QqMusicProvider(
+      credentials: QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+    );
+    final trackRef = ProviderTrackRef(
+      providerId: qqMusicProviderId,
+      trackId: '',
+    );
+
+    await expectLater(
+      () => provider.setFavorite(track: trackRef, liked: true),
+      throwsA(isA<ProviderException>()),
+    );
   });
 }
 

@@ -22,6 +22,7 @@ final class MeloJsonCodec {
           _encodeLocalMediaItem(item),
       ],
       'playbackQuality': snapshot.playbackQuality.name,
+      'volume': snapshot.volume,
       'favoritesOverrides': _encodeFavoritesOverrides(
         snapshot.favoritesOverrides,
       ),
@@ -76,6 +77,7 @@ final class MeloJsonCodec {
       playbackQuality: AudioQuality.values.byName(
         json['playbackQuality'] as String? ?? AudioQuality.standard.name,
       ),
+      volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
       favoritesOverrides: overrides,
     );
   }

@@ -170,12 +170,21 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
     DemoRepository repository,
     SourceTrack source,
   ) async {
+    final newLiked = !source.isFavorited;
     try {
       await repository.toggleFavorite(
         track: source,
-        liked: !source.isFavorited,
+        liked: newLiked,
       );
       ref.invalidate(allFavoritesProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(newLiked ? '已收藏' : '已取消收藏'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
     } on ProviderException catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

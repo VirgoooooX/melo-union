@@ -39,6 +39,24 @@ class PlaybackCoordinator {
     _nextTicket = null;
   }
 
+  /// Updates the [isFavorited] field of the track identified by [trackRef] in
+  /// the current queue. No-op if the track is not in the queue.
+  void updateFavoriteState(ProviderTrackRef trackRef, bool liked) {
+    final index =
+        _queueState.entries.indexWhere((entry) => entry.track.ref == trackRef);
+    if (index == -1) return;
+    final entries = [..._queueState.entries];
+    final oldEntry = entries[index];
+    entries[index] = PlaybackQueueEntry(
+      track: oldEntry.track.copyWith(isFavorited: liked),
+      queuedAt: oldEntry.queuedAt,
+    );
+    _queueState = PlaybackQueueState(
+      entries: List.unmodifiable(entries),
+      currentIndex: _queueState.currentIndex,
+    );
+  }
+
   Future<void> next() async {
     _queueState = _queueState.moveNext();
     _currentTicket = null;
@@ -74,11 +92,17 @@ class PlaybackCoordinator {
     if (currentEntry == null) return;
 
     final ticket = _currentTicket;
-    if (force || ticket == null || ticket.isNearExpiry()) {
+    if (force ||
+        ticket == null ||
+        ticket.trackRef != currentEntry.track.ref ||
+        ticket.quality != _quality ||
+        ticket.isNearExpiry()) {
       try {
         _currentTicket = await _resolveTicketForTrack(currentEntry.track);
         _currentError = null;
       } catch (e) {
+        // ignore: avoid_print
+        print('PlaybackCoordinator: failed to refresh ticket for ${currentEntry.track.title}: $e');
         _currentTicket = null;
         _currentError = e;
       }
@@ -123,6 +147,8 @@ class PlaybackCoordinator {
         _currentTicket = await _resolveTicketForTrack(currentEntry.track);
         _currentError = null;
       } catch (e) {
+        // ignore: avoid_print
+        print('PlaybackCoordinator: failed to resolve ticket for ${currentEntry.track.title}: $e');
         _currentTicket = null;
         _currentError = e;
       }

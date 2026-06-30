@@ -78,20 +78,37 @@ final class UnifiedFavoritesService {
     final groups = <_FavoriteGroup>[];
 
     // Sync QQ / external-source liked-at to the registry:
-    //   First detection → spread based on position within the new batch.
-    //   Already seen → do nothing (registry keeps the original frozen value).
+    //   Real exact likedAt from track -> update registry with exact precision.
+    //   No likedAt -> fallback to sync detection estimation.
     if (overrides != null) {
       for (final snapshot in snapshots) {
-        // Collect newly seen tracks (preserving QQ's songlist order)
-        final newTracks = <SourceTrack>[];
+        final tracksToEstimate = <SourceTrack>[];
         for (final track in snapshot.tracks) {
           if (track.likedAtSource == 'qq_import') {
-            if (overrides.likedAtFor(track.ref) == null) {
-              newTracks.add(track);
+            final existing = overrides.likedAtTracking[track.ref];
+            if (track.likedAt != null) {
+              // If we have a real precise likedAt from QQ Music, we can update or set it.
+              // Overwrite if not in registry, or if it is in registry but was estimated (precision != exact).
+              if (existing == null ||
+                  existing.precision != LikedAtMetadata.precisionExact) {
+                overrides.recordLikedAt(
+                  track.ref,
+                  LikedAtMetadata(
+                    likedAt: track.likedAt!,
+                    source: LikedAtMetadata.sourceQqImport,
+                    precision: LikedAtMetadata.precisionExact,
+                  ),
+                );
+              }
+            } else {
+              // Fallback: estimate if not in registry.
+              if (existing == null) {
+                tracksToEstimate.add(track);
+              }
             }
           }
         }
-        if (newTracks.isEmpty) continue;
+        if (tracksToEstimate.isEmpty) continue;
 
         // Determine span: from last sync to now.
         // The last sync time ≈ the newest registry entry's likedAt for QQ.
@@ -110,9 +127,9 @@ final class UnifiedFavoritesService {
         final span = now.difference(refTime);
         if (span.inSeconds <= 0) {
           // All get now if no elapsed time.
-          for (var i = 0; i < newTracks.length; i++) {
+          for (var i = 0; i < tracksToEstimate.length; i++) {
             overrides.recordLikedAt(
-              newTracks[i].ref,
+              tracksToEstimate[i].ref,
               LikedAtMetadata(
                 likedAt: now,
                 source: LikedAtMetadata.sourceQqImport,
@@ -122,11 +139,11 @@ final class UnifiedFavoritesService {
           }
         } else {
           final interval = Duration(
-            seconds: (span.inSeconds ~/ newTracks.length).clamp(1, 86400 * 180),
+            seconds: (span.inSeconds ~/ tracksToEstimate.length).clamp(1, 86400 * 180),
           );
-          for (var i = 0; i < newTracks.length; i++) {
+          for (var i = 0; i < tracksToEstimate.length; i++) {
             overrides.recordLikedAt(
-              newTracks[i].ref,
+              tracksToEstimate[i].ref,
               LikedAtMetadata(
                 likedAt: now.subtract(interval * i),
                 source: LikedAtMetadata.sourceQqImport,

@@ -83,6 +83,9 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
               setState(() => _query = '');
             },
             onSortSelected: (value) => setState(() => _sort = value),
+            onRefresh: () {
+              ref.invalidate(allFavoritesProvider);
+            },
             onPlayAll: () async {
               final favorites = ref.read(allFavoritesProvider);
               final tracks = favorites.maybeWhen(
@@ -159,6 +162,7 @@ class _FavoritesToolbar extends StatelessWidget {
     required this.onQueryChanged,
     required this.onClearQuery,
     required this.onSortSelected,
+    required this.onRefresh,
     required this.onPlayAll,
   });
 
@@ -169,6 +173,7 @@ class _FavoritesToolbar extends StatelessWidget {
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
   final ValueChanged<_FavoriteSort> onSortSelected;
+  final VoidCallback onRefresh;
   final VoidCallback onPlayAll;
 
   @override
@@ -244,6 +249,20 @@ class _FavoritesToolbar extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         _SortButton(sort: sort, onSelected: onSortSelected),
+        const SizedBox(width: 10),
+        IconButton(
+          tooltip: '刷新同步歌单',
+          icon: const Icon(Icons.sync_rounded, color: MeloColors.textSecondary),
+          onPressed: onRefresh,
+          style: IconButton.styleFrom(
+            fixedSize: const Size(40, 40),
+            backgroundColor: MeloColors.surface,
+            shape: const RoundedRectangleBorder(
+              borderRadius: MeloRadii.sm,
+              side: BorderSide(color: MeloColors.border),
+            ),
+          ),
+        ),
         const SizedBox(width: 10),
         FilledButton.icon(
           onPressed: onPlayAll,
