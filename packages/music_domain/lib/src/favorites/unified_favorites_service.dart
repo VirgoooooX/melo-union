@@ -103,8 +103,6 @@ final class UnifiedFavoritesService {
       }
     }
 
-
-
     final tracks = [
       for (var index = 0; index < groups.length; index++)
         UnifiedFavoriteTrack(

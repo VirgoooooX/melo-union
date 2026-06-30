@@ -45,7 +45,8 @@ class AppShellScaffold extends ConsumerWidget {
                       width: MeloDimensions.desktopNowPlayingWidth,
                       decoration: const BoxDecoration(
                         color: MeloColors.surface,
-                        border: Border(left: BorderSide(color: MeloColors.border)),
+                        border:
+                            Border(left: BorderSide(color: MeloColors.border)),
                       ),
                       child: const RightSidebar(),
                     ),

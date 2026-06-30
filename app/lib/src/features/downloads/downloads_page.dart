@@ -194,9 +194,11 @@ class _DownloadPanelFrame extends StatelessWidget {
     return Material(
       color: MeloColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: MeloRadii.md,
+        borderRadius: MeloRadii.lg,
         side: BorderSide(color: MeloColors.border),
       ),
+      shadowColor: MeloShadows.card.first.color,
+      elevation: 1,
       clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(16),

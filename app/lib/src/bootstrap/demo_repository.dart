@@ -127,7 +127,8 @@ class DemoRepository extends ChangeNotifier {
         id: 'playlist_commute',
         name: 'Morning Commute',
         items: [
-          for (final provider in additionalProviders.whereType<FakeMusicProvider>())
+          for (final provider
+              in additionalProviders.whereType<FakeMusicProvider>())
             if (provider.allTracks().isNotEmpty)
               LocalPlaylistItem(
                 trackRef: provider.allTracks().first.ref,
@@ -160,7 +161,8 @@ class DemoRepository extends ChangeNotifier {
       registry: registry,
       playlists: playlists,
       providers: {
-        for (final provider in additionalProviders.whereType<FakeMusicProvider>())
+        for (final provider
+            in additionalProviders.whereType<FakeMusicProvider>())
           provider.descriptor.id: provider,
         catalogId: catalog,
       },
@@ -209,6 +211,16 @@ class DemoRepository extends ChangeNotifier {
 
   AudioPlayer get audioPlayer => _audioPlayer;
 
+  Stream<PlayerState> get playerStateStream => _audioPlayer.playerStateStream;
+
+  Stream<Duration> get positionStream => _audioPlayer.positionStream;
+
+  Stream<Duration?> get durationStream => _audioPlayer.durationStream;
+
+  double get volume => _audioPlayer.volume;
+
+  AudioQuality get playbackQuality => playbackCoordinator.quality;
+
   List<ProviderRegistryEntry> get providerEntries => registry.allEntries();
 
   bool get hasNeteaseSession => _neteaseCredentials?.hasCookie ?? false;
@@ -240,6 +252,46 @@ class DemoRepository extends ChangeNotifier {
 
   Future<List<UnifiedFavoriteTrack>> loadAllFavorites() =>
       favoritesService.buildAllFavorites(registry);
+
+  Future<List<SourceTrack>> loadRecommendations(ProviderId providerId) async {
+    final entry = registry.entryOf(providerId);
+    if (entry == null || !entry.isEnabled) {
+      return const [];
+    }
+    return entry.provider.getDailyRecommendations();
+  }
+
+  Future<List<ProviderPlaylist>> loadRecommendedPlaylists(
+    ProviderId providerId, {
+    int limit = 12,
+  }) async {
+    final entry = registry.entryOf(providerId);
+    if (entry == null || !entry.isEnabled) {
+      return const [];
+    }
+    return entry.provider.getRecommendedPlaylists(limit: limit);
+  }
+
+  Future<List<ProviderPlaylist>> loadProviderPlaylists(
+    ProviderId providerId,
+  ) async {
+    final entry = registry.entryOf(providerId);
+    if (entry == null || !entry.isEnabled) {
+      return const [];
+    }
+    return entry.provider.getUserPlaylists();
+  }
+
+  Future<List<SourceTrack>> loadProviderPlaylistTracks({
+    required ProviderId providerId,
+    required String playlistId,
+  }) async {
+    final entry = registry.entryOf(providerId);
+    if (entry == null || !entry.isEnabled) {
+      return const [];
+    }
+    return entry.provider.getPlaylistTracks(playlistId);
+  }
 
   MeloDataSnapshot toSnapshot() {
     return MeloDataSnapshot(
@@ -487,6 +539,20 @@ class DemoRepository extends ChangeNotifier {
     }
   }
 
+  Future<void> seek(Duration position) => _audioPlayer.seek(position);
+
+  Future<void> setVolume(double value) async {
+    await _audioPlayer.setVolume(value.clamp(0.0, 1.0));
+    notifyListeners();
+  }
+
+  Future<void> setPlaybackQuality(AudioQuality quality) async {
+    playbackCoordinator.quality = quality;
+    _playingTrackId = null;
+    await _syncNativePlayback(playWhenReady: _audioPlayer.playing);
+    notifyListeners();
+  }
+
   Future<void> refreshPlaybackTicket() async {
     await playbackCoordinator.refreshCurrentTicketIfNeeded(force: true);
     _playingTrackId = null;
@@ -513,7 +579,10 @@ class DemoRepository extends ChangeNotifier {
       try {
         final url = currentTicket.mediaUri.toString();
         debugPrint('AUDIO: playing "${current.title}"');
-        await _audioPlayer.setUrl(url);
+        await _audioPlayer.setUrl(
+          url,
+          headers: currentTicket.headers.isEmpty ? null : currentTicket.headers,
+        );
         _audioPlayer.play();
       } catch (e) {
         debugPrint('Audio Error: $e');
@@ -526,21 +595,6 @@ class DemoRepository extends ChangeNotifier {
   void dispose() {
     _audioPlayer.dispose();
     super.dispose();
-  }
-
-  PlatformPlaybackItem _nativeItemFor({
-    required SourceTrack track,
-    required PlaybackTicket ticket,
-  }) {
-    return PlatformPlaybackItem(
-      mediaUri: ticket.mediaUri,
-      title: track.title,
-      artists: track.artists,
-      providerId: track.ref.providerId.value,
-      trackId: track.ref.trackId,
-      headers: ticket.headers,
-      expiresAt: ticket.expiresAt,
-    );
   }
 
   void _persistSoon() {

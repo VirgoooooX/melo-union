@@ -1,4 +1,5 @@
 import 'package:music_domain/music_domain.dart';
+import 'package:provider_contract/provider_contract.dart';
 
 import 'demo_repository.dart';
 

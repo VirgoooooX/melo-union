@@ -7,6 +7,7 @@ class DesktopPlayerBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(demoRepositoryProvider);
     final current = repository.queue.current?.track;
+    final queue = repository.queue;
     return Container(
       height: MeloDimensions.desktopPlayerBarHeight,
       padding: const EdgeInsets.symmetric(horizontal: MeloSpacing.xl),
@@ -54,12 +55,32 @@ class DesktopPlayerBar extends ConsumerWidget {
           IconButton(
               onPressed: current == null ? null : repository.queuePrevious,
               icon: const Icon(Icons.skip_previous_rounded)),
-          FilledButton(
-            onPressed:
-                current == null ? null : repository.refreshPlaybackTicket,
-            style: FilledButton.styleFrom(
-                shape: const CircleBorder(), padding: const EdgeInsets.all(10)),
-            child: const Icon(Icons.play_arrow_rounded),
+          StreamBuilder<PlayerState>(
+            stream: repository.playerStateStream,
+            initialData: repository.audioPlayer.playerState,
+            builder: (context, snapshot) {
+              final state = snapshot.data;
+              final playing = state?.playing ?? repository.isPlaying;
+              final completed =
+                  state?.processingState == ProcessingState.completed;
+              return FilledButton(
+                onPressed: current == null
+                    ? null
+                    : completed
+                        ? () => repository.seek(Duration.zero).then(
+                              (_) => repository.togglePlayPause(),
+                            )
+                        : repository.togglePlayPause,
+                style: FilledButton.styleFrom(
+                    shape: const CircleBorder(),
+                    padding: const EdgeInsets.all(10)),
+                child: Icon(
+                  playing && !completed
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                ),
+              );
+            },
           ),
           IconButton(
               onPressed: current == null ? null : repository.queueNext,
@@ -67,30 +88,158 @@ class DesktopPlayerBar extends ConsumerWidget {
           const SizedBox(width: MeloSpacing.md),
           Expanded(
             flex: 3,
-            child: Row(
-              children: [
-                Text('0:42', style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(width: 8),
-                const Expanded(
-                    child: LinearProgressIndicator(
-                        value: .28,
-                        minHeight: 3,
-                        backgroundColor: MeloColors.primary100)),
-                const SizedBox(width: 8),
-                Text('3:10', style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
+            child: _PlaybackProgress(repository: repository),
           ),
           const Spacer(),
-          Badge(
-              label: Text('${repository.queue.entries.length}'),
-              isLabelVisible: repository.queue.entries.isNotEmpty,
-              child: const Icon(Icons.queue_music_outlined)),
+          PopupMenuButton<AudioQuality>(
+            tooltip: '音质',
+            initialValue: repository.playbackQuality,
+            onSelected: repository.setPlaybackQuality,
+            itemBuilder: (context) => [
+              for (final quality in AudioQuality.values)
+                PopupMenuItem(
+                  value: quality,
+                  child: Row(
+                    children: [
+                      Icon(
+                        quality == repository.playbackQuality
+                            ? Icons.check_rounded
+                            : Icons.graphic_eq_rounded,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(_qualityLabel(quality)),
+                    ],
+                  ),
+                ),
+            ],
+            child: Chip(
+              label: Text(_qualityLabel(repository.playbackQuality)),
+              avatar: const Icon(Icons.high_quality_rounded, size: 17),
+              side: const BorderSide(color: MeloColors.border),
+              backgroundColor: MeloColors.surfaceMuted,
+            ),
+          ),
+          const SizedBox(width: MeloSpacing.sm),
+          IconButton(
+            tooltip: '播放队列',
+            onPressed:
+                queue.entries.isEmpty ? null : () => _showQueue(context, ref),
+            icon: Badge(
+              label: Text('${queue.entries.length}'),
+              isLabelVisible: queue.entries.isNotEmpty,
+              child: const Icon(Icons.queue_music_outlined),
+            ),
+          ),
           const SizedBox(width: MeloSpacing.lg),
           const Icon(Icons.volume_up_outlined, color: MeloColors.textSecondary),
-          SizedBox(width: 72, child: Slider(value: .7, onChanged: (_) {})),
+          SizedBox(
+            width: 88,
+            child: Slider(
+              value: repository.volume,
+              onChanged: repository.setVolume,
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  void _showQueue(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        final repository = ref.read(demoRepositoryProvider);
+        final queue = repository.queue;
+        return SafeArea(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+            itemCount: queue.entries.length,
+            separatorBuilder: (_, __) =>
+                const Divider(height: 1, color: MeloColors.border),
+            itemBuilder: (context, index) {
+              final entry = queue.entries[index];
+              final selected = index == queue.currentIndex;
+              return ListTile(
+                selected: selected,
+                leading: Icon(
+                  selected
+                      ? Icons.equalizer_rounded
+                      : Icons.music_note_outlined,
+                ),
+                title: Text(entry.track.title),
+                subtitle: Text(entry.track.artists.join(' / ')),
+                trailing: Text(_formatDuration(entry.track.duration)),
+                onTap: () {
+                  Navigator.pop(context);
+                  ref
+                      .read(demoRepositoryProvider)
+                      .selectTrackInQueue(entry.track.ref);
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PlaybackProgress extends StatelessWidget {
+  const _PlaybackProgress({required this.repository});
+
+  final DemoRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Duration?>(
+      stream: repository.durationStream,
+      initialData: repository.audioPlayer.duration,
+      builder: (context, durationSnapshot) {
+        final duration =
+            durationSnapshot.data ?? repository.queue.current?.track.duration;
+        return StreamBuilder<Duration>(
+          stream: repository.positionStream,
+          initialData: repository.audioPlayer.position,
+          builder: (context, positionSnapshot) {
+            final position = positionSnapshot.data ?? Duration.zero;
+            final totalMs = duration?.inMilliseconds ?? 0;
+            final positionMs = position.inMilliseconds.clamp(0, totalMs);
+            return Row(
+              children: [
+                SizedBox(
+                  width: 42,
+                  child: Text(
+                    _formatDuration(Duration(milliseconds: positionMs)),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                Expanded(
+                  child: Slider(
+                    value: totalMs == 0 ? 0 : positionMs.toDouble(),
+                    min: 0,
+                    max: totalMs == 0 ? 1 : totalMs.toDouble(),
+                    onChanged: totalMs == 0
+                        ? null
+                        : (value) => repository.seek(
+                              Duration(milliseconds: value.round()),
+                            ),
+                  ),
+                ),
+                SizedBox(
+                  width: 42,
+                  child: Text(
+                    _formatDuration(duration ?? Duration.zero),
+                    textAlign: TextAlign.right,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -111,7 +260,8 @@ class _PlayerArtwork extends StatelessWidget {
           height: 46,
           fit: BoxFit.cover,
           headers: const {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Referer': 'https://music.163.com',
           },
           errorBuilder: (_, __, ___) => _buildPlaceholder(),
@@ -136,4 +286,17 @@ class _PlayerArtwork extends StatelessWidget {
       child: const Icon(Icons.graphic_eq_rounded, color: Colors.white),
     );
   }
+}
+
+String _qualityLabel(AudioQuality quality) => switch (quality) {
+      AudioQuality.low => '标准',
+      AudioQuality.standard => '较高',
+      AudioQuality.high => '极高',
+      AudioQuality.lossless => '无损',
+    };
+
+String _formatDuration(Duration duration) {
+  final minutes = duration.inMinutes;
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
 }

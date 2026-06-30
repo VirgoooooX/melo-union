@@ -75,7 +75,9 @@ class _ProviderTabButtonState extends State<_ProviderTabButton> {
       selected: selected,
       label: item.label,
       child: MouseRegion(
-        cursor: item.enabled ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+        cursor: item.enabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.forbidden,
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: GestureDetector(
@@ -100,7 +102,8 @@ class _ProviderTabButtonState extends State<_ProviderTabButton> {
                   item.label,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: color,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w600,
                       ),
                 ),
                 if (item.trailing != null) ...[

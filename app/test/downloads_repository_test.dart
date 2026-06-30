@@ -21,6 +21,8 @@ final class _RecordingSnapshotStore implements MeloSnapshotStore {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('DemoRepository removes and redownloads local media entries', () async {
     final ref = ProviderTrackRef(
       providerId: ProviderId('aurora_stream'),

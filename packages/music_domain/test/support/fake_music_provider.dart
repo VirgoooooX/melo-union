@@ -90,6 +90,59 @@ final class FakeMusicProvider implements MusicProvider {
   }
 
   @override
+  Future<List<ProviderPlaylist>> getRecommendedPlaylists({
+    int limit = 12,
+  }) async {
+    if (!descriptor.supports(ProviderCapability.readDailyRecommendations)) {
+      throw CapabilityUnavailableException(
+        providerId: descriptor.id,
+        capability: ProviderCapability.readDailyRecommendations,
+        message: 'recommended playlists unavailable',
+      );
+    }
+    return [
+      ProviderPlaylist(
+        providerId: descriptor.id,
+        playlistId: '${descriptor.id.value}_recommended',
+        name: '${descriptor.displayName} Recommended',
+        trackCount: _tracks.length,
+        playCount: _tracks.length * 10000,
+      ),
+    ];
+  }
+
+  @override
+  Future<List<ProviderPlaylist>> getUserPlaylists() async {
+    if (!descriptor.supports(ProviderCapability.readUserPlaylists)) {
+      throw CapabilityUnavailableException(
+        providerId: descriptor.id,
+        capability: ProviderCapability.readUserPlaylists,
+        message: 'user playlists unavailable',
+      );
+    }
+    return [
+      ProviderPlaylist(
+        providerId: descriptor.id,
+        playlistId: '${descriptor.id.value}_playlist',
+        name: '${descriptor.displayName} Playlist',
+        trackCount: _tracks.length,
+      ),
+    ];
+  }
+
+  @override
+  Future<List<SourceTrack>> getPlaylistTracks(String playlistId) async {
+    if (!descriptor.supports(ProviderCapability.readUserPlaylists)) {
+      throw CapabilityUnavailableException(
+        providerId: descriptor.id,
+        capability: ProviderCapability.readUserPlaylists,
+        message: 'user playlists unavailable',
+      );
+    }
+    return _tracks.values.toList();
+  }
+
+  @override
   Future<PlaybackTicket> createPlaybackTicket({
     required ProviderTrackRef track,
     required AudioQuality quality,

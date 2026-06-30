@@ -41,6 +41,7 @@ final class NeteaseMusicProvider implements MusicProvider {
           ProviderCapability.authenticate,
           ProviderCapability.readFavorites,
           ProviderCapability.writeFavorites,
+          ProviderCapability.readUserPlaylists,
           ProviderCapability.readDailyRecommendations,
         },
       },
@@ -103,7 +104,8 @@ final class NeteaseMusicProvider implements MusicProvider {
       },
       authenticated: true,
     );
-    final playlists = playlistsPayload['playlist'] as List<Object?>? ?? const [];
+    final playlists =
+        playlistsPayload['playlist'] as List<Object?>? ?? const [];
     if (playlists.isEmpty) {
       throw Exception('Failed to locate NetEase user liked music playlist.');
     }
@@ -115,7 +117,8 @@ final class NeteaseMusicProvider implements MusicProvider {
       '/api/v6/playlist/detail',
       query: {
         'id': playlistId.toString(),
-        'n': '0', // Minimal chunk tracks returned, we use trackIds for full listing
+        'n':
+            '0', // Minimal chunk tracks returned, we use trackIds for full listing
       },
       authenticated: true,
     );
@@ -172,10 +175,26 @@ final class NeteaseMusicProvider implements MusicProvider {
     );
     final result = _jsonMap(payload['result']);
     final songs = result['songs'] as List<Object?>? ?? const [];
-    return songs
+    final initialTracks = songs
         .whereType<Map<Object?, Object?>>()
         .map((song) => _trackFromSong(_stringMap(song)))
         .toList(growable: false);
+    final ids = [
+      for (final track in initialTracks)
+        if (track.ref.trackId.isNotEmpty) track.ref.trackId,
+    ];
+    if (ids.isEmpty) {
+      return initialTracks;
+    }
+    try {
+      final detailed = <SourceTrack>[];
+      for (final chunk in _chunks(ids, 200)) {
+        detailed.addAll(await _songDetails(chunk, favoritedIds: const {}));
+      }
+      return detailed.isEmpty ? initialTracks : detailed;
+    } catch (_) {
+      return initialTracks;
+    }
   }
 
   @override
@@ -211,16 +230,110 @@ final class NeteaseMusicProvider implements MusicProvider {
   }
 
   @override
+  Future<List<ProviderPlaylist>> getRecommendedPlaylists({
+    int limit = 12,
+  }) async {
+    _requireCapability(ProviderCapability.readDailyRecommendations);
+    final boundedLimit = limit.clamp(1, 50).toInt();
+    try {
+      final payload = await _getJson(
+        '/api/v1/discovery/recommend/resource',
+        authenticated: true,
+      );
+      final recommended = payload['recommend'] as List<Object?>? ?? const [];
+      final playlists = recommended
+          .whereType<Map<Object?, Object?>>()
+          .map((item) => _playlistFromPayload(_stringMap(item)))
+          .where((playlist) => playlist.playlistId.isNotEmpty)
+          .take(boundedLimit)
+          .toList(growable: false);
+      if (playlists.isNotEmpty) {
+        return playlists;
+      }
+    } on ProviderException {
+      // Fall back to the public personalized endpoint below.
+    }
+
+    final payload = await _getJson(
+      '/api/personalized/playlist',
+      query: {'limit': boundedLimit.toString()},
+    );
+    final result = payload['result'] as List<Object?>? ?? const [];
+    return result
+        .whereType<Map<Object?, Object?>>()
+        .map((item) => _playlistFromPayload(_stringMap(item)))
+        .where((playlist) => playlist.playlistId.isNotEmpty)
+        .take(boundedLimit)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<ProviderPlaylist>> getUserPlaylists() async {
+    _requireCapability(ProviderCapability.readUserPlaylists);
+    final userId = _credentials?.userId ?? (await getProfile())?.accountId;
+    if (userId == null || userId.isEmpty) {
+      throw AuthenticationRequiredException(
+        providerId: descriptor.id,
+        message: 'NetEase user id is required to read playlists.',
+      );
+    }
+    final payload = await _getJson(
+      '/api/user/playlist',
+      query: {
+        'uid': userId,
+        'limit': '1000',
+        'offset': '0',
+      },
+      authenticated: true,
+    );
+    final playlists = payload['playlist'] as List<Object?>? ?? const [];
+    return playlists
+        .whereType<Map<Object?, Object?>>()
+        .map((item) => _playlistFromPayload(_stringMap(item)))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<SourceTrack>> getPlaylistTracks(String playlistId) async {
+    _requireCapability(ProviderCapability.readUserPlaylists);
+    final detailPayload = await _getJson(
+      '/api/v6/playlist/detail',
+      query: {
+        'id': playlistId,
+        'n': '0',
+      },
+      authenticated: true,
+    );
+    final playlistObj = detailPayload['playlist'] as Map<Object?, Object?>?;
+    if (playlistObj == null) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'Failed to load NetEase playlist details.',
+      );
+    }
+    final trackIdsObj = playlistObj['trackIds'] as List<Object?>? ?? const [];
+    final ids = <String>[
+      for (final item in trackIdsObj)
+        if (item is Map<Object?, Object?>) item['id'].toString(),
+    ];
+    final tracks = <SourceTrack>[];
+    for (final chunk in _chunks(ids, 200)) {
+      tracks.addAll(await _songDetails(chunk, favoritedIds: const {}));
+    }
+    return tracks;
+  }
+
+  @override
   Future<PlaybackTicket> createPlaybackTicket({
     required ProviderTrackRef track,
     required AudioQuality quality,
   }) async {
     _requireCapability(ProviderCapability.resolvePlayback);
-    final br = quality == AudioQuality.high ? 320000 : 128000;
-    final resolvedUrl = await _resolvePlayerUrl(track.trackId, br);
-    final playUri = resolvedUrl != null
-        ? Uri.parse(resolvedUrl).replace(scheme: 'https')
-        : Uri.parse('https://music.163.com/song/media/outer/url?id=${track.trackId}.mp3');
+    final resolved = await _resolvePlayerUrl(track.trackId, quality);
+    final playUri = resolved?.url != null
+        ? Uri.parse(resolved!.url).replace(scheme: 'https')
+        : Uri.parse(
+            'https://music.163.com/song/media/outer/url?id=${track.trackId}.mp3');
     return PlaybackTicket(
       mediaUri: playUri,
       headers: _headers(authenticated: isAuthenticated),
@@ -236,29 +349,34 @@ final class NeteaseMusicProvider implements MusicProvider {
     required AudioQuality quality,
   }) async {
     _requireCapability(ProviderCapability.resolveDownload);
-    final br = quality == AudioQuality.high ? 320000 : 128000;
-    final resolvedUrl = await _resolvePlayerUrl(track.trackId, br);
-    final downloadUri = resolvedUrl != null
-        ? Uri.parse(resolvedUrl).replace(scheme: 'https')
-        : Uri.parse('https://music.163.com/song/media/outer/url?id=${track.trackId}.mp3');
+    final resolved = await _resolvePlayerUrl(track.trackId, quality);
+    final downloadUri = resolved?.url != null
+        ? Uri.parse(resolved!.url).replace(scheme: 'https')
+        : Uri.parse(
+            'https://music.163.com/song/media/outer/url?id=${track.trackId}.mp3');
     return DownloadTicket(
       mediaUri: downloadUri,
       headers: _headers(authenticated: isAuthenticated),
       expiresAt: _now().add(const Duration(hours: 12)),
       trackRef: track,
       quality: quality,
-      fileExtension: 'mp3',
+      fileExtension: resolved?.fileExtension ?? 'mp3',
+      bytes: resolved?.bytes,
     );
   }
 
-  Future<String?> _resolvePlayerUrl(String songId, int br) async {
+  Future<_ResolvedMedia?> _resolvePlayerUrl(
+    String songId,
+    AudioQuality quality,
+  ) async {
     try {
+      final level = _qualityLevel(quality);
       final payload = await _getJson(
-        '/api/song/enhance/player/url',
+        '/api/song/enhance/player/url/v1',
         query: {
-          'id': songId,
           'ids': '[$songId]',
-          'br': br.toString(),
+          'level': level,
+          'encodeType': level == 'lossless' ? 'flac' : 'mp3',
         },
         authenticated: isAuthenticated,
       );
@@ -268,7 +386,38 @@ final class NeteaseMusicProvider implements MusicProvider {
         if (item != null) {
           final url = item['url'] as String?;
           if (url != null && url.isNotEmpty) {
-            return url;
+            return _ResolvedMedia(
+              url: url,
+              fileExtension:
+                  _fileExtensionFor(item['type'] ?? item['encodeType']),
+              bytes: (item['size'] as num?)?.toInt(),
+            );
+          }
+        }
+      }
+    } catch (_) {}
+
+    try {
+      final payload = await _getJson(
+        '/api/song/enhance/player/url',
+        query: {
+          'id': songId,
+          'ids': '[$songId]',
+          'br': _legacyBitrate(quality).toString(),
+        },
+        authenticated: isAuthenticated,
+      );
+      final data = payload['data'] as List<Object?>? ?? const [];
+      if (data.isNotEmpty) {
+        final item = data.first as Map<Object?, Object?>?;
+        if (item != null) {
+          final url = item['url'] as String?;
+          if (url != null && url.isNotEmpty) {
+            return _ResolvedMedia(
+              url: url,
+              fileExtension: _fileExtensionFor(item['type']),
+              bytes: (item['size'] as num?)?.toInt(),
+            );
           }
         }
       }
@@ -352,6 +501,44 @@ final class NeteaseMusicProvider implements MusicProvider {
     ).copyWith(
       isPlayable: (status == null || status == 0) && fee != 4,
     );
+  }
+
+  ProviderPlaylist _playlistFromPayload(Map<String, Object?> item) {
+    final creator = _jsonMap(item['creator']);
+    return ProviderPlaylist(
+      providerId: descriptor.id,
+      playlistId: item['id']?.toString() ?? '',
+      name: item['name']?.toString() ?? 'NetEase Playlist',
+      description:
+          item['description']?.toString() ?? item['copywriter']?.toString(),
+      creatorName: creator['nickname']?.toString(),
+      cover: _optionalUri(item['coverImgUrl'] ?? item['picUrl']),
+      trackCount: (item['trackCount'] as num?)?.toInt() ?? 0,
+      playCount:
+          (item['playCount'] as num? ?? item['playcount'] as num?)?.toInt(),
+    );
+  }
+
+  int _legacyBitrate(AudioQuality quality) => switch (quality) {
+        AudioQuality.low => 128000,
+        AudioQuality.standard => 192000,
+        AudioQuality.high => 320000,
+        AudioQuality.lossless => 999000,
+      };
+
+  String _qualityLevel(AudioQuality quality) => switch (quality) {
+        AudioQuality.low => 'standard',
+        AudioQuality.standard => 'higher',
+        AudioQuality.high => 'exhigh',
+        AudioQuality.lossless => 'lossless',
+      };
+
+  String? _fileExtensionFor(Object? value) {
+    final text = value?.toString().toLowerCase();
+    if (text == null || text.isEmpty) return null;
+    if (text.contains('flac')) return 'flac';
+    if (text.contains('mp4') || text.contains('m4a')) return 'm4a';
+    return 'mp3';
   }
 
   Future<Map<String, Object?>> _getJson(
@@ -464,4 +651,16 @@ final class NeteaseMusicProvider implements MusicProvider {
       );
     }
   }
+}
+
+final class _ResolvedMedia {
+  const _ResolvedMedia({
+    required this.url,
+    this.fileExtension,
+    this.bytes,
+  });
+
+  final String url;
+  final String? fileExtension;
+  final int? bytes;
 }

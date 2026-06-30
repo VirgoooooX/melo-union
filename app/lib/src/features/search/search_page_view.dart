@@ -119,6 +119,7 @@ class _SearchIdleState extends StatelessWidget {
           color: MeloColors.surface,
           borderRadius: MeloRadii.lg,
           border: Border.all(color: MeloColors.border),
+          boxShadow: MeloShadows.card,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

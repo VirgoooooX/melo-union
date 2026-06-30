@@ -67,6 +67,7 @@ class _ProviderCard extends ConsumerWidget {
         color: MeloColors.surface,
         borderRadius: MeloRadii.md,
         border: Border.all(color: MeloColors.border),
+        boxShadow: MeloShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -10,12 +10,35 @@ void main() {
   test('search maps real NetEase song JSON into SourceTrack', () async {
     final provider = NeteaseMusicProvider(
       client: MockClient((request) async {
-        expect(request.url.path, '/api/search/get/web');
-        expect(request.url.queryParameters['s'], '孤勇者');
         expect(request.headers['Cookie'], isNull);
-        return _jsonResponse({
-          'code': 200,
-          'result': {
+        if (request.url.path == '/api/search/get/web') {
+          expect(request.url.queryParameters['s'], '孤勇者');
+          return _jsonResponse({
+            'code': 200,
+            'result': {
+              'songs': [
+                {
+                  'id': 1901371647,
+                  'name': '孤勇者',
+                  'duration': 256000,
+                  'status': 0,
+                  'fee': 1,
+                  'artists': [
+                    {'id': 2116, 'name': '陈奕迅'},
+                  ],
+                  'album': {
+                    'id': 137142551,
+                    'name': '孤勇者',
+                    'picId': 109951171836610847,
+                  },
+                },
+              ],
+            },
+          });
+        }
+        if (request.url.path == '/api/song/detail/') {
+          return _jsonResponse({
+            'code': 200,
             'songs': [
               {
                 'id': 1901371647,
@@ -33,8 +56,9 @@ void main() {
                 },
               },
             ],
-          },
-        });
+          });
+        }
+        return http.Response('not found', 404);
       }),
     );
 
@@ -49,11 +73,15 @@ void main() {
     expect(results.single.title, '孤勇者');
     expect(results.single.artists, ['陈奕迅']);
     expect(results.single.album, '孤勇者');
+    expect(results.single.artwork.toString(),
+        'https://p1.music.126.net/cover.jpg');
     expect(results.single.isPlayable, isTrue);
     expect(results.single.isDownloadable, isTrue);
   });
 
-  test('authenticated provider reads profile, liked song details, setFavorite, daily recommendations, and lyrics', () async {
+  test(
+      'authenticated provider reads profile, liked song details, setFavorite, daily recommendations, and lyrics',
+      () async {
     final trackRef = ProviderTrackRef(
       providerId: neteaseProviderId,
       trackId: '1901371647',
@@ -79,7 +107,13 @@ void main() {
           return _jsonResponse({
             'code': 200,
             'playlist': [
-              {'id': 37125452, 'name': 'Melo Tester喜欢的音乐'}
+              {
+                'id': 37125452,
+                'name': 'Melo Tester喜欢的音乐',
+                'trackCount': 1,
+                'coverImgUrl': 'https://p1.music.126.net/playlist.jpg',
+                'creator': {'nickname': 'Melo Tester'},
+              }
             ],
           });
         }
@@ -135,6 +169,36 @@ void main() {
             }
           });
         }
+        if (request.url.path == '/api/v1/discovery/recommend/resource') {
+          return _jsonResponse({
+            'code': 200,
+            'recommend': [
+              {
+                'id': 88776655,
+                'name': '今日私人歌单',
+                'picUrl': 'https://p1.music.126.net/recommend.jpg',
+                'copywriter': '根据你的口味推荐',
+                'trackCount': 30,
+                'playcount': 1234567,
+                'creator': {'nickname': '网易云音乐'},
+              }
+            ],
+          });
+        }
+        if (request.url.path == '/api/song/enhance/player/url/v1') {
+          expect(request.url.queryParameters['level'], 'higher');
+          return _jsonResponse({
+            'code': 200,
+            'data': [
+              {
+                'id': 1901371647,
+                'url': 'http://cdn.example.test/std.mp3',
+                'type': 'mp3',
+                'size': 123456,
+              }
+            ],
+          });
+        }
         if (request.url.path == '/api/song/lyric') {
           expect(request.url.queryParameters['id'], '1901371647');
           return _jsonResponse({
@@ -151,8 +215,11 @@ void main() {
 
     final profile = await provider.getProfile();
     final favorites = await provider.pullFavorites();
+    final playlists = await provider.getUserPlaylists();
+    final playlistTracks = await provider.getPlaylistTracks('37125452');
     await provider.setFavorite(track: trackRef, liked: true);
     final recommendations = await provider.getDailyRecommendations();
+    final recommendedPlaylists = await provider.getRecommendedPlaylists();
     final lyrics = await provider.getLyrics(trackRef);
     final playbackTicket = await provider.createPlaybackTicket(
       track: trackRef,
@@ -168,30 +235,43 @@ void main() {
         provider.descriptor.supports(ProviderCapability.authenticate), isTrue);
     expect(
         provider.descriptor.supports(ProviderCapability.readFavorites), isTrue);
-    expect(
-        provider.descriptor.supports(ProviderCapability.writeFavorites), isTrue);
-    expect(
-        provider.descriptor.supports(ProviderCapability.readDailyRecommendations),
+    expect(provider.descriptor.supports(ProviderCapability.writeFavorites),
+        isTrue);
+    expect(provider.descriptor.supports(ProviderCapability.readUserPlaylists),
         isTrue);
     expect(
-        provider.descriptor.supports(ProviderCapability.resolvePlayback), isTrue);
-    expect(
-        provider.descriptor.supports(ProviderCapability.resolveDownload), isTrue);
-    expect(
-        provider.descriptor.supports(ProviderCapability.lyrics), isTrue);
+        provider.descriptor
+            .supports(ProviderCapability.readDailyRecommendations),
+        isTrue);
+    expect(provider.descriptor.supports(ProviderCapability.resolvePlayback),
+        isTrue);
+    expect(provider.descriptor.supports(ProviderCapability.resolveDownload),
+        isTrue);
+    expect(provider.descriptor.supports(ProviderCapability.lyrics), isTrue);
 
     expect(profile?.accountId, '42');
     expect(profile?.displayName, 'Melo Tester');
     expect(favorites.tracks.single.isFavorited, isTrue);
+    expect(playlists.single.name, 'Melo Tester喜欢的音乐');
+    expect(playlists.single.trackCount, 1);
+    expect(playlistTracks.single.title, '孤勇者');
     expect(recommendations.single.title, '孤勇者');
+    expect(recommendedPlaylists.single.name, '今日私人歌单');
+    expect(recommendedPlaylists.single.cover.toString(),
+        'https://p1.music.126.net/recommend.jpg');
+    expect(recommendedPlaylists.single.description, '根据你的口味推荐');
+    expect(recommendedPlaylists.single.playCount, 1234567);
     expect(lyrics, '[00:00.00] 孤勇者歌词');
-    expect(playbackTicket.mediaUri.toString(),
-        'https://music.163.com/song/media/outer/url?id=1901371647.mp3');
-    expect(downloadTicket.mediaUri.toString(),
-        'https://music.163.com/song/media/outer/url?id=1901371647.mp3');
+    expect(
+        playbackTicket.mediaUri.toString(), 'https://cdn.example.test/std.mp3');
+    expect(
+        downloadTicket.mediaUri.toString(), 'https://cdn.example.test/std.mp3');
+    expect(downloadTicket.bytes, 123456);
   });
 
-  test('unverified mutation and media capabilities stay unavailable without credentials', () async {
+  test(
+      'unverified mutation and media capabilities stay unavailable without credentials',
+      () async {
     final provider = NeteaseMusicProvider();
 
     expect(

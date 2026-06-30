@@ -111,6 +111,7 @@ class _SettingsNav extends StatelessWidget {
         color: MeloColors.surface,
         borderRadius: MeloRadii.lg,
         border: Border.all(color: MeloColors.border),
+        boxShadow: MeloShadows.card,
       ),
       child: Column(
         children: [
@@ -290,6 +291,7 @@ class _SettingsPanel extends StatelessWidget {
             color: MeloColors.surface,
             borderRadius: MeloRadii.lg,
             border: Border.all(color: MeloColors.border),
+            boxShadow: MeloShadows.card,
           ),
           child: Column(children: children),
         ),

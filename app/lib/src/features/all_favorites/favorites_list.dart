@@ -16,74 +16,80 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
     final favorites = ref.watch(allFavoritesProvider);
     return SizedBox(
       width: double.infinity,
-      child: Container(
+      height: double.infinity,
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: MeloColors.surface,
           borderRadius: MeloRadii.lg,
           border: Border.all(color: MeloColors.border),
           boxShadow: MeloShadows.card,
         ),
-        child: favorites.when(
-          loading: () => const _FavoritesLoadingState(),
-          error: (error, _) => _FavoritesErrorState(
-            message: '喜欢列表加载失败：$error',
-            onRetry: () => ref.invalidate(allFavoritesProvider),
-          ),
-          data: (tracks) {
-            final visible = _filterAndSort(tracks);
-            final sourceCount = visible
-                .expand((track) => track.variants)
-                .map((variant) => variant.ref.providerId.value)
-                .toSet()
-                .length;
-            if (visible.isEmpty) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _FavoritesTableHeader(count: 0, sourceCount: 0),
-                  const Divider(height: 1, color: MeloColors.border),
-                  const SizedBox(height: 282, child: _FavoritesEmptyState()),
-                ],
-              );
-            }
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final double availableHeight = constraints.maxHeight;
+            // The non-list height is:
+            // TableHeader: 58, Divider: 1. Total = 59
+            final double availableListHeight = availableHeight - 59;
+            final double listUsableHeight = availableListHeight - 12.0;
+            final int maxRowsThatFit = !availableHeight.isFinite
+                ? 6
+                : listUsableHeight <= 0
+                    ? 1
+                    : (listUsableHeight / 77.0).floor().clamp(1, 10000);
 
-            final rowsToShow = visible.length > 6 ? 6 : visible.length;
-            final listHeight = (rowsToShow * 77.0) + 12.0;
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _FavoritesTableHeader(
-                  count: visible.length,
-                  sourceCount: sourceCount,
-                ),
-                const Divider(height: 1, color: MeloColors.border),
-                SizedBox(
-                  height: listHeight,
-                  child: Scrollbar(
-                    child: ListView.separated(
-                      physics: visible.length > 6
-                          ? const ClampingScrollPhysics()
-                          : const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      itemCount: visible.length,
-                      separatorBuilder: (_, __) => const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Divider(height: 1, color: MeloColors.border),
-                      ),
-                      itemBuilder: (context, index) => _FavoriteRow(
-                        index: index + 1,
-                        track: visible[index],
-                        providerId: selectedProviderId,
+            return favorites.when(
+              loading: () => _FavoritesLoadingState(
+                skeletonCount: maxRowsThatFit,
+              ),
+              error: (error, _) => _FavoritesErrorState(
+                message: '喜欢列表加载失败：$error',
+                onRetry: () => ref.invalidate(allFavoritesProvider),
+              ),
+              data: (tracks) {
+                final visible = _filterAndSort(tracks);
+                final sourceCount = visible
+                    .expand((track) => track.variants)
+                    .map((variant) => variant.ref.providerId.value)
+                    .toSet()
+                    .length;
+                if (visible.isEmpty) {
+                  return const Column(
+                    children: [
+                      _FavoritesTableHeader(count: 0, sourceCount: 0),
+                      Divider(height: 1, color: MeloColors.border),
+                      Expanded(child: _FavoritesEmptyState()),
+                    ],
+                  );
+                }
+
+                return Column(
+                  children: [
+                    _FavoritesTableHeader(
+                      count: visible.length,
+                      sourceCount: sourceCount,
+                    ),
+                    const Divider(height: 1, color: MeloColors.border),
+                    Expanded(
+                      child: Scrollbar(
+                        child: ListView.separated(
+                          physics: const ClampingScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          itemCount: visible.length,
+                          separatorBuilder: (_, __) => const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Divider(height: 1, color: MeloColors.border),
+                          ),
+                          itemBuilder: (context, index) => _FavoriteRow(
+                            index: index + 1,
+                            track: visible[index],
+                            providerId: selectedProviderId,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const Divider(height: 1, color: MeloColors.border),
-                _FavoritesFooter(
-                  count: visible.length,
-                  hasMore: visible.length > 6,
-                ),
-              ],
+                  ],
+                );
+              },
             );
           },
         ),
@@ -184,63 +190,22 @@ class _FavoritesTableHeader extends StatelessWidget {
   }
 }
 
-class _FavoritesFooter extends StatelessWidget {
-  const _FavoritesFooter({required this.count, required this.hasMore});
-
-  final int count;
-  final bool hasMore;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 42,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.favorite_outline_rounded,
-              size: 15,
-              color: MeloColors.textTertiary,
-            ),
-            const SizedBox(width: 7),
-            Text(
-              hasMore ? '已加载前 6 首，滚动查看更多' : '已显示全部 $count 首喜欢歌曲',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: MeloColors.textTertiary,
-                  ),
-            ),
-            const Spacer(),
-            Text(
-              '收藏状态按来源独立维护',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: MeloColors.textQuaternary,
-                    fontSize: 11,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _FavoritesLoadingState extends StatelessWidget {
-  const _FavoritesLoadingState();
+  const _FavoritesLoadingState({this.skeletonCount = 6});
+
+  final int skeletonCount;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisSize: MainAxisSize.min,
       children: [
         const _FavoritesTableHeader(count: 0, sourceCount: 0),
         const Divider(height: 1, color: MeloColors.border),
-        SizedBox(
-          height: 474,
+        Expanded(
           child: ListView.separated(
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(vertical: 6),
-            itemCount: 6,
+            itemCount: skeletonCount,
             separatorBuilder: (_, __) => const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Divider(height: 1, color: MeloColors.border),

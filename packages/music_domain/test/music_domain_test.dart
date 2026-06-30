@@ -694,6 +694,18 @@ final class _ThrowingFavoritesProvider implements MusicProvider {
   Future<List<SourceTrack>> getDailyRecommendations() async => [];
 
   @override
+  Future<List<ProviderPlaylist>> getRecommendedPlaylists({
+    int limit = 12,
+  }) async =>
+      [];
+
+  @override
+  Future<List<ProviderPlaylist>> getUserPlaylists() async => [];
+
+  @override
+  Future<List<SourceTrack>> getPlaylistTracks(String playlistId) async => [];
+
+  @override
   Future<PlaybackTicket> createPlaybackTicket(
       {required ProviderTrackRef track, required AudioQuality quality}) async {
     throw UnimplementedError();

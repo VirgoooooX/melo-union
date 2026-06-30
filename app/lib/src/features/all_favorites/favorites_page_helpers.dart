@@ -29,7 +29,8 @@ class _TrackCover extends StatelessWidget {
             height: 46,
             fit: BoxFit.cover,
             headers: const {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
               'Referer': 'https://music.163.com',
             },
             errorBuilder: (context, error, stackTrace) {
@@ -102,7 +103,8 @@ class _SourceTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isNetease = provider.value.contains('aurora') || provider.value.contains('netease');
+    final isNetease =
+        provider.value.contains('aurora') || provider.value.contains('netease');
     final foreground =
         isNetease ? MeloColors.neteaseForeground : MeloColors.qqForeground;
     final background =

@@ -112,6 +112,46 @@ final class FakeMusicProvider implements MusicProvider {
   }
 
   @override
+  Future<List<ProviderPlaylist>> getRecommendedPlaylists({
+    int limit = 12,
+  }) async {
+    _requireCapability(ProviderCapability.readDailyRecommendations);
+    _requireAuthenticatedIfNeeded();
+    return [
+      ProviderPlaylist(
+        providerId: descriptor.id,
+        playlistId: '${descriptor.id.value}_recommended',
+        name: '${descriptor.displayName} 推荐歌单',
+        creatorName: profile?.displayName,
+        trackCount: _tracks.length,
+        playCount: _tracks.length * 10000,
+      ),
+    ];
+  }
+
+  @override
+  Future<List<ProviderPlaylist>> getUserPlaylists() async {
+    _requireCapability(ProviderCapability.readUserPlaylists);
+    _requireAuthenticatedIfNeeded();
+    return [
+      ProviderPlaylist(
+        providerId: descriptor.id,
+        playlistId: '${descriptor.id.value}_liked',
+        name: '${descriptor.displayName} 喜欢的音乐',
+        creatorName: profile?.displayName,
+        trackCount: _tracks.length,
+      ),
+    ];
+  }
+
+  @override
+  Future<List<SourceTrack>> getPlaylistTracks(String playlistId) async {
+    _requireCapability(ProviderCapability.readUserPlaylists);
+    _requireAuthenticatedIfNeeded();
+    return _tracks.values.toList(growable: false);
+  }
+
+  @override
   Future<PlaybackTicket> createPlaybackTicket({
     required ProviderTrackRef track,
     required AudioQuality quality,

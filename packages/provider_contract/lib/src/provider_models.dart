@@ -110,6 +110,28 @@ final class FavoriteSnapshot {
   final String? partialFailureReason;
 }
 
+final class ProviderPlaylist {
+  ProviderPlaylist({
+    required this.providerId,
+    required this.playlistId,
+    required this.name,
+    this.description,
+    this.creatorName,
+    this.cover,
+    this.trackCount = 0,
+    this.playCount,
+  });
+
+  final ProviderId providerId;
+  final String playlistId;
+  final String name;
+  final String? description;
+  final String? creatorName;
+  final Uri? cover;
+  final int trackCount;
+  final int? playCount;
+}
+
 bool _stringMapEquals(Map<String, String> left, Map<String, String> right) {
   if (identical(left, right)) {
     return true;

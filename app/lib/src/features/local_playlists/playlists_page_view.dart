@@ -9,32 +9,50 @@ class LocalPlaylistsPage extends ConsumerStatefulWidget {
 
 class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
   String _selectedTab = 'local';
+  String? _selectedRemotePlaylistId;
 
   @override
   Widget build(BuildContext context) {
     final repository = ref.watch(demoRepositoryProvider);
-    final tabs = const [
-      ProviderTabItem(id: 'local', label: '本地歌单'),
-      ProviderTabItem(id: 'netease', label: '网易云'),
-      ProviderTabItem(id: 'qq', label: 'QQ音乐'),
-      ProviderTabItem(
-          id: 'more',
-          label: '更多平台',
-          trailing: Icons.keyboard_arrow_down_rounded),
+    final remoteProviders = repository.providerEntries
+        .where(
+          (entry) =>
+              entry.isEnabled &&
+              entry.provider.isAuthenticated &&
+              entry.descriptor.supports(ProviderCapability.readUserPlaylists),
+        )
+        .toList(growable: false);
+    final tabs = [
+      const ProviderTabItem(id: 'local', label: '本地歌单'),
+      for (final entry in remoteProviders)
+        ProviderTabItem(
+          id: entry.descriptor.id.value,
+          label: _providerLabel(entry.descriptor.id),
+        ),
+      const ProviderTabItem(
+        id: 'more',
+        label: '更多平台',
+        trailing: Icons.keyboard_arrow_down_rounded,
+      ),
     ];
+    final selected =
+        tabs.any((item) => item.id == _selectedTab) ? _selectedTab : 'local';
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
       child: Column(
         children: [
           ProviderTabs(
             items: tabs,
-            selectedId: _selectedTab,
+            selectedId: selected,
             onSelected: (id) {
               if (id == 'more') {
                 ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('后续 Provider 歌单会显示在这里。')));
               } else {
-                setState(() => _selectedTab = id);
+                setState(() {
+                  _selectedTab = id;
+                  _selectedRemotePlaylistId = null;
+                });
               }
             },
           ),
@@ -61,9 +79,16 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
           ),
           const SizedBox(height: 20),
           Expanded(
-            child: _selectedTab == 'local'
+            child: selected == 'local'
                 ? _PlaylistGrid(playlists: repository.playlistList)
-                : const _RemotePlaylistPlaceholder(),
+                : _RemotePlaylistsPanel(
+                    providerId: ProviderId(selected),
+                    selectedPlaylistId: _selectedRemotePlaylistId,
+                    onSelected: (playlistId) =>
+                        setState(() => _selectedRemotePlaylistId = playlistId),
+                    onBack: () =>
+                        setState(() => _selectedRemotePlaylistId = null),
+                  ),
           ),
         ],
       ),
@@ -97,8 +122,16 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
   }
 }
 
+String _providerLabel(ProviderId id) {
+  if (id.value.contains('netease')) return '网易云';
+  if (id.value.contains('beacon')) return 'QQ音乐';
+  return id.value;
+}
+
 class _RemotePlaylistPlaceholder extends StatelessWidget {
-  const _RemotePlaylistPlaceholder();
+  const _RemotePlaylistPlaceholder({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -106,7 +139,7 @@ class _RemotePlaylistPlaceholder extends StatelessWidget {
           const Icon(Icons.cloud_outlined,
               size: 44, color: MeloColors.textTertiary),
           const SizedBox(height: 12),
-          Text('当前演示 Provider 尚未接入远端歌单读取。',
+          Text(message,
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium

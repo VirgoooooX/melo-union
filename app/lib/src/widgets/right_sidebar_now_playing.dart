@@ -72,20 +72,23 @@ class _NowPlayingCard extends ConsumerWidget {
             child: SizedBox(
               width: 146,
               height: 146,
-              child: track.artwork != null && track.artwork!.toString().isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: MeloRadii.md,
-                      child: Image.network(
-                        track.artwork!.toString(),
-                        fit: BoxFit.cover,
-                        headers: const {
-                          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                          'Referer': 'https://music.163.com',
-                        },
-                        errorBuilder: (_, __, ___) => _buildPlaceholder(track.title),
-                      ),
-                    )
-                  : _buildPlaceholder(track.title),
+              child:
+                  track.artwork != null && track.artwork!.toString().isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: MeloRadii.md,
+                          child: Image.network(
+                            track.artwork!.toString(),
+                            fit: BoxFit.cover,
+                            headers: const {
+                              'User-Agent':
+                                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                              'Referer': 'https://music.163.com',
+                            },
+                            errorBuilder: (_, __, ___) =>
+                                _buildPlaceholder(track.title),
+                          ),
+                        )
+                      : _buildPlaceholder(track.title),
             ),
           ),
           const SizedBox(height: MeloSpacing.md),

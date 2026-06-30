@@ -5,6 +5,8 @@ import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('DemoRepository can hydrate and export local MVP snapshot state', () {
     final ref = ProviderTrackRef(
       providerId: ProviderId('aurora_stream'),

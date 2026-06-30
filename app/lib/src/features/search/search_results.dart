@@ -11,7 +11,7 @@ class _SearchResults extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
+    final repository = ref.read(demoRepositoryProvider);
     return FutureBuilder<List<ProviderSearchResults>>(
       future: repository.search(query),
       builder: (context, snapshot) {
@@ -74,6 +74,7 @@ class _SourceResultSection extends ConsumerWidget {
         color: MeloColors.surface,
         borderRadius: MeloRadii.lg,
         border: Border.all(color: MeloColors.border),
+        boxShadow: MeloShadows.card,
       ),
       child: Column(
         children: [
@@ -205,7 +206,8 @@ class _SearchCover extends StatelessWidget {
           height: 42,
           fit: BoxFit.cover,
           headers: const {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Referer': 'https://music.163.com',
           },
           errorBuilder: (context, error, stackTrace) {

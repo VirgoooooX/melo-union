@@ -20,7 +20,8 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
 
   @override
   Widget build(BuildContext context) {
-    final repository = ref.watch(demoRepositoryProvider);
+    final repository = ref.read(demoRepositoryProvider);
+    final currentRef = ref.watch(demoRepositoryProvider.select((r) => r.queue.current?.track.ref));
     final variants = widget.providerId == null
         ? widget.track.variants
         : widget.track.variants
@@ -29,7 +30,6 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
     if (variants.isEmpty) return const SizedBox.shrink();
 
     final primary = variants.first;
-    final currentRef = repository.queue.current?.track.ref;
     final isPlaying = currentRef != null &&
         variants.any((variant) => variant.ref == currentRef);
     final hasFavorite = variants.any((variant) => variant.isFavorited);
@@ -75,7 +75,8 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                   seed: widget.track.title,
                   isPlaying: isPlaying,
                   artwork: widget.track.variants
-                      .firstWhere((v) => v.artwork != null, orElse: () => primary)
+                      .firstWhere((v) => v.artwork != null,
+                          orElse: () => primary)
                       .artwork,
                 ),
                 const SizedBox(width: 12),
@@ -186,7 +187,8 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
     }
 
     final source = variants.first;
-    final availability = repository.favoriteWriteAvailability(source.ref.providerId);
+    final availability =
+        repository.favoriteWriteAvailability(source.ref.providerId);
     if (!availability.isEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(availability.reason ?? '此来源无法写回收藏。')),
@@ -331,7 +333,7 @@ class _TrackMoreMenu extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
+    final repository = ref.read(demoRepositoryProvider);
     return PopupMenuButton<_TrackMenuAction>(
       tooltip: '更多操作',
       icon: const Icon(Icons.more_horiz_rounded, size: 20),
@@ -456,25 +458,24 @@ class _AddToPlaylistDialog extends ConsumerWidget {
                   padding: EdgeInsets.symmetric(vertical: 22),
                   child: Center(child: Text('还没有本地歌单。')),
                 )
-              else
-                ...[
-                  for (final playlist in playlists) ...[
-                    _PlaylistChoice(
-                      playlist: playlist,
-                      onTap: () {
-                        repository.addTrackToPlaylist(
-                          playlistId: playlist.id,
-                          track: track,
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('已加入“${playlist.name}”。')),
-                        );
-                        Navigator.pop(context);
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                  ],
+              else ...[
+                for (final playlist in playlists) ...[
+                  _PlaylistChoice(
+                    playlist: playlist,
+                    onTap: () {
+                      repository.addTrackToPlaylist(
+                        playlistId: playlist.id,
+                        track: track,
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('已加入“${playlist.name}”。')),
+                      );
+                      Navigator.pop(context);
+                    },
+                  ),
+                  const SizedBox(height: 8),
                 ],
+              ],
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: () async {

@@ -29,7 +29,7 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final repository = ref.watch(demoRepositoryProvider);
+    final repository = ref.read(demoRepositoryProvider);
     final entries = repository.capabilityMatrix
         .eligibleFavoritesEntries(repository.registry);
     final tabs = <ProviderTabItem>[
@@ -278,9 +278,7 @@ class _SortButton extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  item == sort
-                      ? Icons.check_rounded
-                      : Icons.sort_rounded,
+                  item == sort ? Icons.check_rounded : Icons.sort_rounded,
                   size: 18,
                   color: item == sort
                       ? MeloColors.primary700
