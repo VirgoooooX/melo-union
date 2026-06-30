@@ -15,18 +15,18 @@ class _TrackCover extends StatelessWidget {
   Widget build(BuildContext context) {
     if (artwork != null && artwork!.toString().isNotEmpty) {
       return Container(
-        width: 46,
-        height: 46,
+        width: 34,
+        height: 34,
         decoration: BoxDecoration(
-          borderRadius: MeloRadii.md,
+          borderRadius: MeloRadii.sm,
           boxShadow: isPlaying ? MeloShadows.control : const [],
         ),
         child: ClipRRect(
-          borderRadius: MeloRadii.md,
+          borderRadius: MeloRadii.sm,
           child: Image.network(
             artwork!.toString(),
-            width: 46,
-            height: 46,
+            width: 34,
+            height: 34,
             fit: BoxFit.cover,
             headers: const {
               'User-Agent':
@@ -50,10 +50,10 @@ class _TrackCover extends StatelessWidget {
     final first = HSLColor.fromAHSL(1, hue.toDouble(), .58, .62).toColor();
     final second = HSLColor.fromAHSL(1, (hue + 58) % 360, .58, .37).toColor();
     return Container(
-      width: 46,
-      height: 46,
+      width: 34,
+      height: 34,
       decoration: BoxDecoration(
-        borderRadius: MeloRadii.md,
+        borderRadius: MeloRadii.sm,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -68,8 +68,8 @@ class _TrackCover extends StatelessWidget {
             right: -8,
             top: -10,
             child: Container(
-              width: 34,
-              height: 34,
+              width: 24,
+              height: 24,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: .18),
                 shape: BoxShape.circle,
@@ -77,8 +77,8 @@ class _TrackCover extends StatelessWidget {
             ),
           ),
           Container(
-            width: 24,
-            height: 24,
+            width: 20,
+            height: 20,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: .18),
               shape: BoxShape.circle,
@@ -87,7 +87,7 @@ class _TrackCover extends StatelessWidget {
             child: Icon(
               isPlaying ? Icons.graphic_eq_rounded : Icons.music_note_rounded,
               color: Colors.white,
-              size: isPlaying ? 16 : 18,
+              size: isPlaying ? 13 : 15,
             ),
           ),
         ],
@@ -109,32 +109,27 @@ class _SourceTag extends StatelessWidget {
         isNetease ? MeloColors.neteaseForeground : MeloColors.qqForeground;
     final background =
         isNetease ? MeloColors.neteaseBackground : MeloColors.qqBackground;
+    final label = providerLabel(provider);
     return Container(
-      height: 22,
+      width: label.length <= 2 ? 44 : 52,
+      height: 20,
       padding: const EdgeInsets.symmetric(horizontal: 7),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: MeloRadii.pill,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: foreground.withValues(alpha: .28)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration:
-                BoxDecoration(color: foreground, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            providerLabel(provider),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: foreground,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.clip,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: foreground,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
       ),
     );
   }

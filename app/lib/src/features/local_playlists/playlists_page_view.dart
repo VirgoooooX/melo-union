@@ -80,7 +80,11 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
           const SizedBox(height: 20),
           Expanded(
             child: selected == 'local'
-                ? _PlaylistGrid(playlists: repository.playlistList)
+                ? _PlaylistGrid(
+                    playlists: repository.playlistList,
+                    selectedPlaylistId: repository.selectedPlaylistId,
+                    onSelected: repository.selectPlaylist,
+                  )
                 : _RemotePlaylistsPanel(
                     providerId: ProviderId(selected),
                     selectedPlaylistId: _selectedRemotePlaylistId,
@@ -121,6 +125,8 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
     }
   }
 }
+
+
 
 String _providerLabel(ProviderId id) {
   if (id.value.contains('netease')) return '网易云';

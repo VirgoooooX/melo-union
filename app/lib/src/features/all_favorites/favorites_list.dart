@@ -20,22 +20,21 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: MeloColors.surface,
-          borderRadius: MeloRadii.lg,
+          borderRadius: MeloRadii.sm,
           border: Border.all(color: MeloColors.border),
-          boxShadow: MeloShadows.card,
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final double availableHeight = constraints.maxHeight;
             // The non-list height is:
-            // TableHeader: 58, Divider: 1. Total = 59
-            final double availableListHeight = availableHeight - 59;
-            final double listUsableHeight = availableListHeight - 12.0;
+            // TableHeader: 42, Divider: 1. Total = 43
+            final double availableListHeight = availableHeight - 43;
+            final double listUsableHeight = availableListHeight - 8.0;
             final int maxRowsThatFit = !availableHeight.isFinite
                 ? 6
                 : listUsableHeight <= 0
                     ? 1
-                    : (listUsableHeight / 67.0).floor().clamp(1, 10000);
+                    : (listUsableHeight / 49.0).floor().clamp(1, 10000);
 
             return favorites.when(
               loading: () => _FavoritesLoadingState(
@@ -65,7 +64,7 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
                       child: Scrollbar(
                         child: ListView.separated(
                           physics: const ClampingScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          padding: const EdgeInsets.symmetric(vertical: 4),
                           itemCount: visible.length,
                           separatorBuilder: (_, __) => const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 16),
@@ -138,16 +137,16 @@ class _FavoritesTableHeader extends StatelessWidget {
           letterSpacing: .2,
         );
     return Container(
-      height: 58,
+      height: 42,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
         color: MeloColors.surfaceMuted,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       child: Row(
         children: [
           SizedBox(width: 38, child: Text('#', style: labelStyle)),
-          const SizedBox(width: 58),
+          const SizedBox(width: 46),
           Expanded(
             flex: 4,
             child: Text('歌曲', style: labelStyle),
@@ -175,7 +174,7 @@ class _FavoritesLoadingState extends StatelessWidget {
         Expanded(
           child: ListView.separated(
             physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: 4),
             itemCount: skeletonCount,
             separatorBuilder: (_, __) => const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
@@ -195,11 +194,11 @@ class _FavoriteRowSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 66,
+      height: 48,
       child: Row(
         children: [
-          const SizedBox(width: 30),
-          _SkeletonBox(width: 46, height: 46, radius: MeloRadii.md),
+          const SizedBox(width: 54),
+          _SkeletonBox(width: 34, height: 34, radius: MeloRadii.sm),
           const SizedBox(width: 12),
           const Expanded(flex: 4, child: _SkeletonTextGroup()),
           const Expanded(flex: 2, child: _SkeletonTextGroup(short: true)),

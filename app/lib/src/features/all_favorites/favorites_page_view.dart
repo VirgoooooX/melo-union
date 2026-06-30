@@ -68,7 +68,6 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
               }
               setState(() => _selectedTab = value);
             },
-            onRefresh: () => ref.invalidate(allFavoritesProvider),
           ),
           const SizedBox(height: 22),
           _FavoritesToolbar(
@@ -84,7 +83,6 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
               setState(() => _query = '');
             },
             onSortSelected: (value) => setState(() => _sort = value),
-            onPlayAll: () => _playAllVisible(selected),
           ),
           const SizedBox(height: 18),
           Expanded(
@@ -100,20 +98,6 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
         ],
       ),
     );
-  }
-
-  Future<void> _playAllVisible(String selected) async {
-    final tracks = await ref.read(allFavoritesProvider.future);
-    final visible = _visibleTracks(tracks, selected);
-    if (visible.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前筛选条件下没有可播放的歌曲。')),
-        );
-      }
-      return;
-    }
-    await ref.read(demoRepositoryProvider).playUnifiedTracks(visible);
   }
 
   List<UnifiedFavoriteTrack> _visibleTracks(
@@ -137,49 +121,21 @@ class _FavoritesTopRail extends StatelessWidget {
     required this.tabs,
     required this.selectedId,
     required this.onSelected,
-    required this.onRefresh,
   });
 
   final List<ProviderTabItem> tabs;
   final String selectedId;
   final ValueChanged<String> onSelected;
-  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: ProviderTabs(
-            items: tabs,
-            selectedId: selectedId,
-            onSelected: onSelected,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Tooltip(
-          message: '刷新喜欢列表',
-          child: InkWell(
-            onTap: onRefresh,
-            borderRadius: MeloRadii.md,
-            child: Ink(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: MeloColors.surface,
-                borderRadius: MeloRadii.md,
-                border: Border.all(color: MeloColors.border),
-                boxShadow: MeloShadows.card,
-              ),
-              child: const Icon(
-                Icons.refresh_rounded,
-                color: MeloColors.textSecondary,
-                size: 20,
-              ),
-            ),
-          ),
-        ),
-      ],
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ProviderTabs(
+        items: tabs,
+        selectedId: selectedId,
+        onSelected: onSelected,
+      ),
     );
   }
 }
@@ -193,7 +149,6 @@ class _FavoritesToolbar extends StatelessWidget {
     required this.onQueryChanged,
     required this.onClearQuery,
     required this.onSortSelected,
-    required this.onPlayAll,
   });
 
   final TextEditingController controller;
@@ -203,7 +158,6 @@ class _FavoritesToolbar extends StatelessWidget {
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
   final ValueChanged<_FavoriteSort> onSortSelected;
-  final VoidCallback onPlayAll;
 
   @override
   Widget build(BuildContext context) {
@@ -218,14 +172,13 @@ class _FavoritesToolbar extends StatelessWidget {
         ),
         const Spacer(),
         SizedBox(
-          width: 280,
+          width: 248,
           child: Container(
-            height: 48,
+            height: 40,
             decoration: BoxDecoration(
               color: MeloColors.surface,
-              borderRadius: MeloRadii.md,
+              borderRadius: MeloRadii.sm,
               border: Border.all(color: MeloColors.border),
-              boxShadow: MeloShadows.card,
             ),
             child: TextField(
               controller: controller,
@@ -258,25 +211,13 @@ class _FavoritesToolbar extends StatelessWidget {
                 hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: MeloColors.textTertiary,
                     ),
-                contentPadding: const EdgeInsets.only(right: 12, top: 14),
+                contentPadding: const EdgeInsets.only(right: 12, top: 10),
               ),
             ),
           ),
         ),
         const SizedBox(width: 12),
         _SortButton(sort: sort, onSelected: onSortSelected),
-        const SizedBox(width: 10),
-        FilledButton.icon(
-          onPressed: onPlayAll,
-          icon: const Icon(Icons.play_arrow_rounded, size: 19),
-          label: const Text('播放全部'),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(120, 48),
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            shape: const RoundedRectangleBorder(borderRadius: MeloRadii.md),
-            elevation: 0,
-          ),
-        ),
       ],
     );
   }
@@ -315,36 +256,17 @@ class _SortButton extends StatelessWidget {
           ),
       ],
       child: Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
           color: MeloColors.surface,
-          borderRadius: MeloRadii.md,
+          borderRadius: MeloRadii.sm,
           border: Border.all(color: MeloColors.border),
-          boxShadow: MeloShadows.card,
         ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.tune_rounded,
-              size: 18,
-              color: MeloColors.primary700,
-            ),
-            const SizedBox(width: 7),
-            Text(
-              _sortLabel(sort),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: MeloColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 17,
-              color: MeloColors.textSecondary,
-            ),
-          ],
+        child: const Icon(
+          Icons.tune_rounded,
+          size: 18,
+          color: MeloColors.textSecondary,
         ),
       ),
     );

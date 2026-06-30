@@ -10,35 +10,62 @@ class RightSidebar extends ConsumerWidget {
     return Material(
       color: MeloColors.surface,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
+        padding: const EdgeInsets.fromLTRB(18, 22, 18, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('正在播放',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: MeloSpacing.md),
-            _NowPlayingCard(track: track),
-            const SizedBox(height: MeloSpacing.xl),
             Row(
               children: [
-                Text('播放队列',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  '正在播放',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
                 const Spacer(),
-                Text('${repository.queue.entries.length} 首',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: MeloColors.textSecondary)),
+                IconButton(
+                  tooltip: '更多',
+                  onPressed: () {},
+                  icon: const Icon(Icons.more_horiz_rounded),
+                ),
               ],
             ),
-            const SizedBox(height: MeloSpacing.sm),
+            const SizedBox(height: 10),
+            _NowPlayingCard(track: track),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Text(
+                  '播放队列',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '(${repository.queue.entries.length})',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: MeloColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: null,
+                  child: const Text('清空'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
             const Expanded(child: _QueuePreview()),
+            if (track != null) ...[
+              const Divider(color: MeloColors.border),
+              _Meta(
+                label: '来源 / 收藏状态',
+                value:
+                    '${_providerName(track)} · ${track.isFavorited ? '已收藏' : '未收藏'}',
+              ),
+            ],
           ],
         ),
       ),
@@ -52,7 +79,6 @@ class _NowPlayingCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
     if (track == null) {
       return _Panel(
           child: Text('播放一首歌后，这里会展示当前歌曲、来源和收藏状态。',
@@ -61,75 +87,71 @@ class _NowPlayingCard extends ConsumerWidget {
                   .bodyMedium
                   ?.copyWith(color: MeloColors.textSecondary, height: 1.5)));
     }
-    final isNetease = track.ref.providerId.value.contains('aurora') ||
-        track.ref.providerId.value.contains('netease');
-    final name = isNetease ? '网易云' : 'QQ音乐';
+    final name = _providerName(track);
+    final isNetease = name == '网易云';
     return _Panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Center(
-            child: SizedBox(
-              width: 146,
-              height: 146,
-              child:
-                  track.artwork != null && track.artwork!.toString().isNotEmpty
-                      ? ClipRRect(
-                          borderRadius: MeloRadii.md,
-                          child: Image.network(
-                            track.artwork!.toString(),
-                            fit: BoxFit.cover,
-                            headers: const {
-                              'User-Agent':
-                                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                              'Referer': 'https://music.163.com',
-                            },
-                            errorBuilder: (_, __, ___) =>
-                                _buildPlaceholder(track.title),
-                          ),
-                        )
-                      : _buildPlaceholder(track.title),
+          SizedBox(
+            width: 96,
+            height: 96,
+            child: track.artwork != null && track.artwork!.toString().isNotEmpty
+                ? ClipRRect(
+                    borderRadius: MeloRadii.md,
+                    child: Image.network(
+                      track.artwork!.toString(),
+                      fit: BoxFit.cover,
+                      headers: const {
+                        'User-Agent':
+                            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Referer': 'https://music.163.com',
+                      },
+                      errorBuilder: (_, __, ___) =>
+                          _buildPlaceholder(track.title),
+                    ),
+                  )
+                : _buildPlaceholder(track.title),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  track.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  track.artists.join(' / '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: MeloColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _ProviderPill(label: name, isNetease: isNetease),
+                    if (track.isFavorited)
+                      const _StatusPill(
+                        icon: Icons.favorite_rounded,
+                        label: '已收藏',
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: MeloSpacing.md),
-          Text(track.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          Text(track.artists.join(' / '),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: MeloColors.textSecondary)),
-          const SizedBox(height: MeloSpacing.sm),
-          _ProviderPill(label: name, isNetease: isNetease),
-          const SizedBox(height: MeloSpacing.sm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                  onPressed: repository.queuePrevious,
-                  icon: const Icon(Icons.skip_previous_rounded)),
-              FilledButton(
-                  onPressed: repository.refreshPlaybackTicket,
-                  style: FilledButton.styleFrom(
-                      shape: const CircleBorder(),
-                      padding: const EdgeInsets.all(10)),
-                  child: const Icon(Icons.play_arrow_rounded)),
-              IconButton(
-                  onPressed: repository.queueNext,
-                  icon: const Icon(Icons.skip_next_rounded)),
-            ],
-          ),
-          const Divider(color: MeloColors.border),
-          _Meta(label: '播放来源', value: name),
-          _Meta(label: '收藏状态', value: track.isFavorited ? '已喜欢' : '未喜欢'),
         ],
       ),
     );
@@ -144,9 +166,10 @@ class _Panel extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(MeloSpacing.md),
         decoration: BoxDecoration(
-            color: MeloColors.surfaceMuted,
+            color: MeloColors.surface,
             borderRadius: MeloRadii.lg,
-            border: Border.all(color: MeloColors.border)),
+            border: Border.all(color: MeloColors.border),
+            boxShadow: MeloShadows.card),
         child: child,
       );
 }
@@ -172,6 +195,37 @@ class _ProviderPill extends StatelessWidget {
       );
 }
 
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 24,
+        padding: const EdgeInsets.symmetric(horizontal: 7),
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFF1F3),
+          borderRadius: MeloRadii.sm,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: MeloColors.favorite),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: MeloColors.favorite,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
+      );
+}
+
 class _Meta extends StatelessWidget {
   const _Meta({required this.label, required this.value});
   final String label;
@@ -193,6 +247,15 @@ class _Meta extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w600))
         ]),
       );
+}
+
+String _providerName(dynamic track) {
+  final providerId = track.ref.providerId.value;
+  if (providerId.contains('aurora') || providerId.contains('netease')) {
+    return '网易云';
+  }
+  if (providerId.contains('beacon')) return 'QQ音乐';
+  return providerId;
 }
 
 Widget _buildPlaceholder(String seed) {

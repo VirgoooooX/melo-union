@@ -51,7 +51,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
-            height: 66,
+            height: 48,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: rowBackground,
@@ -83,10 +83,16 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 4,
-                  child: _TrackIdentity(
-                    track: widget.track,
-                    sourceCount: variants.length,
-                    isPlaying: isPlaying,
+                  child: Text(
+                    widget.track.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: isPlaying
+                              ? MeloColors.primary700
+                              : MeloColors.textPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
                   ),
                 ),
                 Expanded(
@@ -132,6 +138,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                           variants,
                         ),
                         splashRadius: 20,
+                        visualDensity: VisualDensity.compact,
                         icon: Icon(
                           hasFavorite
                               ? Icons.favorite_rounded
@@ -249,72 +256,6 @@ class _RowPlaybackIndicator extends StatelessWidget {
                 ),
     );
   }
-}
-
-class _TrackIdentity extends StatelessWidget {
-  const _TrackIdentity({
-    required this.track,
-    required this.sourceCount,
-    required this.isPlaying,
-  });
-
-  final UnifiedFavoriteTrack track;
-  final int sourceCount;
-  final bool isPlaying;
-
-  @override
-  Widget build(BuildContext context) => Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  track.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isPlaying
-                            ? MeloColors.primary700
-                            : MeloColors.textPrimary,
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-              ),
-              if (sourceCount > 1) ...[
-                const SizedBox(width: 7),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: const BoxDecoration(
-                    color: MeloColors.primary50,
-                    borderRadius: MeloRadii.pill,
-                  ),
-                  child: Text(
-                    '$sourceCount 个来源',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: MeloColors.primary700,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '$sourceCount 个来源可用',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: MeloColors.textTertiary,
-                  fontWeight: FontWeight.w500,
-                ),
-          ),
-        ],
-      );
 }
 
 class _TrackMoreMenu extends ConsumerWidget {

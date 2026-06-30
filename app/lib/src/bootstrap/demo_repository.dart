@@ -44,7 +44,11 @@ class DemoRepository extends ChangeNotifier {
       seedLocalItems: seedLocalMediaItems,
     );
     // Notify UI when audio player state changes (play/pause/complete)
-    _audioPlayer.playerStateStream.listen((_) {
+    _audioPlayer.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed ||
+          state.processingState == ProcessingState.idle) {
+        _playbackRequested = false;
+      }
       notifyListeners();
     });
   }
@@ -204,10 +208,13 @@ class DemoRepository extends ChangeNotifier {
   String? _selectedPlaylistId;
   final AudioPlayer _audioPlayer = AudioPlayer();
   String? _playingTrackId;
+  bool _playbackRequested = false;
 
   PlaybackQueueState get queue => playbackCoordinator.queueState;
 
   bool get isPlaying => _audioPlayer.playing;
+
+  bool get isPlaybackActive => _audioPlayer.playing || _playbackRequested;
 
   AudioPlayer get audioPlayer => _audioPlayer;
 
@@ -542,13 +549,16 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<void> togglePlayPause() async {
-    if (_audioPlayer.playing) {
+    if (_audioPlayer.playing || _playbackRequested) {
+      _playbackRequested = false;
       await _audioPlayer.pause();
     } else if (_playingTrackId != null) {
+      _playbackRequested = true;
       await _audioPlayer.play();
     } else {
       await refreshPlaybackTicket();
     }
+    notifyListeners();
   }
 
   Future<void> seek(Duration position) => _audioPlayer.seek(position);
@@ -561,13 +571,14 @@ class DemoRepository extends ChangeNotifier {
   Future<void> setPlaybackQuality(AudioQuality quality) async {
     playbackCoordinator.quality = quality;
     _playingTrackId = null;
-    await _syncNativePlayback(playWhenReady: _audioPlayer.playing);
+    await _syncNativePlayback(playWhenReady: isPlaybackActive);
     notifyListeners();
   }
 
   Future<void> refreshPlaybackTicket() async {
     await playbackCoordinator.refreshCurrentTicketIfNeeded(force: true);
     _playingTrackId = null;
+    _playbackRequested = false;
     await _syncNativePlayback(playWhenReady: true);
     notifyListeners();
   }
@@ -588,6 +599,7 @@ class DemoRepository extends ChangeNotifier {
 
     if (playWhenReady) {
       _playingTrackId = trackId;
+      _playbackRequested = true;
       try {
         final url = currentTicket.mediaUri.toString();
         debugPrint('AUDIO: playing "${current.title}"');
@@ -599,6 +611,7 @@ class DemoRepository extends ChangeNotifier {
       } catch (e) {
         debugPrint('Audio Error: $e');
         _playingTrackId = null;
+        _playbackRequested = false;
       }
     }
   }

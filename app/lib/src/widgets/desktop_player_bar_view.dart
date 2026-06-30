@@ -15,135 +15,63 @@ class DesktopPlayerBar extends ConsumerWidget {
         color: MeloColors.surface,
         border: Border(top: BorderSide(color: MeloColors.border)),
       ),
-      child: Row(
-        children: [
-          _PlayerArtwork(
-            seed: current?.title ?? 'melo',
-            artwork: current?.artwork,
-          ),
-          const SizedBox(width: MeloSpacing.sm),
-          SizedBox(
-            width: 210,
-            child: current == null
-                ? Text('从喜欢、歌单或推荐中选择歌曲',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: MeloColors.textSecondary))
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(current.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w700)),
-                      Text(current.artists.join(' / '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: MeloColors.textSecondary)),
-                    ],
-                  ),
-          ),
-          const Spacer(),
-          IconButton(
-              onPressed: current == null ? null : repository.queuePrevious,
-              icon: const Icon(Icons.skip_previous_rounded)),
-          StreamBuilder<PlayerState>(
-            stream: repository.playerStateStream,
-            initialData: repository.audioPlayer.playerState,
-            builder: (context, snapshot) {
-              final state = snapshot.data;
-              final playing = state?.playing ?? repository.isPlaying;
-              final completed =
-                  state?.processingState == ProcessingState.completed;
-              return FilledButton(
-                onPressed: current == null
-                    ? null
-                    : completed
-                        ? () => repository.seek(Duration.zero).then(
-                              (_) => repository.togglePlayPause(),
-                            )
-                        : repository.togglePlayPause,
-                style: FilledButton.styleFrom(
-                    shape: const CircleBorder(),
-                    padding: const EdgeInsets.all(10)),
-                child: Icon(
-                  playing && !completed
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 980;
+          return Row(
+            children: [
+              SizedBox(
+                width: compact ? 226 : 276,
+                child: _CurrentTrackSummary(
+                  current: current,
+                  repository: repository,
                 ),
-              );
-            },
-          ),
-          IconButton(
-              onPressed: current == null ? null : repository.queueNext,
-              icon: const Icon(Icons.skip_next_rounded)),
-          const SizedBox(width: MeloSpacing.md),
-          Expanded(
-            flex: 3,
-            child: _PlaybackProgress(repository: repository),
-          ),
-          const Spacer(),
-          PopupMenuButton<AudioQuality>(
-            tooltip: '音质',
-            initialValue: repository.playbackQuality,
-            onSelected: repository.setPlaybackQuality,
-            itemBuilder: (context) => [
-              for (final quality in AudioQuality.values)
-                PopupMenuItem(
-                  value: quality,
-                  child: Row(
-                    children: [
-                      Icon(
-                        quality == repository.playbackQuality
-                            ? Icons.check_rounded
-                            : Icons.graphic_eq_rounded,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(_qualityLabel(quality)),
-                    ],
-                  ),
-                ),
-            ],
-            child: Chip(
-              label: Text(_qualityLabel(repository.playbackQuality)),
-              avatar: const Icon(Icons.high_quality_rounded, size: 17),
-              side: const BorderSide(color: MeloColors.border),
-              backgroundColor: MeloColors.surfaceMuted,
-            ),
-          ),
-          const SizedBox(width: MeloSpacing.sm),
-          IconButton(
-            tooltip: '播放队列',
-            onPressed:
-                queue.entries.isEmpty ? null : () => _showQueue(context, ref),
-            icon: Badge(
-              label: Text('${queue.entries.length}'),
-              isLabelVisible: queue.entries.isNotEmpty,
-              child: const Icon(Icons.queue_music_outlined),
-            ),
-          ),
-          const SizedBox(width: MeloSpacing.lg),
-          const Icon(Icons.volume_up_outlined, color: MeloColors.textSecondary),
-          SizedBox(
-            width: 132,
-            child: SliderTheme(
-              data: _playerSliderTheme(context),
-              child: Slider(
-                value: repository.volume,
-                onChanged: repository.setVolume,
               ),
-            ),
-          ),
-        ],
+              const SizedBox(width: MeloSpacing.md),
+              const SizedBox(
+                height: 46,
+                child: VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: MeloColors.border,
+                ),
+              ),
+              const SizedBox(width: MeloSpacing.md),
+              Expanded(
+                child: Row(
+                  children: [
+                    _TransportControls(
+                      current: current,
+                      compact: compact,
+                      repository: repository,
+                    ),
+                    const SizedBox(width: MeloSpacing.md),
+                    Expanded(child: _PlaybackProgress(repository: repository)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: MeloSpacing.md),
+              _QualityMenuButton(repository: repository),
+              const SizedBox(width: MeloSpacing.sm),
+              _VolumeControl(
+                repository: repository,
+                width: compact ? 108 : 148,
+              ),
+              const SizedBox(width: MeloSpacing.xs),
+              IconButton(
+                tooltip: '播放队列',
+                onPressed: queue.entries.isEmpty
+                    ? null
+                    : () => _showQueue(context, ref),
+                icon: Badge(
+                  label: Text('${queue.entries.length}'),
+                  isLabelVisible: queue.entries.isNotEmpty,
+                  child: const Icon(Icons.queue_music_outlined),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -193,6 +121,273 @@ class DesktopPlayerBar extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _CurrentTrackSummary extends StatelessWidget {
+  const _CurrentTrackSummary({
+    required this.current,
+    required this.repository,
+  });
+
+  final SourceTrack? current;
+  final DemoRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    final track = current;
+    return Row(
+      children: [
+        _PlayerArtwork(
+          seed: track?.title ?? 'melo',
+          artwork: track?.artwork,
+          size: 52,
+        ),
+        const SizedBox(width: MeloSpacing.sm),
+        Expanded(
+          child: track == null
+              ? Text(
+                  '从喜欢、歌单或推荐中选择歌曲',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: MeloColors.textSecondary,
+                      ),
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      track.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      track.artists.join(' / '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: MeloColors.textSecondary,
+                          ),
+                    ),
+                  ],
+                ),
+        ),
+        const SizedBox(width: MeloSpacing.xs),
+        _FavoriteButton(track: track, repository: repository),
+      ],
+    );
+  }
+}
+
+class _FavoriteButton extends StatelessWidget {
+  const _FavoriteButton({
+    required this.track,
+    required this.repository,
+  });
+
+  final SourceTrack? track;
+  final DemoRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = track;
+    final liked = current?.isFavorited ?? false;
+    return IconButton(
+      tooltip: liked ? '取消喜欢' : '喜欢',
+      visualDensity: VisualDensity.compact,
+      onPressed: current == null
+          ? null
+          : () async {
+              final availability =
+                  repository.favoriteWriteAvailability(current.ref.providerId);
+              if (!availability.isEnabled) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(availability.reason ?? '此来源无法写回收藏。')),
+                );
+                return;
+              }
+              try {
+                await repository.toggleFavorite(
+                  track: current,
+                  liked: !liked,
+                );
+              } on ProviderException catch (error) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(error.message)),
+                  );
+                }
+              }
+            },
+      icon: Icon(
+        liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+        color: liked ? MeloColors.primary600 : MeloColors.textTertiary,
+      ),
+    );
+  }
+}
+
+class _TransportControls extends StatelessWidget {
+  const _TransportControls({
+    required this.current,
+    required this.compact,
+    required this.repository,
+  });
+
+  final SourceTrack? current;
+  final bool compact;
+  final DemoRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!compact)
+          IconButton(
+            tooltip: '随机播放',
+            onPressed: null,
+            icon: const Icon(Icons.shuffle_rounded),
+          ),
+        IconButton(
+          tooltip: '上一首',
+          onPressed: current == null ? null : repository.queuePrevious,
+          icon: const Icon(Icons.skip_previous_rounded),
+        ),
+        StreamBuilder<PlayerState>(
+          stream: repository.playerStateStream,
+          initialData: repository.audioPlayer.playerState,
+          builder: (context, snapshot) {
+            final state = snapshot.data;
+            final playing = (state?.playing ?? repository.isPlaying) ||
+                repository.isPlaybackActive;
+            final completed =
+                state?.processingState == ProcessingState.completed;
+            return FilledButton(
+              onPressed: current == null
+                  ? null
+                  : completed
+                      ? () => repository.seek(Duration.zero).then(
+                            (_) => repository.togglePlayPause(),
+                          )
+                      : repository.togglePlayPause,
+              style: FilledButton.styleFrom(
+                fixedSize: const Size.square(42),
+                shape: const CircleBorder(),
+                padding: EdgeInsets.zero,
+              ),
+              child: Icon(
+                playing && !completed
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+              ),
+            );
+          },
+        ),
+        IconButton(
+          tooltip: '下一首',
+          onPressed: current == null ? null : repository.queueNext,
+          icon: const Icon(Icons.skip_next_rounded),
+        ),
+        if (!compact)
+          IconButton(
+            tooltip: '循环播放',
+            onPressed: null,
+            icon: const Icon(Icons.repeat_rounded),
+          ),
+      ],
+    );
+  }
+}
+
+class _QualityMenuButton extends StatelessWidget {
+  const _QualityMenuButton({required this.repository});
+
+  final DemoRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<AudioQuality>(
+      tooltip: '音质',
+      initialValue: repository.playbackQuality,
+      onSelected: repository.setPlaybackQuality,
+      itemBuilder: (context) => [
+        for (final quality in AudioQuality.values)
+          PopupMenuItem(
+            value: quality,
+            child: Row(
+              children: [
+                Icon(
+                  quality == repository.playbackQuality
+                      ? Icons.check_rounded
+                      : Icons.graphic_eq_rounded,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(_qualityLabel(quality)),
+              ],
+            ),
+          ),
+      ],
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: MeloColors.surfaceMuted,
+          border: Border.all(color: MeloColors.border),
+          borderRadius: MeloRadii.sm,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.high_quality_rounded, size: 17),
+            const SizedBox(width: 6),
+            Text(
+              _qualityLabel(repository.playbackQuality),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VolumeControl extends StatelessWidget {
+  const _VolumeControl({
+    required this.repository,
+    required this.width,
+  });
+
+  final DemoRepository repository;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.volume_up_outlined, color: MeloColors.textSecondary),
+        SizedBox(
+          width: width,
+          child: SliderTheme(
+            data: _playerSliderTheme(context),
+            child: Slider(
+              value: repository.volume,
+              onChanged: repository.setVolume,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -259,9 +454,15 @@ class _PlaybackProgress extends StatelessWidget {
 }
 
 class _PlayerArtwork extends StatelessWidget {
-  const _PlayerArtwork({required this.seed, this.artwork});
+  const _PlayerArtwork({
+    required this.seed,
+    required this.size,
+    this.artwork,
+  });
+
   final String seed;
   final Uri? artwork;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -270,8 +471,8 @@ class _PlayerArtwork extends StatelessWidget {
         borderRadius: MeloRadii.sm,
         child: Image.network(
           artwork!.toString(),
-          width: 46,
-          height: 46,
+          width: size,
+          height: size,
           fit: BoxFit.cover,
           headers: const {
             'User-Agent':
@@ -288,8 +489,8 @@ class _PlayerArtwork extends StatelessWidget {
   Widget _buildPlaceholder() {
     final hue = seed.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
     return Container(
-      width: 46,
-      height: 46,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         borderRadius: MeloRadii.sm,
         gradient: LinearGradient(colors: [

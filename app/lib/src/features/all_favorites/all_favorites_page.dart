@@ -4,7 +4,6 @@ import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 import '../../bootstrap/demo_repository.dart';
-import '../../bootstrap/demo_repository_extensions.dart';
 import '../../design/melo_tokens.dart';
 import '../../widgets/provider_tabs.dart';
 

@@ -1,12 +1,18 @@
 part of 'local_playlists_page.dart';
 
-class _PlaylistGrid extends ConsumerWidget {
-  const _PlaylistGrid({required this.playlists});
+class _PlaylistGrid extends StatelessWidget {
+  const _PlaylistGrid({
+    required this.playlists,
+    required this.selectedPlaylistId,
+    required this.onSelected,
+  });
+
   final List<LocalPlaylist> playlists;
+  final String? selectedPlaylistId;
+  final ValueChanged<String> onSelected;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
+  Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final count = width >= 1240
         ? 4
@@ -24,9 +30,9 @@ class _PlaylistGrid extends ConsumerWidget {
       itemBuilder: (context, index) {
         if (index == 0) return const _CreatePlaylistCard();
         final playlist = playlists[index - 1];
-        final selected = playlist.id == repository.selectedPlaylistId;
+        final selected = playlist.id == selectedPlaylistId;
         return InkWell(
-          onTap: () => repository.selectPlaylist(playlist.id),
+          onTap: () => onSelected(playlist.id),
           borderRadius: MeloRadii.lg,
           child: Ink(
             padding: const EdgeInsets.all(12),

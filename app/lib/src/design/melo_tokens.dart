@@ -89,7 +89,7 @@ abstract final class MeloShadows {
 
 abstract final class MeloDimensions {
   static const desktopSidebarWidth = 216.0;
-  static const desktopNowPlayingWidth = 320.0;
+  static const desktopNowPlayingWidth = 280.0;
   static const desktopPlayerBarHeight = 82.0;
   static const desktopProviderTabsHeight = 46.0;
 
