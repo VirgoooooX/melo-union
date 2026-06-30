@@ -107,7 +107,7 @@ class _SidebarItemState extends State<_SidebarItem> {
     final background = selected
         ? MeloColors.surfaceSelected
         : _hovered
-            ? MeloColors.surfaceHover
+            ? const Color(0xFFF8FAFC)
             : Colors.transparent;
 
     return Semantics(
@@ -121,27 +121,40 @@ class _SidebarItemState extends State<_SidebarItem> {
         child: GestureDetector(
           onTap: () => context.go(widget.destination.path),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            height: 46,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            duration:
+                _hovered ? const Duration(milliseconds: 90) : Duration.zero,
+            curve: Curves.easeOutCubic,
+            height: 42,
+            padding: const EdgeInsets.only(left: 0, right: 10),
             decoration: BoxDecoration(
               color: background,
-              borderRadius: MeloRadii.md,
+              borderRadius: MeloRadii.sm,
               border: Border.all(
-                color: selected ? MeloColors.primary100 : Colors.transparent,
+                color: Colors.transparent,
               ),
-              boxShadow: selected ? MeloShadows.control : const [],
             ),
             child: Row(
               children: [
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                  duration: const Duration(milliseconds: 120),
+                  width: 3,
+                  height: selected ? 22 : 0,
+                  decoration: const BoxDecoration(
+                    color: MeloColors.primary600,
+                    borderRadius: MeloRadii.pill,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
                     color: selected
-                        ? Colors.white.withValues(alpha: .72)
-                        : Colors.transparent,
+                        ? MeloColors.surface
+                        : _hovered
+                            ? MeloColors.primary50
+                            : Colors.transparent,
                     borderRadius: MeloRadii.sm,
                   ),
                   child: Icon(

@@ -37,7 +37,7 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
       for (final entry in entries)
         ProviderTabItem(
           id: entry.descriptor.id.value,
-          label: providerLabel(entry.descriptor.id),
+          label: meloProviderLabel(entry.descriptor.id),
         ),
       const ProviderTabItem(
         id: 'more',
@@ -183,6 +183,7 @@ class _FavoritesToolbar extends StatelessWidget {
             child: TextField(
               controller: controller,
               onChanged: onQueryChanged,
+              textAlignVertical: TextAlignVertical.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: MeloColors.textPrimary,
                     fontWeight: FontWeight.w500,
@@ -211,7 +212,7 @@ class _FavoritesToolbar extends StatelessWidget {
                 hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: MeloColors.textTertiary,
                     ),
-                contentPadding: const EdgeInsets.only(right: 12, top: 10),
+                contentPadding: const EdgeInsets.only(right: 12),
               ),
             ),
           ),

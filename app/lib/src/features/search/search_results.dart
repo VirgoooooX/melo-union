@@ -82,7 +82,7 @@ class _SourceResultSection extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
             child: Row(
               children: [
-                _SourcePill(providerId: group.provider.id),
+                MeloSourceBadge(providerId: group.provider.id),
                 const SizedBox(width: 8),
                 Text(
                   providerName,
@@ -120,30 +120,66 @@ class _SearchTrackRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
+    final repository = ref.read(demoRepositoryProvider);
+    final currentRef = ref.watch(
+      demoRepositoryProvider.select((r) => r.queue.current?.track.ref),
+    );
     final availability =
         repository.favoriteWriteAvailability(track.ref.providerId);
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: _SearchCover(seed: track.title, artwork: track.artwork),
-      title: Text(
-        track.title,
-        style: const TextStyle(fontWeight: FontWeight.w700),
-      ),
-      subtitle:
-          Text('${track.artists.join(' / ')} · ${track.album ?? providerName}'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+    final selected = currentRef == track.ref;
+    return MeloInteractiveRow(
+      selected: selected,
+      onTap: track.isPlayable ? () => repository.playTrack(track) : null,
+      builder: (context, hovered) => Row(
         children: [
-          IconButton(
-            tooltip: track.isPlayable ? '播放' : '当前不可播放',
-            onPressed:
-                track.isPlayable ? () => repository.playTrack(track) : null,
-            icon: const Icon(Icons.play_arrow_rounded),
+          SizedBox(
+            width: 38,
+            child: Icon(
+              selected ? Icons.graphic_eq_rounded : Icons.play_arrow_rounded,
+              size: 18,
+              color: selected
+                  ? MeloColors.primary700
+                  : hovered
+                      ? MeloColors.primary700
+                      : MeloColors.textTertiary,
+            ),
+          ),
+          MeloTrackCover(
+            seed: track.title,
+            artwork: track.artwork,
+            isActive: selected,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 4,
+            child: Text(
+              track.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: selected
+                        ? MeloColors.primary700
+                        : MeloColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              '${track.artists.join(' / ')} · ${track.album ?? providerName}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: MeloColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
           ),
           Tooltip(
             message: availability.reason ?? (track.isFavorited ? '取消喜欢' : '喜欢'),
             child: IconButton(
+              visualDensity: VisualDensity.compact,
               onPressed: availability.isEnabled
                   ? () async {
                       try {
@@ -170,98 +206,28 @@ class _SearchTrackRow extends ConsumerWidget {
               ),
             ),
           ),
-          PopupMenuButton<String>(
-            tooltip: '更多',
-            onSelected: (value) {
-              if (value == 'playlist') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('加入本地歌单操作将在下个交互迭代接入。')),
-                );
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'playlist', child: Text('加入本地歌单')),
-            ],
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 120),
+            opacity: hovered || selected ? 1 : 0,
+            child: IgnorePointer(
+              ignoring: !hovered && !selected,
+              child: PopupMenuButton<String>(
+                tooltip: '更多',
+                icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                onSelected: (value) {
+                  if (value == 'playlist') {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('加入本地歌单操作将在下个交互迭代接入。')),
+                    );
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'playlist', child: Text('加入本地歌单')),
+                ],
+              ),
+            ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SearchCover extends StatelessWidget {
-  const _SearchCover({required this.seed, this.artwork});
-
-  final String seed;
-  final Uri? artwork;
-
-  @override
-  Widget build(BuildContext context) {
-    if (artwork != null && artwork!.toString().isNotEmpty) {
-      return ClipRRect(
-        borderRadius: MeloRadii.sm,
-        child: Image.network(
-          artwork!.toString(),
-          width: 42,
-          height: 42,
-          fit: BoxFit.cover,
-          headers: const {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://music.163.com',
-          },
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('SEARCH IMAGE ERROR: $error for url: $artwork');
-            return _buildPlaceholder();
-          },
-        ),
-      );
-    }
-    return _buildPlaceholder();
-  }
-
-  Widget _buildPlaceholder() {
-    final hue = seed.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
-    return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        borderRadius: MeloRadii.sm,
-        gradient: LinearGradient(
-          colors: [
-            HSLColor.fromAHSL(1, hue.toDouble(), .52, .64).toColor(),
-            HSLColor.fromAHSL(1, (hue + 42) % 360, .54, .42).toColor(),
-          ],
-        ),
-      ),
-      child: const Icon(Icons.music_note_rounded, color: Colors.white),
-    );
-  }
-}
-
-class _SourcePill extends StatelessWidget {
-  const _SourcePill({required this.providerId});
-
-  final ProviderId providerId;
-
-  @override
-  Widget build(BuildContext context) {
-    final netease = providerId.value.contains('aurora') ||
-        providerId.value.contains('netease');
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: netease ? MeloColors.neteaseBackground : MeloColors.qqBackground,
-        borderRadius: MeloRadii.sm,
-      ),
-      child: Text(
-        _displayProviderName(providerId),
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: netease
-                  ? MeloColors.neteaseForeground
-                  : MeloColors.qqForeground,
-              fontWeight: FontWeight.w700,
-            ),
       ),
     );
   }

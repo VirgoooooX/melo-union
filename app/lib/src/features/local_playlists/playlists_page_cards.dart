@@ -24,53 +24,25 @@ class _PlaylistGrid extends StatelessWidget {
         crossAxisCount: count,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: .80,
+        childAspectRatio: .78,
       ),
       itemCount: playlists.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) return const _CreatePlaylistCard();
         final playlist = playlists[index - 1];
-        final selected = playlist.id == selectedPlaylistId;
-        return InkWell(
-          onTap: () => onSelected(playlist.id),
-          borderRadius: MeloRadii.lg,
-          child: Ink(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: MeloColors.surface,
-              borderRadius: MeloRadii.lg,
-              border: Border.all(
-                  color: selected ? MeloColors.primary500 : MeloColors.border),
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: MeloRadii.md,
+            border: Border.all(
+              color: playlist.id == selectedPlaylistId
+                  ? MeloColors.primary500
+                  : Colors.transparent,
             ),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    borderRadius: MeloRadii.md,
-                    gradient: LinearGradient(
-                        colors: [Color(0xFF3AAEAA), Color(0xFF5B7DBA)]),
-                  ),
-                  child: const Icon(Icons.queue_music_rounded,
-                      size: 46, color: Colors.white),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(playlist.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4),
-              Text('${playlist.items.length} 首 · 混合',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: MeloColors.textSecondary)),
-            ]),
+          ),
+          child: MeloPlaylistCard(
+            title: playlist.name,
+            subtitle: '${playlist.items.length} 首 · 混合',
+            onTap: () => onSelected(playlist.id),
           ),
         );
       },
@@ -201,50 +173,17 @@ class _RemotePlaylistGrid extends StatelessWidget {
         crossAxisCount: count,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: .66,
+        childAspectRatio: .78,
       ),
       itemCount: playlists.length,
       itemBuilder: (context, index) {
         final playlist = playlists[index];
-        return InkWell(
+        return MeloPlaylistCard(
+          title: playlist.name,
+          subtitle:
+              '${playlist.trackCount} 首 · ${playlist.creatorName ?? '网易云'}',
+          cover: playlist.cover,
           onTap: () => onSelected(playlist.playlistId),
-          borderRadius: MeloRadii.lg,
-          child: Ink(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: MeloColors.surface,
-              borderRadius: MeloRadii.lg,
-              border: Border.all(color: MeloColors.border),
-              boxShadow: MeloShadows.card,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: _RemotePlaylistCover(playlist: playlist),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  playlist.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${playlist.trackCount} 首 · ${playlist.creatorName ?? '网易云'}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: MeloColors.textSecondary,
-                      ),
-                ),
-              ],
-            ),
-          ),
         );
       },
     );
@@ -293,6 +232,9 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
   @override
   Widget build(BuildContext context) {
     final repository = ref.read(demoRepositoryProvider);
+    final currentRef = ref.watch(
+      demoRepositoryProvider.select((r) => r.queue.current?.track.ref),
+    );
     return FutureBuilder<List<SourceTrack>>(
       future: _tracksFuture,
       builder: (context, snapshot) {
@@ -367,40 +309,92 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                         ),
                         itemBuilder: (context, index) {
                           final track = tracks[index];
-                          return ListTile(
-                            leading: SizedBox(
-                              width: 76,
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 24,
-                                    child: Text(
-                                      '${index + 1}',
-                                      textAlign: TextAlign.right,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: MeloColors.textTertiary,
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                          final selected = currentRef == track.ref;
+                          return MeloInteractiveRow(
+                            selected: selected,
+                            onTap: track.isPlayable
+                                ? () => repository.playTrack(track)
+                                : null,
+                            builder: (context, hovered) => Row(
+                              children: [
+                                SizedBox(
+                                  width: 38,
+                                  child: selected
+                                      ? const Icon(
+                                          Icons.graphic_eq_rounded,
+                                          color: MeloColors.primary700,
+                                          size: 18,
+                                        )
+                                      : Text(
+                                          '${index + 1}'.padLeft(2, '0'),
+                                          textAlign: TextAlign.center,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: hovered
+                                                    ? MeloColors.primary700
+                                                    : MeloColors.textTertiary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                ),
+                                MeloTrackCover(
+                                  seed: track.title,
+                                  artwork: track.artwork,
+                                  isActive: selected,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 4,
+                                  child: Text(
+                                    track.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: selected
+                                              ? MeloColors.primary700
+                                              : MeloColors.textPrimary,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    '${track.artists.join(' / ')} · ${track.album ?? '网易云'}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: MeloColors.textSecondary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                  ),
+                                ),
+                                AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 120),
+                                  opacity: hovered || selected ? 1 : 0,
+                                  child: IgnorePointer(
+                                    ignoring: !hovered && !selected,
+                                    child: IconButton(
+                                      tooltip: '播放',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: track.isPlayable
+                                          ? () => repository.playTrack(track)
+                                          : null,
+                                      icon: const Icon(
+                                        Icons.play_arrow_rounded,
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  _RemoteTrackCover(track: track),
-                                ],
-                              ),
-                            ),
-                            title: Text(track.title),
-                            subtitle: Text(
-                              '${track.artists.join(' / ')} · ${track.album ?? '网易云'}',
-                            ),
-                            trailing: IconButton(
-                              tooltip: '播放',
-                              onPressed: track.isPlayable
-                                  ? () => repository.playTrack(track)
-                                  : null,
-                              icon: const Icon(Icons.play_arrow_rounded),
+                                ),
+                              ],
                             ),
                           );
                         },
@@ -410,102 +404,6 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
           ),
         );
       },
-    );
-  }
-}
-
-class _RemotePlaylistCover extends StatelessWidget {
-  const _RemotePlaylistCover({required this.playlist});
-
-  final ProviderPlaylist playlist;
-
-  @override
-  Widget build(BuildContext context) {
-    final cover = playlist.cover;
-    if (cover != null && cover.toString().isNotEmpty) {
-      return ClipRRect(
-        borderRadius: MeloRadii.md,
-        child: Image.network(
-          cover.toString(),
-          width: double.infinity,
-          height: double.infinity,
-          fit: BoxFit.cover,
-          headers: const {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://music.163.com',
-          },
-          errorBuilder: (_, __, ___) => _placeholder(),
-        ),
-      );
-    }
-    return _placeholder();
-  }
-
-  Widget _placeholder() {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        borderRadius: MeloRadii.md,
-        color: MeloColors.primary50,
-      ),
-      child: const Icon(
-        Icons.queue_music_rounded,
-        size: 46,
-        color: MeloColors.primary700,
-      ),
-    );
-  }
-}
-
-class _RemoteTrackCover extends StatelessWidget {
-  const _RemoteTrackCover({required this.track});
-
-  final SourceTrack track;
-
-  @override
-  Widget build(BuildContext context) {
-    final artwork = track.artwork;
-    if (artwork != null && artwork.toString().isNotEmpty) {
-      return ClipRRect(
-        borderRadius: MeloRadii.sm,
-        child: Image.network(
-          artwork.toString(),
-          width: 42,
-          height: 42,
-          fit: BoxFit.cover,
-          headers: const {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://music.163.com',
-          },
-          errorBuilder: (_, __, ___) => _placeholder(),
-        ),
-      );
-    }
-    return _placeholder();
-  }
-
-  Widget _placeholder() {
-    final hue =
-        track.title.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
-    return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        borderRadius: MeloRadii.sm,
-        gradient: LinearGradient(
-          colors: [
-            HSLColor.fromAHSL(1, hue.toDouble(), .52, .64).toColor(),
-            HSLColor.fromAHSL(1, (hue + 42) % 360, .54, .42).toColor(),
-          ],
-        ),
-      ),
-      child: const Icon(
-        Icons.music_note_rounded,
-        color: Colors.white,
-        size: 20,
-      ),
     );
   }
 }

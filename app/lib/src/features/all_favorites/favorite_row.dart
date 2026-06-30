@@ -16,8 +16,6 @@ class _FavoriteRow extends ConsumerStatefulWidget {
 }
 
 class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
-  bool _hovered = false;
-
   @override
   Widget build(BuildContext context) {
     final repository = ref.read(demoRepositoryProvider);
@@ -34,137 +32,111 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
     final isPlaying = currentRef != null &&
         variants.any((variant) => variant.ref == currentRef);
     final hasFavorite = variants.any((variant) => variant.isFavorited);
-    final rowBackground = isPlaying
-        ? MeloColors.primary50
-        : _hovered
-            ? MeloColors.surfaceHover
-            : Colors.transparent;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => repository.playUnifiedTrack(widget.track),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: rowBackground,
-              border: Border(
-                left: BorderSide(
-                  color: isPlaying ? MeloColors.primary500 : Colors.transparent,
-                  width: 3,
+    return MeloInteractiveRow(
+      selected: isPlaying,
+      height: MeloListMetrics.rowHeight,
+      onTap: () => repository.playUnifiedTrack(widget.track),
+      builder: (context, hovered) {
+        return Row(
+          children: [
+            SizedBox(
+              width: 38,
+              child: _RowPlaybackIndicator(
+                index: widget.index,
+                hovered: hovered,
+                isPlaying: isPlaying,
+              ),
+            ),
+            MeloTrackCover(
+              seed: widget.track.title,
+              isActive: isPlaying,
+              artwork: widget.track.variants
+                  .firstWhere((v) => v.artwork != null, orElse: () => primary)
+                  .artwork,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 4,
+              child: Text(
+                widget.track.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: isPlaying
+                          ? MeloColors.primary700
+                          : MeloColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                widget.track.artists.join(' / '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: MeloColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ),
+            SizedBox(
+              width: 132,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    for (final item in variants)
+                      MeloSourceBadge(providerId: item.ref.providerId),
+                  ],
                 ),
               ),
             ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 38,
-                  child: _RowPlaybackIndicator(
-                    index: widget.index,
-                    hovered: _hovered,
-                    isPlaying: isPlaying,
-                  ),
-                ),
-                _TrackCover(
-                  seed: widget.track.title,
-                  isPlaying: isPlaying,
-                  artwork: widget.track.variants
-                      .firstWhere((v) => v.artwork != null,
-                          orElse: () => primary)
-                      .artwork,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 4,
-                  child: Text(
-                    widget.track.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: isPlaying
-                              ? MeloColors.primary700
-                              : MeloColors.textPrimary,
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    widget.track.artists.join(' / '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: MeloColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                ),
-                SizedBox(
-                  width: 132,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        for (final item in variants)
-                          _SourceTag(provider: item.ref.providerId),
-                      ],
+            SizedBox(
+              width: 84,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    tooltip: variants.length > 1
+                        ? '管理多个来源的收藏状态'
+                        : hasFavorite
+                            ? '取消喜欢'
+                            : '喜欢',
+                    onPressed: () => _handleFavoriteTap(
+                      context,
+                      repository,
+                      variants,
+                    ),
+                    splashRadius: 20,
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      hasFavorite
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: hasFavorite
+                          ? MeloColors.favorite
+                          : MeloColors.textTertiary,
+                      size: 21,
                     ),
                   ),
-                ),
-                SizedBox(
-                  width: 84,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        tooltip: variants.length > 1
-                            ? '管理多个来源的收藏状态'
-                            : hasFavorite
-                                ? '取消喜欢'
-                                : '喜欢',
-                        onPressed: () => _handleFavoriteTap(
-                          context,
-                          repository,
-                          variants,
-                        ),
-                        splashRadius: 20,
-                        visualDensity: VisualDensity.compact,
-                        icon: Icon(
-                          hasFavorite
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          color: hasFavorite
-                              ? MeloColors.favorite
-                              : MeloColors.textTertiary,
-                          size: 21,
-                        ),
-                      ),
-                      AnimatedOpacity(
-                        duration: const Duration(milliseconds: 130),
-                        opacity: _hovered || isPlaying ? 1 : 0,
-                        child: IgnorePointer(
-                          ignoring: !_hovered && !isPlaying,
-                          child: _TrackMoreMenu(track: primary),
-                        ),
-                      ),
-                    ],
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 130),
+                    opacity: hovered || isPlaying ? 1 : 0,
+                    child: IgnorePointer(
+                      ignoring: !hovered && !isPlaying,
+                      child: _TrackMoreMenu(track: primary),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ),
-      ),
+          ],
+        );
+      },
     );
   }
 
@@ -623,7 +595,7 @@ class _FavoriteSourceItem extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          _SourceTag(provider: liveVariant.ref.providerId),
+          MeloSourceBadge(providerId: liveVariant.ref.providerId),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

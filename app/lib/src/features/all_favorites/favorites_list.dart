@@ -34,7 +34,9 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
                 ? 6
                 : listUsableHeight <= 0
                     ? 1
-                    : (listUsableHeight / 49.0).floor().clamp(1, 10000);
+                    : (listUsableHeight / (MeloListMetrics.rowHeight + 1))
+                        .floor()
+                        .clamp(1, 10000);
 
             return favorites.when(
               loading: () => _FavoritesLoadingState(
@@ -194,11 +196,15 @@ class _FavoriteRowSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: MeloListMetrics.rowHeight,
       child: Row(
         children: [
           const SizedBox(width: 54),
-          _SkeletonBox(width: 34, height: 34, radius: MeloRadii.sm),
+          _SkeletonBox(
+            width: MeloListMetrics.trackCoverSize,
+            height: MeloListMetrics.trackCoverSize,
+            radius: MeloRadii.sm,
+          ),
           const SizedBox(width: 12),
           const Expanded(flex: 4, child: _SkeletonTextGroup()),
           const Expanded(flex: 2, child: _SkeletonTextGroup(short: true)),

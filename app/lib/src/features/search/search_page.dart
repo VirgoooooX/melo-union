@@ -5,6 +5,7 @@ import 'package:provider_contract/provider_contract.dart';
 
 import '../../bootstrap/demo_repository.dart';
 import '../../design/melo_tokens.dart';
+import '../../widgets/melo_components.dart';
 import '../../widgets/provider_tabs.dart';
 
 part 'search_page_view.dart';
