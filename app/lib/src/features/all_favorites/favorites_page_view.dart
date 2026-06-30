@@ -47,6 +47,10 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
     ];
     final selected =
         tabs.any((item) => item.id == _selectedTab) ? _selectedTab : 'all';
+    final visibleCount = ref.watch(allFavoritesProvider).maybeWhen<int?>(
+          data: (tracks) => _visibleTracks(tracks, selected).length,
+          orElse: () => null,
+        );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(26, 22, 26, 18),
@@ -70,6 +74,7 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
           _FavoritesToolbar(
             controller: _searchController,
             query: _query,
+            visibleCount: visibleCount,
             sort: _sort,
             onQueryChanged: (value) {
               setState(() => _query = value.trim().toLowerCase());
@@ -99,15 +104,7 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
 
   Future<void> _playAllVisible(String selected) async {
     final tracks = await ref.read(allFavoritesProvider.future);
-    final visible = tracks.where((track) {
-      final providerMatch = selected == 'all' ||
-          track.variants.any((item) => item.ref.providerId.value == selected);
-      final queryMatch = _query.isEmpty ||
-          '${track.title} ${track.artists.join(' ')}'
-              .toLowerCase()
-              .contains(_query);
-      return providerMatch && queryMatch;
-    }).toList(growable: false);
+    final visible = _visibleTracks(tracks, selected);
     if (visible.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -117,6 +114,21 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
       return;
     }
     await ref.read(demoRepositoryProvider).playUnifiedTracks(visible);
+  }
+
+  List<UnifiedFavoriteTrack> _visibleTracks(
+    List<UnifiedFavoriteTrack> tracks,
+    String selected,
+  ) {
+    return tracks.where((track) {
+      final providerMatch = selected == 'all' ||
+          track.variants.any((item) => item.ref.providerId.value == selected);
+      final queryMatch = _query.isEmpty ||
+          '${track.title} ${track.artists.join(' ')}'
+              .toLowerCase()
+              .contains(_query);
+      return providerMatch && queryMatch;
+    }).toList(growable: false);
   }
 }
 
@@ -176,6 +188,7 @@ class _FavoritesToolbar extends StatelessWidget {
   const _FavoritesToolbar({
     required this.controller,
     required this.query,
+    required this.visibleCount,
     required this.sort,
     required this.onQueryChanged,
     required this.onClearQuery,
@@ -185,6 +198,7 @@ class _FavoritesToolbar extends StatelessWidget {
 
   final TextEditingController controller;
   final String query;
+  final int? visibleCount;
   final _FavoriteSort sort;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
@@ -195,7 +209,16 @@ class _FavoritesToolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(
+        Text(
+          visibleCount == null ? '正在统计喜欢歌曲' : '共 $visibleCount 首歌曲',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: MeloColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        const Spacer(),
+        SizedBox(
+          width: 280,
           child: Container(
             height: 48,
             decoration: BoxDecoration(

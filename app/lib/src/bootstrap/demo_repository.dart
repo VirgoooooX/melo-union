@@ -438,6 +438,18 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> playTracks(List<SourceTrack> tracks) async {
+    final playableTracks =
+        tracks.where((track) => track.isPlayable).toList(growable: false);
+    if (playableTracks.isEmpty) return;
+
+    playbackCoordinator.setQueue(playableTracks);
+    await playbackCoordinator.selectTrack(playableTracks.first.ref);
+    _playingTrackId = null; // Force new playback
+    await _syncNativePlayback(playWhenReady: true);
+    notifyListeners();
+  }
+
   Future<void> playUnifiedTrack(UnifiedFavoriteTrack track) async {
     playbackCoordinator.setQueue(track.variants);
     if (track.variants.isNotEmpty) {

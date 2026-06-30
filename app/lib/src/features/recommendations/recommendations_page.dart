@@ -16,6 +16,26 @@ class RecommendationsPage extends ConsumerStatefulWidget {
 
 class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
   String _selectedProvider = 'netease_cloud_music';
+  final Map<String, Future<List<SourceTrack>>> _recommendationFutures = {};
+  final Map<String, Future<List<ProviderPlaylist>>> _playlistFutures = {};
+
+  Future<List<SourceTrack>> _recommendationsFuture(ProviderId providerId) {
+    return _recommendationFutures.putIfAbsent(
+      providerId.value,
+      () => ref.read(demoRepositoryProvider).loadRecommendations(providerId),
+    );
+  }
+
+  Future<List<ProviderPlaylist>> _recommendedPlaylistsFuture(
+    ProviderId providerId,
+  ) {
+    return _playlistFutures.putIfAbsent(
+      providerId.value,
+      () => ref.read(demoRepositoryProvider).loadRecommendedPlaylists(
+            providerId,
+          ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +86,15 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
           _RecommendationHero(providerId: selected),
           if (selected != 'more') ...[
             const SizedBox(height: 24),
-            _RecommendedPlaylistStrip(providerId: selectedProviderId),
+            _RecommendedPlaylistStrip(
+              playlistsFuture: _recommendedPlaylistsFuture(selectedProviderId),
+              onPlaylistSelected: (playlist) => _showPlaylistSheet(
+                context,
+                ref,
+                selectedProviderId,
+                playlist,
+              ),
+            ),
           ],
           const SizedBox(height: 24),
           Row(
@@ -82,10 +110,12 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                 onPressed: selected == 'more'
                     ? null
                     : () async {
-                        final tracks = await repository
-                            .loadRecommendations(selectedProviderId);
+                        final tracks =
+                            await _recommendationsFuture(selectedProviderId);
                         if (tracks.isNotEmpty) {
-                          await repository.playTrack(tracks.first);
+                          await ref
+                              .read(demoRepositoryProvider)
+                              .playTracks(tracks);
                         }
                       },
                 icon: const Icon(Icons.play_arrow_rounded),
@@ -98,7 +128,7 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
             child: selected == 'more'
                 ? const Center(child: Text('当前来源暂未提供推荐内容。'))
                 : FutureBuilder<List<SourceTrack>>(
-                    future: repository.loadRecommendations(selectedProviderId),
+                    future: _recommendationsFuture(selectedProviderId),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState != ConnectionState.done) {
                         return const Center(child: CircularProgressIndicator());
@@ -148,16 +178,19 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                                 children: [
                                   IconButton(
                                     tooltip: '播放',
-                                    onPressed: () =>
-                                        repository.playTrack(track),
+                                    onPressed: () => ref
+                                        .read(demoRepositoryProvider)
+                                        .playTrack(track),
                                     icon: const Icon(Icons.play_arrow_rounded),
                                   ),
                                   IconButton(
                                     tooltip: '喜欢',
-                                    onPressed: () => repository.toggleFavorite(
-                                      track: track,
-                                      liked: !track.isFavorited,
-                                    ),
+                                    onPressed: () => ref
+                                        .read(demoRepositoryProvider)
+                                        .toggleFavorite(
+                                          track: track,
+                                          liked: !track.isFavorited,
+                                        ),
                                     icon: Icon(
                                       track.isFavorited
                                           ? Icons.favorite_rounded
@@ -182,16 +215,19 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
   }
 }
 
-class _RecommendedPlaylistStrip extends ConsumerWidget {
-  const _RecommendedPlaylistStrip({required this.providerId});
+class _RecommendedPlaylistStrip extends StatelessWidget {
+  const _RecommendedPlaylistStrip({
+    required this.playlistsFuture,
+    required this.onPlaylistSelected,
+  });
 
-  final ProviderId providerId;
+  final Future<List<ProviderPlaylist>> playlistsFuture;
+  final ValueChanged<ProviderPlaylist> onPlaylistSelected;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
+  Widget build(BuildContext context) {
     return FutureBuilder<List<ProviderPlaylist>>(
-      future: repository.loadRecommendedPlaylists(providerId),
+      future: playlistsFuture,
       builder: (context, snapshot) {
         final isLoading = snapshot.connectionState != ConnectionState.done;
         final playlists = snapshot.data ?? const <ProviderPlaylist>[];
@@ -209,7 +245,7 @@ class _RecommendedPlaylistStrip extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 178,
+              height: 216,
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ListView.separated(
@@ -220,12 +256,7 @@ class _RecommendedPlaylistStrip extends ConsumerWidget {
                         final playlist = playlists[index];
                         return _RecommendedPlaylistCard(
                           playlist: playlist,
-                          onTap: () => _showPlaylistSheet(
-                            context,
-                            ref,
-                            providerId,
-                            playlist,
-                          ),
+                          onTap: () => onPlaylistSelected(playlist),
                         );
                       },
                     ),
@@ -342,6 +373,10 @@ void _showPlaylistSheet(
   ProviderPlaylist playlist,
 ) {
   final repository = ref.read(demoRepositoryProvider);
+  final tracksFuture = repository.loadProviderPlaylistTracks(
+    providerId: providerId,
+    playlistId: playlist.playlistId,
+  );
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -351,10 +386,7 @@ void _showPlaylistSheet(
       return SizedBox(
         height: MediaQuery.sizeOf(context).height * .72,
         child: FutureBuilder<List<SourceTrack>>(
-          future: repository.loadProviderPlaylistTracks(
-            providerId: providerId,
-            playlistId: playlist.playlistId,
-          ),
+          future: tracksFuture,
           builder: (context, snapshot) {
             final tracks = snapshot.data ?? const <SourceTrack>[];
             return Column(
@@ -397,7 +429,7 @@ void _showPlaylistSheet(
                       FilledButton.icon(
                         onPressed: tracks.isEmpty
                             ? null
-                            : () => repository.playTrack(tracks.first),
+                            : () => repository.playTracks(tracks),
                         icon: const Icon(Icons.play_arrow_rounded),
                         label: const Text('播放全部'),
                       ),
@@ -443,7 +475,9 @@ void _showPlaylistSheet(
                             ),
                             trailing: IconButton(
                               tooltip: '播放',
-                              onPressed: () => repository.playTrack(track),
+                              onPressed: () => ref
+                                  .read(demoRepositoryProvider)
+                                  .playTrack(track),
                               icon: const Icon(Icons.play_arrow_rounded),
                             ),
                           );

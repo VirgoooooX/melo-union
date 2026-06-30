@@ -16,10 +16,21 @@ class _QueuePreview extends ConsumerWidget {
         return ListTile(
           selected: selected,
           onTap: () => repository.selectTrackInQueue(entry.track.ref),
-          leading: Icon(
-              selected ? Icons.equalizer_rounded : Icons.music_note_outlined),
-          title: Text(entry.track.title),
-          subtitle: Text(entry.track.artists.join(' / ')),
+          leading: QueueTrackCover(
+            seed: entry.track.title,
+            artwork: entry.track.artwork,
+            isPlaying: selected,
+          ),
+          title: Text(
+            entry.track.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            entry.track.artists.join(' / '),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         );
       },
     );

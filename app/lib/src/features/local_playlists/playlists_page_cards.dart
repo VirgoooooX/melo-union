@@ -93,7 +93,7 @@ class _CreatePlaylistCard extends StatelessWidget {
       );
 }
 
-class _RemotePlaylistsPanel extends ConsumerWidget {
+class _RemotePlaylistsPanel extends ConsumerStatefulWidget {
   const _RemotePlaylistsPanel({
     required this.providerId,
     required this.selectedPlaylistId,
@@ -107,10 +107,37 @@ class _RemotePlaylistsPanel extends ConsumerWidget {
   final VoidCallback onBack;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
+  ConsumerState<_RemotePlaylistsPanel> createState() =>
+      _RemotePlaylistsPanelState();
+}
+
+class _RemotePlaylistsPanelState extends ConsumerState<_RemotePlaylistsPanel> {
+  late Future<List<ProviderPlaylist>> _playlistsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _playlistsFuture = _loadPlaylists();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RemotePlaylistsPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.providerId != widget.providerId) {
+      _playlistsFuture = _loadPlaylists();
+    }
+  }
+
+  Future<List<ProviderPlaylist>> _loadPlaylists() {
+    return ref
+        .read(demoRepositoryProvider)
+        .loadProviderPlaylists(widget.providerId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<List<ProviderPlaylist>>(
-      future: repository.loadProviderPlaylists(providerId),
+      future: _playlistsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
@@ -123,9 +150,9 @@ class _RemotePlaylistsPanel extends ConsumerWidget {
           return const _RemotePlaylistPlaceholder(message: '当前来源没有可读取的歌单。');
         }
         ProviderPlaylist? selected;
-        if (selectedPlaylistId != null) {
+        if (widget.selectedPlaylistId != null) {
           for (final playlist in playlists) {
-            if (playlist.playlistId == selectedPlaylistId) {
+            if (playlist.playlistId == widget.selectedPlaylistId) {
               selected = playlist;
               break;
             }
@@ -134,12 +161,12 @@ class _RemotePlaylistsPanel extends ConsumerWidget {
         if (selected != null) {
           return _RemotePlaylistTracks(
             playlist: selected,
-            onBack: onBack,
+            onBack: widget.onBack,
           );
         }
         return _RemotePlaylistGrid(
           playlists: playlists,
-          onSelected: onSelected,
+          onSelected: widget.onSelected,
         );
       },
     );
@@ -168,7 +195,7 @@ class _RemotePlaylistGrid extends StatelessWidget {
         crossAxisCount: count,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: .72,
+        childAspectRatio: .66,
       ),
       itemCount: playlists.length,
       itemBuilder: (context, index) {
@@ -218,7 +245,7 @@ class _RemotePlaylistGrid extends StatelessWidget {
   }
 }
 
-class _RemotePlaylistTracks extends ConsumerWidget {
+class _RemotePlaylistTracks extends ConsumerStatefulWidget {
   const _RemotePlaylistTracks({
     required this.playlist,
     required this.onBack,
@@ -228,13 +255,40 @@ class _RemotePlaylistTracks extends ConsumerWidget {
   final VoidCallback onBack;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
+  ConsumerState<_RemotePlaylistTracks> createState() =>
+      _RemotePlaylistTracksState();
+}
+
+class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
+  late Future<List<SourceTrack>> _tracksFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _tracksFuture = _loadTracks();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RemotePlaylistTracks oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.playlist.providerId != widget.playlist.providerId ||
+        oldWidget.playlist.playlistId != widget.playlist.playlistId) {
+      _tracksFuture = _loadTracks();
+    }
+  }
+
+  Future<List<SourceTrack>> _loadTracks() {
+    return ref.read(demoRepositoryProvider).loadProviderPlaylistTracks(
+          providerId: widget.playlist.providerId,
+          playlistId: widget.playlist.playlistId,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repository = ref.read(demoRepositoryProvider);
     return FutureBuilder<List<SourceTrack>>(
-      future: repository.loadProviderPlaylistTracks(
-        providerId: playlist.providerId,
-        playlistId: playlist.playlistId,
-      ),
+      future: _tracksFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
@@ -258,7 +312,7 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                   children: [
                     IconButton(
                       tooltip: '返回歌单',
-                      onPressed: onBack,
+                      onPressed: widget.onBack,
                       icon: const Icon(Icons.arrow_back_rounded),
                     ),
                     const SizedBox(width: 8),
@@ -267,7 +321,7 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            playlist.name,
+                            widget.playlist.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context)
@@ -276,7 +330,7 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                                 ?.copyWith(fontWeight: FontWeight.w800),
                           ),
                           Text(
-                            '${tracks.length} 首 · ${playlist.creatorName ?? '远端歌单'}',
+                            '${tracks.length} 首 · ${widget.playlist.creatorName ?? '远端歌单'}',
                             style: Theme.of(context)
                                 .textTheme
                                 .bodySmall
@@ -288,12 +342,7 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                     FilledButton.icon(
                       onPressed: tracks.isEmpty
                           ? null
-                          : () async {
-                              await repository.playTrack(tracks.first);
-                              for (final track in tracks.skip(1)) {
-                                repository.enqueueTrack(track);
-                              }
-                            },
+                          : () => repository.playTracks(tracks),
                       icon: const Icon(Icons.play_arrow_rounded),
                       label: const Text('播放全部'),
                     ),

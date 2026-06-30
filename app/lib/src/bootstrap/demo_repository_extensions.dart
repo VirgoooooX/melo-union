@@ -13,11 +13,6 @@ extension UnifiedQueuePlayback on DemoRepository {
       for (final track in tracks)
         if (track.variants.isNotEmpty) track.variants.first,
     ];
-    if (sources.isEmpty) return;
-
-    await playTrack(sources.first);
-    for (final source in sources.skip(1)) {
-      enqueueTrack(source);
-    }
+    await playTracks(sources);
   }
 }

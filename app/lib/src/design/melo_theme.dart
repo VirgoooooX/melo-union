@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'melo_tokens.dart';
 
 abstract final class MeloTheme {
   static ThemeData light() {
+    const fontFallback = <String>[
+      'Noto Sans SC',
+      'PingFang SC',
+      'Hiragino Sans GB',
+      'Microsoft YaHei UI',
+      'Microsoft YaHei',
+      'sans-serif',
+    ];
     const colorScheme = ColorScheme.light(
       primary: MeloColors.primary600,
       onPrimary: Colors.white,
@@ -15,21 +24,26 @@ abstract final class MeloTheme {
       onError: Colors.white,
     );
 
-    final baseTextTheme = Typography.material2021().black.apply(
+    final materialTextTheme = Typography.material2021().black.apply(
+          bodyColor: MeloColors.textPrimary,
+          displayColor: MeloColors.textPrimary,
+        );
+    GoogleFonts.getFont('Noto Sans SC');
+    final baseTextTheme = GoogleFonts.getTextTheme(
+      'Geist',
+      materialTextTheme,
+    ).apply(
       bodyColor: MeloColors.textPrimary,
       displayColor: MeloColors.textPrimary,
-      fontFamilyFallback: const <String>[
-        'Microsoft YaHei UI',
-        'Microsoft YaHei',
-        'Noto Sans CJK SC',
-        'sans-serif',
-      ],
+      fontFamilyFallback: fontFallback,
     );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       colorScheme: colorScheme,
+      fontFamily: GoogleFonts.getFont('Geist').fontFamily,
+      fontFamilyFallback: fontFallback,
       scaffoldBackgroundColor: MeloColors.canvas,
       splashFactory: InkSparkle.splashFactory,
       textTheme: baseTextTheme.copyWith(
@@ -37,13 +51,13 @@ abstract final class MeloTheme {
           fontSize: 20,
           height: 1.35,
           fontWeight: FontWeight.w700,
-          letterSpacing: -.3,
+          letterSpacing: 0,
         ),
         titleMedium: baseTextTheme.titleMedium?.copyWith(
           fontSize: 16,
           height: 1.45,
           fontWeight: FontWeight.w700,
-          letterSpacing: -.15,
+          letterSpacing: 0,
         ),
         bodyLarge: baseTextTheme.bodyLarge?.copyWith(
           fontSize: 14,

@@ -21,7 +21,8 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
   @override
   Widget build(BuildContext context) {
     final repository = ref.read(demoRepositoryProvider);
-    final currentRef = ref.watch(demoRepositoryProvider.select((r) => r.queue.current?.track.ref));
+    final currentRef = ref.watch(
+        demoRepositoryProvider.select((r) => r.queue.current?.track.ref));
     final variants = widget.providerId == null
         ? widget.track.variants
         : widget.track.variants
@@ -50,7 +51,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
-            height: 76,
+            height: 66,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: rowBackground,
@@ -91,7 +92,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    primary.album ?? '—',
+                    widget.track.artists.join(' / '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -112,16 +113,6 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                           _SourceTag(provider: item.ref.providerId),
                       ],
                     ),
-                  ),
-                ),
-                SizedBox(
-                  width: 58,
-                  child: Text(
-                    formatDuration(widget.track.duration),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: MeloColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
                   ),
                 ),
                 SizedBox(
@@ -314,11 +305,11 @@ class _TrackIdentity extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            track.artists.join(' / '),
+            '$sourceCount 个来源可用',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: MeloColors.textSecondary,
+                  color: MeloColors.textTertiary,
                   fontWeight: FontWeight.w500,
                 ),
           ),

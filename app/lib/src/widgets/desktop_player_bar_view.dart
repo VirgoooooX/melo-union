@@ -134,10 +134,13 @@ class DesktopPlayerBar extends ConsumerWidget {
           const SizedBox(width: MeloSpacing.lg),
           const Icon(Icons.volume_up_outlined, color: MeloColors.textSecondary),
           SizedBox(
-            width: 88,
-            child: Slider(
-              value: repository.volume,
-              onChanged: repository.setVolume,
+            width: 132,
+            child: SliderTheme(
+              data: _playerSliderTheme(context),
+              child: Slider(
+                value: repository.volume,
+                onChanged: repository.setVolume,
+              ),
             ),
           ),
         ],
@@ -163,13 +166,21 @@ class DesktopPlayerBar extends ConsumerWidget {
               final selected = index == queue.currentIndex;
               return ListTile(
                 selected: selected,
-                leading: Icon(
-                  selected
-                      ? Icons.equalizer_rounded
-                      : Icons.music_note_outlined,
+                leading: QueueTrackCover(
+                  seed: entry.track.title,
+                  artwork: entry.track.artwork,
+                  isPlaying: selected,
                 ),
-                title: Text(entry.track.title),
-                subtitle: Text(entry.track.artists.join(' / ')),
+                title: Text(
+                  entry.track.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  entry.track.artists.join(' / '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: Text(_formatDuration(entry.track.duration)),
                 onTap: () {
                   Navigator.pop(context);
@@ -216,15 +227,18 @@ class _PlaybackProgress extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  child: Slider(
-                    value: totalMs == 0 ? 0 : positionMs.toDouble(),
-                    min: 0,
-                    max: totalMs == 0 ? 1 : totalMs.toDouble(),
-                    onChanged: totalMs == 0
-                        ? null
-                        : (value) => repository.seek(
-                              Duration(milliseconds: value.round()),
-                            ),
+                  child: SliderTheme(
+                    data: _playerSliderTheme(context),
+                    child: Slider(
+                      value: totalMs == 0 ? 0 : positionMs.toDouble(),
+                      min: 0,
+                      max: totalMs == 0 ? 1 : totalMs.toDouble(),
+                      onChanged: totalMs == 0
+                          ? null
+                          : (value) => repository.seek(
+                                Duration(milliseconds: value.round()),
+                              ),
+                    ),
                   ),
                 ),
                 SizedBox(
@@ -294,6 +308,19 @@ String _qualityLabel(AudioQuality quality) => switch (quality) {
       AudioQuality.high => '极高',
       AudioQuality.lossless => '无损',
     };
+
+SliderThemeData _playerSliderTheme(BuildContext context) {
+  return SliderTheme.of(context).copyWith(
+    trackHeight: 4,
+    activeTrackColor: MeloColors.primary600,
+    inactiveTrackColor: MeloColors.primary100.withValues(alpha: .72),
+    disabledActiveTrackColor: MeloColors.primary100,
+    disabledInactiveTrackColor: MeloColors.border,
+    thumbColor: MeloColors.primary600,
+    overlayColor: MeloColors.primary100.withValues(alpha: .35),
+    valueIndicatorColor: MeloColors.primary700,
+  );
+}
 
 String _formatDuration(Duration duration) {
   final minutes = duration.inMinutes;

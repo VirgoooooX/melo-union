@@ -5,5 +5,6 @@ import 'package:provider_contract/provider_contract.dart';
 
 import '../bootstrap/demo_repository.dart';
 import '../design/melo_tokens.dart';
+import 'queue_track_cover.dart';
 
 part 'desktop_player_bar_view.dart';

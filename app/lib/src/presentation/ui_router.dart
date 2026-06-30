@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -22,30 +23,43 @@ final uiRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: AppDestination.favorites.path,
-            builder: (context, state) => const AllFavoritesPage(),
+            pageBuilder: (context, state) =>
+                _plainPage(state, const AllFavoritesPage()),
           ),
           GoRoute(
             path: AppDestination.playlists.path,
-            builder: (context, state) => const LocalPlaylistsPage(),
+            pageBuilder: (context, state) =>
+                _plainPage(state, const LocalPlaylistsPage()),
           ),
           GoRoute(
             path: AppDestination.recommendations.path,
-            builder: (context, state) => const RecommendationsPage(),
+            pageBuilder: (context, state) =>
+                _plainPage(state, const RecommendationsPage()),
           ),
           GoRoute(
             path: AppDestination.search.path,
-            builder: (context, state) => const SearchPage(),
+            pageBuilder: (context, state) =>
+                _plainPage(state, const SearchPage()),
           ),
           GoRoute(
             path: AppDestination.downloads.path,
-            builder: (context, state) => const DownloadsPage(),
+            pageBuilder: (context, state) =>
+                _plainPage(state, const DownloadsPage()),
           ),
           GoRoute(
             path: AppDestination.settings.path,
-            builder: (context, state) => const SettingsPage(),
+            pageBuilder: (context, state) =>
+                _plainPage(state, const SettingsPage()),
           ),
         ],
       ),
     ],
   );
 });
+
+NoTransitionPage<void> _plainPage(GoRouterState state, Widget child) {
+  return NoTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+  );
+}

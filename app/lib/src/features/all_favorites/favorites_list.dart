@@ -35,7 +35,7 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
                 ? 6
                 : listUsableHeight <= 0
                     ? 1
-                    : (listUsableHeight / 77.0).floor().clamp(1, 10000);
+                    : (listUsableHeight / 67.0).floor().clamp(1, 10000);
 
             return favorites.when(
               loading: () => _FavoritesLoadingState(
@@ -47,15 +47,10 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
               ),
               data: (tracks) {
                 final visible = _filterAndSort(tracks);
-                final sourceCount = visible
-                    .expand((track) => track.variants)
-                    .map((variant) => variant.ref.providerId.value)
-                    .toSet()
-                    .length;
                 if (visible.isEmpty) {
                   return const Column(
                     children: [
-                      _FavoritesTableHeader(count: 0, sourceCount: 0),
+                      _FavoritesTableHeader(),
                       Divider(height: 1, color: MeloColors.border),
                       Expanded(child: _FavoritesEmptyState()),
                     ],
@@ -64,10 +59,7 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
 
                 return Column(
                   children: [
-                    _FavoritesTableHeader(
-                      count: visible.length,
-                      sourceCount: sourceCount,
-                    ),
+                    const _FavoritesTableHeader(),
                     const Divider(height: 1, color: MeloColors.border),
                     Expanded(
                       child: Scrollbar(
@@ -136,13 +128,7 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
 }
 
 class _FavoritesTableHeader extends StatelessWidget {
-  const _FavoritesTableHeader({
-    required this.count,
-    required this.sourceCount,
-  });
-
-  final int count;
-  final int sourceCount;
+  const _FavoritesTableHeader();
 
   @override
   Widget build(BuildContext context) {
@@ -164,26 +150,11 @@ class _FavoritesTableHeader extends StatelessWidget {
           const SizedBox(width: 58),
           Expanded(
             flex: 4,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('歌曲', style: labelStyle),
-                const SizedBox(height: 2),
-                Text(
-                  '$count 首 · $sourceCount 个来源',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: MeloColors.textTertiary,
-                        fontSize: 11,
-                      ),
-                ),
-              ],
-            ),
+            child: Text('歌曲', style: labelStyle),
           ),
-          Expanded(flex: 2, child: Text('专辑', style: labelStyle)),
+          Expanded(flex: 2, child: Text('歌手', style: labelStyle)),
           SizedBox(width: 132, child: Text('来源', style: labelStyle)),
-          SizedBox(width: 58, child: Text('时长', style: labelStyle)),
-          const SizedBox(width: 84),
+          SizedBox(width: 84, child: Text('收藏', style: labelStyle)),
         ],
       ),
     );
@@ -224,7 +195,7 @@ class _FavoriteRowSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 76,
+      height: 66,
       child: Row(
         children: [
           const SizedBox(width: 30),
@@ -240,7 +211,6 @@ class _FavoriteRowSkeleton extends StatelessWidget {
               radius: MeloRadii.pill,
             ),
           ),
-          const SizedBox(width: 58),
           const SizedBox(width: 84),
         ],
       ),
