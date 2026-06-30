@@ -95,8 +95,7 @@ class _NowPlayingCard extends ConsumerWidget {
                   .bodyMedium
                   ?.copyWith(color: MeloColors.textSecondary, height: 1.5)));
     }
-    final name = _providerName(track);
-    final isNetease = name == '网易云';
+    final presentation = meloProviderPresentation(track.ref.providerId);
     return _Panel(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -149,7 +148,7 @@ class _NowPlayingCard extends ConsumerWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    _ProviderPill(label: name, isNetease: isNetease),
+                    _ProviderPill(presentation: presentation),
                     if (track.isFavorited)
                       const _StatusPill(
                         icon: Icons.favorite_rounded,
@@ -183,22 +182,16 @@ class _Panel extends StatelessWidget {
 }
 
 class _ProviderPill extends StatelessWidget {
-  const _ProviderPill({required this.label, required this.isNetease});
-  final String label;
-  final bool isNetease;
+  const _ProviderPill({required this.presentation});
+  final MeloProviderPresentation presentation;
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-            color: isNetease
-                ? MeloColors.neteaseBackground
-                : MeloColors.qqBackground,
-            borderRadius: MeloRadii.sm),
-        child: Text(label,
+            color: presentation.backgroundColor, borderRadius: MeloRadii.sm),
+        child: Text(presentation.shortName,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: isNetease
-                    ? MeloColors.neteaseForeground
-                    : MeloColors.qqForeground,
+                color: presentation.foregroundColor,
                 fontWeight: FontWeight.w700)),
       );
 }
@@ -232,15 +225,6 @@ class _StatusPill extends StatelessWidget {
           ],
         ),
       );
-}
-
-String _providerName(dynamic track) {
-  final providerId = track.ref.providerId.value;
-  if (providerId.contains('aurora') || providerId.contains('netease')) {
-    return '网易云';
-  }
-  if (providerId.contains('beacon')) return 'QQ音乐';
-  return providerId;
 }
 
 Widget _buildPlaceholder(String seed) {

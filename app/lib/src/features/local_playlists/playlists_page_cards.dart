@@ -178,10 +178,11 @@ class _RemotePlaylistGrid extends StatelessWidget {
       itemCount: playlists.length,
       itemBuilder: (context, index) {
         final playlist = playlists[index];
+        final presentation = meloProviderPresentation(playlist.providerId);
         return MeloPlaylistCard(
           title: playlist.name,
           subtitle:
-              '${playlist.trackCount} 首 · ${playlist.creatorName ?? '网易云'}',
+              '${playlist.trackCount} 首 · ${playlist.creatorName ?? presentation.shortName}',
           cover: playlist.cover,
           onTap: () => onSelected(playlist.playlistId),
         );
@@ -363,7 +364,10 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                                 Expanded(
                                   flex: 3,
                                   child: Text(
-                                    track.album ?? '网易云',
+                                    track.album ??
+                                        meloProviderPresentation(
+                                          track.ref.providerId,
+                                        ).shortName,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context)

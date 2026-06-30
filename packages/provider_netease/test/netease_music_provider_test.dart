@@ -289,6 +289,47 @@ void main() {
       throwsA(isA<CapabilityUnavailableException>()),
     );
   });
+
+  test('creates and checks NetEase QR login session', () async {
+    final provider = NeteaseMusicProvider(
+      qrBaseUri: Uri.parse('https://interface.test'),
+      client: MockClient((request) async {
+        expect(request.method, 'POST');
+        if (request.url.path == '/api/login/qrcode/unikey') {
+          final body = request.body;
+          expect(body, contains('type=3'));
+          return _jsonResponse({
+            'code': 200,
+            'unikey': 'qr-key',
+          });
+        }
+        if (request.url.path == '/api/login/qrcode/client/login') {
+          final body = request.body;
+          expect(body, contains('key=qr-key'));
+          expect(body, contains('type=3'));
+          return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'code': 803,
+              'message': '授权登录成功',
+              'cookie': 'MUSIC_U=qr-cookie; NMTID=abc',
+            })),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response('not found', 404);
+      }),
+    );
+
+    final session = await provider.createQrLoginSession();
+    expect(session.key, 'qr-key');
+    expect(session.loginUri.toString(),
+        'https://music.163.com/login?codekey=qr-key');
+
+    final result = await provider.checkQrLoginSession(session);
+    expect(result.status, NeteaseQrLoginStatus.authorized);
+    expect(result.credentials?.cookie, 'MUSIC_U=qr-cookie; NMTID=abc');
+  });
 }
 
 http.Response _jsonResponse(Map<String, Object?> payload) {

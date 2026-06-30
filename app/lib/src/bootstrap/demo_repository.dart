@@ -8,10 +8,12 @@ import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 import 'package:provider_netease/provider_netease.dart';
+import 'package:provider_qq/provider_qq.dart';
 
 import '../fakes/fake_music_provider.dart';
 import '../platform/playback_platform_bridge.dart';
 import 'netease_session_store.dart';
+import 'qq_music_session_store.dart';
 
 final demoRepositoryProvider = ChangeNotifierProvider<DemoRepository>(
   (ref) => DemoRepository.seeded(),
@@ -24,6 +26,20 @@ final allFavoritesProvider = FutureProvider<List<UnifiedFavoriteTrack>>((ref) {
 
 enum PlaybackRepeatMode { off, all, one }
 
+enum ProviderSessionActionKind { cookieImport, qrLogin }
+
+final class ProviderSessionAction {
+  const ProviderSessionAction({
+    required this.kind,
+    required this.description,
+    this.clear,
+  });
+
+  final ProviderSessionActionKind kind;
+  final String description;
+  final Future<void> Function()? clear;
+}
+
 class DemoRepository extends ChangeNotifier {
   DemoRepository._({
     required this.registry,
@@ -35,11 +51,14 @@ class DemoRepository extends ChangeNotifier {
     this.snapshotStore,
     NeteaseCredentials? neteaseCredentials,
     this.neteaseSessionStore,
+    QqMusicCredentials? qqMusicCredentials,
+    this.qqMusicSessionStore,
     this.playbackBridge = const PlaybackPlatformBridge(),
     AudioQuality playbackQuality = AudioQuality.standard,
   })  : favoritesOverrideRegistry =
             favoritesOverrideRegistry ?? FavoritesOverrideRegistry(),
         _neteaseCredentials = neteaseCredentials,
+        _qqMusicCredentials = qqMusicCredentials,
         _selectedPlaylistId = playlists.listPlaylists().isEmpty
             ? null
             : playlists.listPlaylists().first.id {
@@ -72,10 +91,13 @@ class DemoRepository extends ChangeNotifier {
     MeloSnapshotStore? snapshotStore,
     NeteaseCredentials? neteaseCredentials,
     NeteaseSessionStore? neteaseSessionStore,
+    QqMusicCredentials? qqMusicCredentials,
+    QqMusicSessionStore? qqMusicSessionStore,
     List<MusicProvider> additionalProviders = const [],
   }) {
     final catalogId = ProviderId('compass_catalog');
     final netease = NeteaseMusicProvider(credentials: neteaseCredentials);
+    final qqMusic = QqMusicProvider(credentials: qqMusicCredentials);
 
     final catalog = FakeMusicProvider(
       descriptor: ProviderDescriptor(
@@ -138,6 +160,7 @@ class DemoRepository extends ChangeNotifier {
       ...additionalProviders,
       catalog,
       netease,
+      qqMusic,
     ]);
 
     final defaultPlaylists = [
@@ -190,6 +213,8 @@ class DemoRepository extends ChangeNotifier {
       snapshotStore: snapshotStore,
       neteaseCredentials: neteaseCredentials,
       neteaseSessionStore: neteaseSessionStore,
+      qqMusicCredentials: qqMusicCredentials,
+      qqMusicSessionStore: qqMusicSessionStore,
       playbackBridge: const PlaybackPlatformBridge(),
       playbackQuality: snapshot?.playbackQuality ?? AudioQuality.standard,
     );
@@ -208,6 +233,7 @@ class DemoRepository extends ChangeNotifier {
   final Map<ProviderId, FakeMusicProvider> providers;
   final MeloSnapshotStore? snapshotStore;
   final NeteaseSessionStore? neteaseSessionStore;
+  final QqMusicSessionStore? qqMusicSessionStore;
   final PlaybackPlatformBridge playbackBridge;
   final ProviderCapabilityMatrix capabilityMatrix =
       const ProviderCapabilityMatrix();
@@ -220,6 +246,7 @@ class DemoRepository extends ChangeNotifier {
   late final DownloadCoordinator downloadCoordinator;
   final FavoritesOverrideRegistry favoritesOverrideRegistry;
   NeteaseCredentials? _neteaseCredentials;
+  QqMusicCredentials? _qqMusicCredentials;
   String? _selectedPlaylistId;
   final AudioPlayer _audioPlayer = AudioPlayer();
   final Random _random = Random();
@@ -256,6 +283,27 @@ class DemoRepository extends ChangeNotifier {
   List<ProviderRegistryEntry> get providerEntries => registry.allEntries();
 
   bool get hasNeteaseSession => _neteaseCredentials?.hasCookie ?? false;
+
+  bool get hasQqMusicSession => _qqMusicCredentials?.hasCookie ?? false;
+
+  ProviderSessionAction? sessionActionFor(ProviderId providerId) {
+    if (providerId == neteaseProviderId) {
+      return ProviderSessionAction(
+        kind: ProviderSessionActionKind.qrLogin,
+        description:
+            '推荐使用网易云音乐 App 扫码登录；Cookie 不写入 SQLite 或快照，会保存到平台安全存储。高级兜底仍可导入本机 Cookie。',
+        clear: clearNeteaseCredentials,
+      );
+    }
+    if (providerId == qqMusicProviderId) {
+      return ProviderSessionAction(
+        kind: ProviderSessionActionKind.qrLogin,
+        description: 'QQ 音乐支持 QQ / 微信两种扫码登录。扫码成功后 Cookie 会保存到平台安全存储。',
+        clear: clearQqMusicCredentials,
+      );
+    }
+    return null;
+  }
 
   List<LocalPlaylist> get playlistList => playlists.listPlaylists();
 
@@ -430,6 +478,10 @@ class DemoRepository extends ChangeNotifier {
       clearNeteaseCredentials();
       return;
     }
+    if (providerId == qqMusicProviderId) {
+      clearQqMusicCredentials();
+      return;
+    }
     final provider = providers[providerId];
     if (provider == null ||
         !provider.descriptor.supports(ProviderCapability.authenticate)) {
@@ -456,10 +508,66 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<NeteaseQrLoginSession> createNeteaseQrLoginSession() {
+    return NeteaseMusicProvider().createQrLoginSession();
+  }
+
+  Future<NeteaseQrLoginResult> checkNeteaseQrLoginSession(
+    NeteaseQrLoginSession session,
+  ) async {
+    final result = await NeteaseMusicProvider().checkQrLoginSession(session);
+    final credentials = result.credentials;
+    if (credentials != null && credentials.hasCookie) {
+      await saveNeteaseCredentials(
+        cookie: credentials.cookie,
+        userId: credentials.userId,
+      );
+    }
+    return result;
+  }
+
   Future<void> clearNeteaseCredentials() async {
     await neteaseSessionStore?.clear();
     _neteaseCredentials = null;
     _replaceNeteaseProvider(null);
+    notifyListeners();
+  }
+
+  Future<void> saveQqMusicCredentials(QqMusicCredentials credentials) async {
+    if (!credentials.hasCookie) {
+      throw ArgumentError.value(
+        credentials.cookie,
+        'credentials.cookie',
+        'QQ Music cookie must not be empty.',
+      );
+    }
+    await qqMusicSessionStore?.write(credentials);
+    _qqMusicCredentials = credentials;
+    _replaceQqMusicProvider(credentials);
+    notifyListeners();
+  }
+
+  Future<QqMusicQrLoginSession> createQqMusicQrLoginSession(
+    QqMusicQrLoginMode mode,
+  ) {
+    return QqMusicProvider().createQrLoginSession(mode);
+  }
+
+  Future<QqMusicQrLoginResult> checkQqMusicQrLoginSession(
+    QqMusicQrLoginSession session,
+  ) async {
+    final result = await QqMusicProvider().checkQrLoginSession(session);
+    final credentials = result.credentials;
+    if (credentials != null && credentials.hasCookie) {
+      await saveQqMusicCredentials(credentials);
+    }
+    return result;
+  }
+
+  Future<void> clearQqMusicCredentials() async {
+    await qqMusicSessionStore?.clear();
+    _qqMusicCredentials = null;
+    _replaceQqMusicProvider(null);
     notifyListeners();
   }
 
@@ -788,6 +896,14 @@ class DemoRepository extends ChangeNotifier {
     final wasEnabled = registry.isEnabled(neteaseProviderId);
     registry.register(
       NeteaseMusicProvider(credentials: credentials),
+      enabled: wasEnabled,
+    );
+  }
+
+  void _replaceQqMusicProvider(QqMusicCredentials? credentials) {
+    final wasEnabled = registry.isEnabled(qqMusicProviderId);
+    registry.register(
+      QqMusicProvider(credentials: credentials),
       enabled: wasEnabled,
     );
   }

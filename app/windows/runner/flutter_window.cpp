@@ -27,10 +27,10 @@ std::string Utf16ToUtf8(const std::wstring& utf16) {
   return utf8;
 }
 
-bool WriteNeteaseCredentials(const std::wstring& serialized_data) {
+bool WriteCredentials(const std::wstring& target_name, const std::wstring& serialized_data) {
   CREDENTIALW credential = {};
   credential.Type = CRED_TYPE_GENERIC;
-  credential.TargetName = const_cast<LPWSTR>(L"MeloUnion/NetEase");
+  credential.TargetName = const_cast<LPWSTR>(target_name.c_str());
   credential.CredentialBlobSize = static_cast<DWORD>(serialized_data.size() * sizeof(wchar_t));
   credential.CredentialBlob = reinterpret_cast<LPBYTE>(const_cast<wchar_t*>(serialized_data.data()));
   credential.Persist = CRED_PERSIST_ENTERPRISE;
@@ -38,9 +38,9 @@ bool WriteNeteaseCredentials(const std::wstring& serialized_data) {
   return ::CredWriteW(&credential, 0) == TRUE;
 }
 
-std::wstring ReadNeteaseCredentials() {
+std::wstring ReadCredentials(const std::wstring& target_name) {
   PCREDENTIALW credential = nullptr;
-  if (::CredReadW(L"MeloUnion/NetEase", CRED_TYPE_GENERIC, 0, &credential) == TRUE) {
+  if (::CredReadW(target_name.c_str(), CRED_TYPE_GENERIC, 0, &credential) == TRUE) {
     std::wstring result(reinterpret_cast<wchar_t*>(credential->CredentialBlob),
                          credential->CredentialBlobSize / sizeof(wchar_t));
     ::CredFree(credential);
@@ -49,8 +49,8 @@ std::wstring ReadNeteaseCredentials() {
   return L"";
 }
 
-bool DeleteNeteaseCredentials() {
-  return ::CredDeleteW(L"MeloUnion/NetEase", CRED_TYPE_GENERIC, 0) == TRUE;
+bool DeleteCredentials(const std::wstring& target_name) {
+  return ::CredDeleteW(target_name.c_str(), CRED_TYPE_GENERIC, 0) == TRUE;
 }
 
 } // namespace
@@ -88,7 +88,7 @@ bool FlutterWindow::OnCreate() {
       [](const flutter::MethodCall<flutter::EncodableValue>& call,
          std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
         if (call.method_name() == "readNeteaseCredentials") {
-          std::wstring serialized = ReadNeteaseCredentials();
+          std::wstring serialized = ReadCredentials(L"MeloUnion/NetEase");
           if (serialized.empty()) {
             result->Success(flutter::EncodableValue());
             return;
@@ -141,14 +141,54 @@ bool FlutterWindow::OnCreate() {
           }
 
           std::wstring serialized = Utf8ToUtf16(userId + "\n" + cookie);
-          if (WriteNeteaseCredentials(serialized)) {
+          if (WriteCredentials(L"MeloUnion/NetEase", serialized)) {
             result->Success(flutter::EncodableValue(true));
           } else {
             result->Error("storage_error", "Failed to write credential to Windows Credential Manager.");
           }
         }
         else if (call.method_name() == "deleteNeteaseCredentials") {
-          DeleteNeteaseCredentials();
+          DeleteCredentials(L"MeloUnion/NetEase");
+          result->Success(flutter::EncodableValue(true));
+        }
+        else if (call.method_name() == "readQqMusicCredentials") {
+          std::wstring serialized = ReadCredentials(L"MeloUnion/QQMusic");
+          if (serialized.empty()) {
+            result->Success(flutter::EncodableValue());
+            return;
+          }
+          flutter::EncodableMap response;
+          response[flutter::EncodableValue("cookie")] = flutter::EncodableValue(Utf16ToUtf8(serialized));
+          result->Success(flutter::EncodableValue(response));
+        }
+        else if (call.method_name() == "writeQqMusicCredentials") {
+          const auto* arguments = std::get_if<flutter::EncodableMap>(call.arguments());
+          if (!arguments) {
+            result->Error("invalid_arguments", "Arguments must be a map.");
+            return;
+          }
+
+          std::string cookie;
+          auto cookie_it = arguments->find(flutter::EncodableValue("cookie"));
+          if (cookie_it != arguments->end() && !cookie_it->second.IsNull()) {
+            if (auto val = std::get_if<std::string>(&cookie_it->second)) {
+              cookie = *val;
+            }
+          }
+
+          if (cookie.empty()) {
+            result->Error("invalid_credentials", "QQ Music cookie must not be empty.");
+            return;
+          }
+
+          if (WriteCredentials(L"MeloUnion/QQMusic", Utf8ToUtf16(cookie))) {
+            result->Success(flutter::EncodableValue(true));
+          } else {
+            result->Error("storage_error", "Failed to write credential to Windows Credential Manager.");
+          }
+        }
+        else if (call.method_name() == "deleteQqMusicCredentials") {
+          DeleteCredentials(L"MeloUnion/QQMusic");
           result->Success(flutter::EncodableValue(true));
         }
         else {

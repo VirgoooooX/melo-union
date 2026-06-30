@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 import '../design/melo_tokens.dart';
+import '../presentation/provider_presentation.dart';
 
 abstract final class MeloListMetrics {
   static const rowHeight = 64.0;
@@ -160,21 +161,18 @@ class MeloSourceBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isNetease = providerId.value.contains('aurora') ||
-        providerId.value.contains('netease');
-    final foreground =
-        isNetease ? MeloColors.neteaseForeground : MeloColors.qqForeground;
-    final background =
-        isNetease ? MeloColors.neteaseBackground : MeloColors.qqBackground;
-    final text = label ?? meloProviderLabel(providerId);
+    final presentation = meloProviderPresentation(providerId);
+    final text = label ?? presentation.shortName;
     return Container(
       constraints: const BoxConstraints(minWidth: 44, maxWidth: 62),
       height: 20,
       padding: const EdgeInsets.symmetric(horizontal: 7),
       decoration: BoxDecoration(
-        color: background,
+        color: presentation.backgroundColor,
         borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: foreground.withValues(alpha: .28)),
+        border: Border.all(
+          color: presentation.foregroundColor.withValues(alpha: .28),
+        ),
       ),
       alignment: Alignment.center,
       child: Text(
@@ -182,7 +180,7 @@ class MeloSourceBadge extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.clip,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: foreground,
+              color: presentation.foregroundColor,
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
               height: 1,
@@ -327,9 +325,5 @@ class MeloPlaylistCover extends StatelessWidget {
 }
 
 String meloProviderLabel(ProviderId id) {
-  if (id.value.contains('aurora') || id.value.contains('netease')) {
-    return '网易云';
-  }
-  if (id.value.contains('beacon')) return 'QQ音乐';
-  return id.value;
+  return meloProviderPresentation(id).shortName;
 }

@@ -27,7 +27,10 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
       for (final entry in remoteProviders)
         ProviderTabItem(
           id: entry.descriptor.id.value,
-          label: _providerLabel(entry.descriptor.id),
+          label: meloProviderPresentation(
+            entry.descriptor.id,
+            displayName: entry.descriptor.displayName,
+          ).shortName,
         ),
       const ProviderTabItem(
         id: 'more',
@@ -124,14 +127,6 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
       repository.createPlaylist(name.trim());
     }
   }
-}
-
-
-
-String _providerLabel(ProviderId id) {
-  if (id.value.contains('netease')) return '网易云';
-  if (id.value.contains('beacon')) return 'QQ音乐';
-  return id.value;
 }
 
 class _RemotePlaylistPlaceholder extends StatelessWidget {

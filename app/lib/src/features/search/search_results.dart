@@ -68,7 +68,10 @@ class _SourceResultSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final providerName = _displayProviderName(group.provider.id);
+    final providerName = meloProviderPresentation(
+      group.provider.id,
+      displayName: group.provider.displayName,
+    ).fullName;
     return Container(
       decoration: BoxDecoration(
         color: MeloColors.surface,
@@ -133,39 +136,39 @@ class _SearchTrackRow extends ConsumerWidget {
           track.isPlayable ? () => repository.playOrToggleTrack(track) : null,
       builder: (context, hovered) => Row(
         children: [
-            SizedBox(
-              width: 32,
-              child: Icon(
-                selected ? Icons.graphic_eq_rounded : Icons.play_arrow_rounded,
-                size: 18,
-                color: selected
-                    ? MeloColors.primary700
-                    : hovered
-                        ? MeloColors.primary700
-                        : MeloColors.textTertiary,
-              ),
+          SizedBox(
+            width: 32,
+            child: Icon(
+              selected ? Icons.graphic_eq_rounded : Icons.play_arrow_rounded,
+              size: 18,
+              color: selected
+                  ? MeloColors.primary700
+                  : hovered
+                      ? MeloColors.primary700
+                      : MeloColors.textTertiary,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 3,
-              child: Row(
-                children: [
-                  MeloTrackCover(
-                    seed: track.title,
-                    artwork: track.artwork,
-                    isActive: selected,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 3,
+            child: Row(
+              children: [
+                MeloTrackCover(
+                  seed: track.title,
+                  artwork: track.artwork,
+                  isActive: selected,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _SearchTrackTitleBlock(
+                    title: track.title,
+                    artists: track.artists,
+                    active: selected,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SearchTrackTitleBlock(
-                      title: track.title,
-                      artists: track.artists,
-                      active: selected,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
           Expanded(
             flex: 3,
             child: Text(

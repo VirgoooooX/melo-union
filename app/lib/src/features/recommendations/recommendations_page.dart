@@ -4,6 +4,7 @@ import 'package:provider_contract/provider_contract.dart';
 
 import '../../bootstrap/demo_repository.dart';
 import '../../design/melo_tokens.dart';
+import '../../presentation/provider_presentation.dart';
 import '../../widgets/melo_components.dart';
 import '../../widgets/provider_tabs.dart';
 
@@ -16,7 +17,7 @@ class RecommendationsPage extends ConsumerStatefulWidget {
 }
 
 class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
-  String _selectedProvider = 'netease_cloud_music';
+  String? _selectedProvider;
   final Map<String, Future<List<SourceTrack>>> _recommendationFutures = {};
   final Map<String, Future<List<ProviderPlaylist>>> _playlistFutures = {};
 
@@ -55,7 +56,10 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
       for (final entry in providers)
         ProviderTabItem(
           id: entry.descriptor.id.value,
-          label: meloProviderLabel(entry.descriptor.id),
+          label: meloProviderPresentation(
+            entry.descriptor.id,
+            displayName: entry.descriptor.displayName,
+          ).shortName,
         ),
       const ProviderTabItem(
         id: 'more',
@@ -63,8 +67,9 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
         trailing: Icons.keyboard_arrow_down_rounded,
       ),
     ];
-    final selected = tabs.any((item) => item.id == _selectedProvider)
-        ? _selectedProvider
+    final selected = _selectedProvider != null &&
+            tabs.any((item) => item.id == _selectedProvider)
+        ? _selectedProvider!
         : (providers.isEmpty ? 'more' : providers.first.descriptor.id.value);
     final selectedProviderId = ProviderId(selected);
 

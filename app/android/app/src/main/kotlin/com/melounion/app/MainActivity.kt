@@ -15,6 +15,7 @@ class MainActivity : FlutterActivity() {
         const val PROVIDER_CREDENTIALS_PREFS = "melo_union_provider_credentials"
         const val NETEASE_COOKIE_KEY = "netease_cookie"
         const val NETEASE_USER_ID_KEY = "netease_user_id"
+        const val QQ_MUSIC_COOKIE_KEY = "qq_music_cookie"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -117,6 +118,34 @@ class MainActivity : FlutterActivity() {
                     getEncryptedPrefs().edit()
                         .remove(NETEASE_COOKIE_KEY)
                         .remove(NETEASE_USER_ID_KEY)
+                        .apply()
+                    result.success(true)
+                }
+
+                "readQqMusicCredentials" -> {
+                    val cookie = getEncryptedPrefs().getString(QQ_MUSIC_COOKIE_KEY, null)
+                    if (cookie.isNullOrBlank()) {
+                        result.success(null)
+                    } else {
+                        result.success(mapOf("cookie" to cookie))
+                    }
+                }
+
+                "writeQqMusicCredentials" -> {
+                    val cookie = call.argument<String>("cookie")
+                    if (cookie.isNullOrBlank()) {
+                        result.error("invalid_credentials", "QQ Music cookie must not be empty.", null)
+                        return@setMethodCallHandler
+                    }
+                    getEncryptedPrefs().edit()
+                        .putString(QQ_MUSIC_COOKIE_KEY, cookie)
+                        .apply()
+                    result.success(true)
+                }
+
+                "deleteQqMusicCredentials" -> {
+                    getEncryptedPrefs().edit()
+                        .remove(QQ_MUSIC_COOKIE_KEY)
                         .apply()
                     result.success(true)
                 }

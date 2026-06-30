@@ -18,15 +18,43 @@ final class NeteaseCredentials {
   bool get hasCookie => cookie.trim().isNotEmpty;
 }
 
+enum NeteaseQrLoginStatus { waiting, scanned, authorized, expired }
+
+final class NeteaseQrLoginSession {
+  const NeteaseQrLoginSession({
+    required this.key,
+    required this.loginUri,
+    required this.expiresAt,
+  });
+
+  final String key;
+  final Uri loginUri;
+  final DateTime expiresAt;
+}
+
+final class NeteaseQrLoginResult {
+  const NeteaseQrLoginResult({
+    required this.status,
+    this.credentials,
+    this.message,
+  });
+
+  final NeteaseQrLoginStatus status;
+  final NeteaseCredentials? credentials;
+  final String? message;
+}
+
 final class NeteaseMusicProvider implements MusicProvider {
   NeteaseMusicProvider({
     NeteaseCredentials? credentials,
     http.Client? client,
     Uri? baseUri,
+    Uri? qrBaseUri,
     DateTime Function()? now,
   })  : _credentials = credentials,
         _client = client ?? http.Client(),
         _baseUri = baseUri ?? Uri.parse('https://music.163.com'),
+        _qrBaseUri = qrBaseUri ?? Uri.parse('https://interface.music.163.com'),
         _now = now ?? DateTime.now {
     descriptor = ProviderDescriptor(
       id: neteaseProviderId,
@@ -54,6 +82,7 @@ final class NeteaseMusicProvider implements MusicProvider {
   final NeteaseCredentials? _credentials;
   final http.Client _client;
   final Uri _baseUri;
+  final Uri _qrBaseUri;
   final DateTime Function() _now;
 
   @override
@@ -61,6 +90,84 @@ final class NeteaseMusicProvider implements MusicProvider {
 
   @override
   bool get isAuthenticated => _credentials?.hasCookie ?? false;
+
+  Future<NeteaseQrLoginSession> createQrLoginSession() async {
+    final keyPayload = await _postQrJson(
+      _qrBaseUri.replace(path: '/api/login/qrcode/unikey'),
+      {'type': '3'},
+    );
+    final key = keyPayload['unikey']?.toString();
+    if (key == null || key.isEmpty) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'NetEase QR login key was not returned.',
+      );
+    }
+    return NeteaseQrLoginSession(
+      key: key,
+      loginUri: _baseUri.replace(
+        path: '/login',
+        queryParameters: {'codekey': key},
+      ),
+      expiresAt: _now().add(const Duration(minutes: 5)),
+    );
+  }
+
+  Future<NeteaseQrLoginResult> checkQrLoginSession(
+    NeteaseQrLoginSession session,
+  ) async {
+    final response = await _client.post(
+      _qrBaseUri.replace(path: '/api/login/qrcode/client/login'),
+      headers: _qrHeaders(),
+      body: {
+        'key': session.key,
+        'type': '3',
+      },
+    ).timeout(const Duration(seconds: 15));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'NetEase QR check failed with HTTP ${response.statusCode}.',
+      );
+    }
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is! Map<String, Object?>) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'NetEase QR check response was not a JSON object.',
+      );
+    }
+    final code = (decoded['code'] as num?)?.toInt();
+    final message = decoded['message']?.toString();
+    return switch (code) {
+      800 => NeteaseQrLoginResult(
+          status: NeteaseQrLoginStatus.expired,
+          message: message,
+        ),
+      801 => NeteaseQrLoginResult(
+          status: NeteaseQrLoginStatus.waiting,
+          message: message,
+        ),
+      802 => NeteaseQrLoginResult(
+          status: NeteaseQrLoginStatus.scanned,
+          message: message,
+        ),
+      803 => NeteaseQrLoginResult(
+          status: NeteaseQrLoginStatus.authorized,
+          credentials: NeteaseCredentials(
+            cookie: decoded['cookie']?.toString().trim().isNotEmpty == true
+                ? decoded['cookie'].toString().trim()
+                : _cookieFromResponse(response),
+            userId: _userIdFromCookies(response.headers['set-cookie']),
+          ),
+          message: message,
+        ),
+      _ => throw ProviderException(
+          providerId: descriptor.id,
+          message: 'Unexpected NetEase QR login code: $code.',
+        ),
+    };
+  }
 
   @override
   Future<ProviderAccountProfile?> getProfile() async {
@@ -587,6 +694,37 @@ final class NeteaseMusicProvider implements MusicProvider {
     return decoded;
   }
 
+  Future<Map<String, Object?>> _postQrJson(
+    Uri uri,
+    Map<String, String> form,
+  ) async {
+    final response = await _client
+        .post(uri, headers: _qrHeaders(), body: form)
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'NetEase QR request failed with HTTP ${response.statusCode}.',
+      );
+    }
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is! Map<Object?, Object?>) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'NetEase QR response was not a JSON object.',
+      );
+    }
+    final payload = _stringMap(decoded);
+    final code = payload['code'];
+    if (code is num && code != 200) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'NetEase QR response code ${code.toInt()}.',
+      );
+    }
+    return payload;
+  }
+
   Map<String, String> _headers({required bool authenticated}) {
     final headers = {
       'Accept': 'application/json, text/plain, */*',
@@ -605,6 +743,38 @@ final class NeteaseMusicProvider implements MusicProvider {
       headers['Cookie'] = cookie;
     }
     return headers;
+  }
+
+  Map<String, String> _qrHeaders() {
+    return const {
+      'Accept': 'application/json, text/plain, */*',
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Referer': 'https://music.163.com/',
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36 Chrome/91.0.4472.164 NeteaseMusicDesktop/3.0.18.203152',
+    };
+  }
+
+  String _cookieFromResponse(http.Response response) {
+    final setCookie = response.headers['set-cookie'];
+    if (setCookie == null || setCookie.trim().isEmpty) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'NetEase QR login succeeded but no cookie was returned.',
+      );
+    }
+    final parts = setCookie
+        .split(',')
+        .map((part) => part.split(';').first.trim())
+        .where((part) => part.contains('='))
+        .toList(growable: false);
+    return parts.join('; ');
+  }
+
+  String? _userIdFromCookies(String? setCookie) {
+    if (setCookie == null) return null;
+    final match = RegExp(r'MUSIC_U=([^;,]+)').firstMatch(setCookie);
+    return match?.group(1);
   }
 
   void _requireCapability(ProviderCapability capability) {

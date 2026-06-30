@@ -3,6 +3,7 @@ import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 import '../design/melo_tokens.dart';
+import '../presentation/provider_presentation.dart';
 import 'provider_badge.dart';
 
 class SourceTrackTile extends StatelessWidget {
@@ -37,26 +38,6 @@ class SourceTrackTile extends StatelessWidget {
   final VoidCallback? onPauseDownload;
   final VoidCallback? onCancelDownload;
 
-  Color _getProviderBg(ProviderId providerId) {
-    final val = providerId.value.toLowerCase();
-    if (val.contains('aurora') || val.contains('netease')) {
-      return MeloColors.neteaseBackground;
-    }
-    if (val.contains('beacon')) return MeloColors.qqBackground;
-    if (val.contains('local')) return MeloColors.localBackground;
-    return MeloColors.surfaceMuted;
-  }
-
-  Color _getProviderFg(ProviderId providerId) {
-    final val = providerId.value.toLowerCase();
-    if (val.contains('aurora') || val.contains('netease')) {
-      return MeloColors.neteaseForeground;
-    }
-    if (val.contains('beacon')) return MeloColors.qqForeground;
-    if (val.contains('local')) return MeloColors.localForeground;
-    return MeloColors.textSecondary;
-  }
-
   Color _downloadStatusColor(DownloadStatus status) {
     return switch (status) {
       DownloadStatus.queued => MeloColors.warning,
@@ -73,6 +54,10 @@ class SourceTrackTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final favoriteColor =
         track.isFavorited ? MeloColors.favorite : MeloColors.textTertiary;
+    final providerPresentation = meloProviderPresentation(
+      track.ref.providerId,
+      displayName: providerName,
+    );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -224,8 +209,8 @@ class SourceTrackTile extends StatelessWidget {
             children: [
               ProviderBadge(
                 label: providerName,
-                backgroundColor: _getProviderBg(track.ref.providerId),
-                foregroundColor: _getProviderFg(track.ref.providerId),
+                backgroundColor: providerPresentation.backgroundColor,
+                foregroundColor: providerPresentation.foregroundColor,
               ),
               ProviderBadge(
                 label: track.isFavorited ? '来源已喜欢' : '来源未喜欢',

@@ -9,7 +9,7 @@ class _MusicSourcesSettings extends ConsumerWidget {
     final sources = repository.providerEntries
         .where((entry) =>
             entry.descriptor.supports(ProviderCapability.authenticate) ||
-            entry.descriptor.id == neteaseProviderId)
+            repository.sessionActionFor(entry.descriptor.id) != null)
         .toList(growable: false);
     return ListView(
       children: [
@@ -58,12 +58,13 @@ class _MusicSourceCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(demoRepositoryProvider);
     final descriptor = entry.descriptor;
-    final name = _sourceName(descriptor.id);
+    final presentation = meloProviderPresentation(
+      descriptor.id,
+      displayName: descriptor.displayName,
+    );
     final signedIn = entry.provider.isAuthenticated;
     final canSyncFavorites =
         descriptor.supports(ProviderCapability.readFavorites);
-    final isNetease = descriptor.id.value.contains('aurora') ||
-        descriptor.id == neteaseProviderId;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -73,7 +74,7 @@ class _MusicSourceCard extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          _SourceIcon(isNetease: isNetease),
+          _SourceIcon(presentation: presentation),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -82,7 +83,7 @@ class _MusicSourceCard extends ConsumerWidget {
                 Row(
                   children: [
                     Text(
-                      name,
+                      presentation.fullName,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -141,10 +142,14 @@ class _SourceManagementDialog extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(demoRepositoryProvider);
-    final name = _sourceName(entry.descriptor.id);
+    final presentation = meloProviderPresentation(
+      entry.descriptor.id,
+      displayName: entry.descriptor.displayName,
+    );
+    final sessionAction = repository.sessionActionFor(entry.descriptor.id);
     final signedIn = entry.provider.isAuthenticated;
     return AlertDialog(
-      title: Text('管理 $name'),
+      title: Text('管理 ${presentation.fullName}'),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -157,9 +162,8 @@ class _SourceManagementDialog extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              entry.descriptor.id == neteaseProviderId
-                  ? '当前支持导入本机 Cookie 作为 experimental 会话。Cookie 不写入 SQLite 或快照；Android 会保存到应用私有存储，桌面开发也可使用 MELO_NETEASE_COOKIE 环境变量。'
-                  : '后续真实 Provider 接入后，此处将提供二维码登录、会话状态、同步时间和账号移除操作。',
+              sessionAction?.description ??
+                  '后续真实 Provider 接入后，此处将提供二维码登录、会话状态、同步时间和账号移除操作。',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: MeloColors.textSecondary,
                     height: 1.5,
@@ -173,11 +177,14 @@ class _SourceManagementDialog extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
           child: const Text('关闭'),
         ),
-        if (entry.descriptor.id == neteaseProviderId)
+        if (sessionAction?.kind == ProviderSessionActionKind.cookieImport)
           FilledButton.icon(
             onPressed: () async {
               if (signedIn) {
-                await repository.clearNeteaseCredentials();
+                final clear = sessionAction?.clear;
+                if (clear != null) {
+                  await clear();
+                }
                 if (context.mounted) {
                   Navigator.pop(context);
                 }
@@ -192,6 +199,52 @@ class _SourceManagementDialog extends ConsumerWidget {
             icon: Icon(signedIn ? Icons.logout_rounded : Icons.login_rounded),
             label: Text(signedIn ? '清除会话' : '导入 Cookie'),
           )
+        else if (sessionAction?.kind == ProviderSessionActionKind.qrLogin)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton(
+                onPressed: signedIn
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        showDialog<void>(
+                          context: context,
+                          builder: (context) => const _NeteaseCookieDialog(),
+                        );
+                      },
+                child: const Text('导入 Cookie'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: () async {
+                  if (signedIn) {
+                    await sessionAction?.clear?.call();
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                    return;
+                  }
+                  Navigator.pop(context);
+                  if (entry.descriptor.id == qqMusicProviderId) {
+                    await showDialog<void>(
+                      context: context,
+                      builder: (context) => const _QqQrLoginDialog(),
+                    );
+                  } else {
+                    await showDialog<void>(
+                      context: context,
+                      builder: (context) => const _NeteaseQrLoginDialog(),
+                    );
+                  }
+                },
+                icon: Icon(
+                  signedIn ? Icons.logout_rounded : Icons.qr_code_2_rounded,
+                ),
+                label: Text(signedIn ? '清除会话' : '扫码登录'),
+              ),
+            ],
+          )
         else
           FilledButton.icon(
             onPressed: () {
@@ -205,6 +258,365 @@ class _SourceManagementDialog extends ConsumerWidget {
     );
   }
 }
+
+class _NeteaseQrLoginDialog extends ConsumerStatefulWidget {
+  const _NeteaseQrLoginDialog();
+
+  @override
+  ConsumerState<_NeteaseQrLoginDialog> createState() =>
+      _NeteaseQrLoginDialogState();
+}
+
+class _NeteaseQrLoginDialogState extends ConsumerState<_NeteaseQrLoginDialog> {
+  NeteaseQrLoginSession? _session;
+  NeteaseQrLoginStatus _status = NeteaseQrLoginStatus.waiting;
+  Timer? _timer;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_createSession());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _createSession() async {
+    setState(() {
+      _error = null;
+      _session = null;
+      _status = NeteaseQrLoginStatus.waiting;
+    });
+    try {
+      final session =
+          await ref.read(demoRepositoryProvider).createNeteaseQrLoginSession();
+      if (!mounted) return;
+      setState(() => _session = session);
+      _timer?.cancel();
+      _timer = Timer.periodic(
+        const Duration(seconds: 2),
+        (_) => unawaited(_checkSession()),
+      );
+      await _checkSession();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error);
+      }
+    }
+  }
+
+  Future<void> _checkSession() async {
+    final session = _session;
+    if (session == null) return;
+    try {
+      final result = await ref
+          .read(demoRepositoryProvider)
+          .checkNeteaseQrLoginSession(session);
+      if (!mounted) return;
+      setState(() => _status = result.status);
+      if (result.status == NeteaseQrLoginStatus.authorized) {
+        _timer?.cancel();
+        Navigator.pop(context);
+      } else if (result.status == NeteaseQrLoginStatus.expired) {
+        _timer?.cancel();
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = _session;
+    return AlertDialog(
+      title: const Text('网易云扫码登录'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (session == null && _error == null)
+              const SizedBox(
+                width: 160,
+                height: 160,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (session != null)
+              Container(
+                width: 192,
+                height: 192,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: MeloRadii.md,
+                  border: Border.all(color: MeloColors.border),
+                ),
+                child: QrImageView(
+                  data: session.loginUri.toString(),
+                  backgroundColor: Colors.white,
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            const SizedBox(height: 14),
+            Text(
+              _neteaseQrStatusLabel(_status),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: MeloColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                '扫码登录失败：$_error',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: MeloColors.error,
+                    ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed:
+              _status == NeteaseQrLoginStatus.expired ? _createSession : null,
+          child: const Text('刷新二维码'),
+        ),
+      ],
+    );
+  }
+}
+
+class _QqQrLoginDialog extends ConsumerStatefulWidget {
+  const _QqQrLoginDialog();
+
+  @override
+  ConsumerState<_QqQrLoginDialog> createState() => _QqQrLoginDialogState();
+}
+
+class _QqQrLoginDialogState extends ConsumerState<_QqQrLoginDialog> {
+  QqMusicQrLoginMode _mode = QqMusicQrLoginMode.qq;
+  QqMusicQrLoginSession? _session;
+  QqMusicQrLoginStatus _status = QqMusicQrLoginStatus.waiting;
+  Timer? _timer;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_createSession(_mode));
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _createSession(QqMusicQrLoginMode mode) async {
+    _timer?.cancel();
+    setState(() {
+      _mode = mode;
+      _session = null;
+      _status = QqMusicQrLoginStatus.waiting;
+      _error = null;
+    });
+    try {
+      final session =
+          await ref.read(demoRepositoryProvider).createQqMusicQrLoginSession(
+                mode,
+              );
+      if (!mounted) return;
+      setState(() => _session = session);
+      _timer = Timer.periodic(
+        const Duration(seconds: 2),
+        (_) => unawaited(_checkSession()),
+      );
+      await _checkSession();
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    }
+  }
+
+  Future<void> _checkSession() async {
+    final session = _session;
+    if (session == null) return;
+    try {
+      final result =
+          await ref.read(demoRepositoryProvider).checkQqMusicQrLoginSession(
+                session,
+              );
+      if (!mounted) return;
+      setState(() => _status = result.status);
+      if (result.status == QqMusicQrLoginStatus.authorized) {
+        _timer?.cancel();
+        Navigator.pop(context);
+      } else if (result.status == QqMusicQrLoginStatus.expired ||
+          result.status == QqMusicQrLoginStatus.failed) {
+        _timer?.cancel();
+        if (result.message != null && result.message!.trim().isNotEmpty) {
+          setState(() => _error = result.message);
+        }
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = _session;
+    return AlertDialog(
+      title: const Text('QQ 音乐扫码登录'),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SegmentedButton<QqMusicQrLoginMode>(
+              segments: const [
+                ButtonSegment(
+                  value: QqMusicQrLoginMode.qq,
+                  label: Text('QQ'),
+                  icon: Icon(Icons.account_circle_rounded),
+                ),
+                ButtonSegment(
+                  value: QqMusicQrLoginMode.wechat,
+                  label: Text('微信'),
+                  icon: Icon(Icons.chat_bubble_rounded),
+                ),
+              ],
+              selected: {_mode},
+              onSelectionChanged: (values) {
+                if (values.isNotEmpty) {
+                  unawaited(_createSession(values.first));
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            if (session == null && _error == null)
+              const SizedBox(
+                width: 192,
+                height: 192,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (session != null)
+              Container(
+                width: 208,
+                height: 208,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: MeloRadii.md,
+                  border: Border.all(color: MeloColors.border),
+                ),
+                child: _QqQrImage(session: session),
+              ),
+            const SizedBox(height: 14),
+            Text(
+              _qqQrStatusLabel(_status),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: MeloColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                '扫码登录失败：$_error',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: MeloColors.error,
+                    ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('关闭'),
+        ),
+        TextButton(
+          onPressed: _status == QqMusicQrLoginStatus.expired ||
+                  _status == QqMusicQrLoginStatus.failed
+              ? () => _createSession(_mode)
+              : null,
+          child: const Text('刷新二维码'),
+        ),
+      ],
+    );
+  }
+}
+
+class _QqQrImage extends StatelessWidget {
+  const _QqQrImage({required this.session});
+
+  final QqMusicQrLoginSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageDataUri = session.imageDataUri;
+    if (imageDataUri != null && imageDataUri.isNotEmpty) {
+      return Image.memory(
+        _decodeDataUri(imageDataUri),
+        fit: BoxFit.contain,
+        gaplessPlayback: true,
+      );
+    }
+    final imageUri = session.imageUri;
+    if (imageUri != null) {
+      return Image.network(
+        imageUri.toString(),
+        fit: BoxFit.contain,
+      );
+    }
+    final loginUri = session.loginUri;
+    if (loginUri != null) {
+      return QrImageView(
+        data: loginUri.toString(),
+        backgroundColor: Colors.white,
+        padding: EdgeInsets.zero,
+      );
+    }
+    return const Center(child: Icon(Icons.qr_code_2_rounded, size: 64));
+  }
+}
+
+Uint8List _decodeDataUri(String dataUri) {
+  final commaIndex = dataUri.indexOf(',');
+  final base64Text =
+      commaIndex == -1 ? dataUri : dataUri.substring(commaIndex + 1);
+  return base64Decode(base64Text);
+}
+
+String _qqQrStatusLabel(QqMusicQrLoginStatus status) => switch (status) {
+      QqMusicQrLoginStatus.waiting => '请扫码登录 QQ 音乐',
+      QqMusicQrLoginStatus.scanned => '已扫码，请在手机上确认登录',
+      QqMusicQrLoginStatus.authorized => '登录成功，正在保存会话',
+      QqMusicQrLoginStatus.expired => '二维码已过期，请刷新',
+      QqMusicQrLoginStatus.failed => '扫码登录失败，请刷新重试',
+    };
+
+String _neteaseQrStatusLabel(NeteaseQrLoginStatus status) => switch (status) {
+      NeteaseQrLoginStatus.waiting => '请使用网易云音乐 App 扫描二维码',
+      NeteaseQrLoginStatus.scanned => '已扫码，请在手机上确认登录',
+      NeteaseQrLoginStatus.authorized => '登录成功，正在保存会话',
+      NeteaseQrLoginStatus.expired => '二维码已过期，请刷新',
+    };
 
 class _NeteaseCookieDialog extends ConsumerStatefulWidget {
   const _NeteaseCookieDialog();
@@ -338,7 +750,10 @@ class _AdvancedSourceInfo extends StatelessWidget {
         border: Border.all(color: MeloColors.border),
       ),
       child: Text(
-        '${_sourceName(entry.descriptor.id)}：$values',
+        '${meloProviderPresentation(
+          entry.descriptor.id,
+          displayName: entry.descriptor.displayName,
+        ).fullName}：$values',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: MeloColors.textSecondary,
               height: 1.45,
@@ -349,9 +764,9 @@ class _AdvancedSourceInfo extends StatelessWidget {
 }
 
 class _SourceIcon extends StatelessWidget {
-  const _SourceIcon({required this.isNetease});
+  const _SourceIcon({required this.presentation});
 
-  final bool isNetease;
+  final MeloProviderPresentation presentation;
 
   @override
   Widget build(BuildContext context) {
@@ -359,14 +774,12 @@ class _SourceIcon extends StatelessWidget {
       width: 46,
       height: 46,
       decoration: BoxDecoration(
-        color:
-            isNetease ? MeloColors.neteaseBackground : MeloColors.qqBackground,
+        color: presentation.backgroundColor,
         borderRadius: MeloRadii.md,
       ),
       child: Icon(
-        isNetease ? Icons.cloud_queue_rounded : Icons.music_note_rounded,
-        color:
-            isNetease ? MeloColors.neteaseForeground : MeloColors.qqForeground,
+        presentation.icon,
+        color: presentation.foregroundColor,
       ),
     );
   }
@@ -396,11 +809,4 @@ class _StatusChip extends StatelessWidget {
       ),
     );
   }
-}
-
-String _sourceName(ProviderId id) {
-  if (id == neteaseProviderId) return '网易云音乐';
-  if (id.value.contains('aurora')) return '网易云音乐';
-  if (id.value.contains('beacon')) return 'QQ音乐';
-  return id.value;
 }

@@ -21,8 +21,11 @@ dependencies:
   path: ^1.9.1
   provider_netease:
     path: ../packages/provider_netease
+  provider_qq:
+    path: ../packages/provider_qq
   provider_contract:
     path: ../packages/provider_contract
+  qr_flutter: ^4.1.0
   just_audio: ^0.9.43
   just_audio_windows: ^0.2.2
 
