@@ -53,7 +53,7 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
         );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(26, 22, 26, 18),
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
       child: Column(
         children: [
           _FavoritesTopRail(
@@ -69,7 +69,7 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
               setState(() => _selectedTab = value);
             },
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 16),
           _FavoritesToolbar(
             controller: _searchController,
             query: _query,
@@ -83,8 +83,18 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
               setState(() => _query = '');
             },
             onSortSelected: (value) => setState(() => _sort = value),
+            onPlayAll: () async {
+              final favorites = ref.read(allFavoritesProvider);
+              final tracks = favorites.maybeWhen(
+                data: (list) => _visibleTracks(list, selected),
+                orElse: () => const <UnifiedFavoriteTrack>[],
+              );
+              if (tracks.isNotEmpty) {
+                await repository.playUnifiedTracks(tracks);
+              }
+            },
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           Expanded(
             child: Align(
               alignment: Alignment.topCenter,
@@ -149,6 +159,7 @@ class _FavoritesToolbar extends StatelessWidget {
     required this.onQueryChanged,
     required this.onClearQuery,
     required this.onSortSelected,
+    required this.onPlayAll,
   });
 
   final TextEditingController controller;
@@ -158,6 +169,7 @@ class _FavoritesToolbar extends StatelessWidget {
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
   final ValueChanged<_FavoriteSort> onSortSelected;
+  final VoidCallback onPlayAll;
 
   @override
   Widget build(BuildContext context) {
@@ -219,6 +231,18 @@ class _FavoritesToolbar extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         _SortButton(sort: sort, onSelected: onSortSelected),
+        const SizedBox(width: 10),
+        FilledButton.icon(
+          onPressed: onPlayAll,
+          icon: const Icon(Icons.play_arrow_rounded, size: 19),
+          label: const Text('播放全部'),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(110, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            shape: const RoundedRectangleBorder(borderRadius: MeloRadii.sm),
+            elevation: 0,
+          ),
+        ),
       ],
     );
   }

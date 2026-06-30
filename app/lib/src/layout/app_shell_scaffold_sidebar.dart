@@ -107,7 +107,7 @@ class _SidebarItemState extends State<_SidebarItem> {
     final background = selected
         ? MeloColors.surfaceSelected
         : _hovered
-            ? const Color(0xFFF8FAFC)
+            ? MeloColors.surfaceHover
             : Colors.transparent;
 
     return Semantics(
@@ -121,8 +121,7 @@ class _SidebarItemState extends State<_SidebarItem> {
         child: GestureDetector(
           onTap: () => context.go(widget.destination.path),
           child: AnimatedContainer(
-            duration:
-                _hovered ? const Duration(milliseconds: 90) : Duration.zero,
+            duration: Duration.zero,
             curve: Curves.easeOutCubic,
             height: 42,
             padding: const EdgeInsets.only(left: 0, right: 10),
@@ -146,7 +145,7 @@ class _SidebarItemState extends State<_SidebarItem> {
                 ),
                 const SizedBox(width: 9),
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 120),
+                  duration: Duration.zero,
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(

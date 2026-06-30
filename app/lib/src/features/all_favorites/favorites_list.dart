@@ -1,10 +1,11 @@
 part of 'all_favorites_page.dart';
 
-class _FavoritesLibraryPanel extends ConsumerWidget {
+class _FavoritesLibraryPanel extends ConsumerStatefulWidget {
   const _FavoritesLibraryPanel({
     required this.selectedProviderId,
     required this.query,
     required this.sort,
+    super.key,
   });
 
   final String? selectedProviderId;
@@ -12,7 +13,26 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
   final _FavoriteSort sort;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_FavoritesLibraryPanel> createState() => _FavoritesLibraryPanelState();
+}
+
+class _FavoritesLibraryPanelState extends ConsumerState<_FavoritesLibraryPanel> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final favorites = ref.watch(allFavoritesProvider);
     return SizedBox(
       width: double.infinity,
@@ -64,7 +84,9 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
                     const Divider(height: 1, color: MeloColors.border),
                     Expanded(
                       child: Scrollbar(
+                        controller: _scrollController,
                         child: ListView.separated(
+                          controller: _scrollController,
                           physics: const ClampingScrollPhysics(),
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           itemCount: visible.length,
@@ -75,7 +97,7 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
                           itemBuilder: (context, index) => _FavoriteRow(
                             index: index + 1,
                             track: visible[index],
-                            providerId: selectedProviderId,
+                            providerId: widget.selectedProviderId,
                           ),
                         ),
                       ),
@@ -94,18 +116,18 @@ class _FavoritesLibraryPanel extends ConsumerWidget {
     List<UnifiedFavoriteTrack> tracks,
   ) {
     final visible = tracks.where((track) {
-      final providerMatch = selectedProviderId == null ||
+      final providerMatch = widget.selectedProviderId == null ||
           track.variants
-              .any((item) => item.ref.providerId.value == selectedProviderId);
-      final queryMatch = query.isEmpty ||
+              .any((item) => item.ref.providerId.value == widget.selectedProviderId);
+      final queryMatch = widget.query.isEmpty ||
           '${track.title} ${track.artists.join(' ')} ${track.variants.map((item) => item.album ?? '').join(' ')}'
               .toLowerCase()
-              .contains(query);
+              .contains(widget.query);
       return providerMatch && queryMatch;
     }).toList(growable: false);
 
     final sorted = List<UnifiedFavoriteTrack>.from(visible);
-    switch (sort) {
+    switch (widget.sort) {
       case _FavoriteSort.recent:
         break;
       case _FavoriteSort.title:
@@ -147,15 +169,44 @@ class _FavoritesTableHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SizedBox(width: 38, child: Text('#', style: labelStyle)),
+          SizedBox(
+            width: 38,
+            child: Text(
+              '#',
+              style: labelStyle,
+              textAlign: TextAlign.center,
+            ),
+          ),
           const SizedBox(width: MeloListMetrics.trackCoverSize + 12),
           Expanded(
             flex: 3,
             child: Text('歌曲', style: labelStyle),
           ),
           Expanded(flex: 3, child: Text('专辑', style: labelStyle)),
-          SizedBox(width: 132, child: Text('来源', style: labelStyle)),
-          SizedBox(width: 84, child: Text('收藏', style: labelStyle)),
+          SizedBox(
+            width: 132,
+            child: Text(
+              '来源',
+              style: labelStyle,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          SizedBox(
+            width: 64,
+            child: Text(
+              '收藏',
+              style: labelStyle,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          SizedBox(
+            width: 56,
+            child: Text(
+              '操作',
+              style: labelStyle,
+              textAlign: TextAlign.center,
+            ),
+          ),
         ],
       ),
     );
@@ -196,27 +247,26 @@ class _FavoriteRowSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: MeloListMetrics.rowHeight,
+      height: 48,
       child: Row(
         children: [
           const SizedBox(width: 54),
-          _SkeletonBox(
-            width: MeloListMetrics.trackCoverSize,
-            height: MeloListMetrics.trackCoverSize,
-            radius: MeloRadii.sm,
-          ),
+          _SkeletonBox(width: 34, height: 34, radius: MeloRadii.sm),
           const SizedBox(width: 12),
           const Expanded(flex: 3, child: _SkeletonTextGroup()),
           const Expanded(flex: 3, child: _SkeletonTextGroup(short: true)),
           const SizedBox(
             width: 132,
-            child: _SkeletonBox(
-              width: 64,
-              height: 20,
-              radius: MeloRadii.pill,
+            child: Center(
+              child: _SkeletonBox(
+                width: 64,
+                height: 20,
+                radius: MeloRadii.pill,
+              ),
             ),
           ),
-          const SizedBox(width: 84),
+          const SizedBox(width: 64),
+          const SizedBox(width: 56),
         ],
       ),
     );

@@ -21,6 +21,7 @@ class AppShellScaffold extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
+            const MeloTitleBar(),
             Expanded(
               child: Row(
                 children: [

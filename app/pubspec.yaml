@@ -13,6 +13,7 @@ dependencies:
   flutter_riverpod: ^2.5.1
   google_fonts: ^8.1.0
   go_router: ^14.2.0
+  window_manager: ^0.4.3
   music_data:
     path: ../packages/music_data
   music_domain:

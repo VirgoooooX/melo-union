@@ -42,7 +42,7 @@ class _MeloInteractiveRowState extends State<MeloInteractiveRow> {
     final background = widget.selected
         ? MeloColors.primary50
         : _hovered
-            ? const Color(0xFFF8FAFC)
+            ? MeloColors.surfaceHover
             : Colors.transparent;
     final leftAccent =
         widget.selected ? MeloColors.primary500 : Colors.transparent;
@@ -57,7 +57,7 @@ class _MeloInteractiveRowState extends State<MeloInteractiveRow> {
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: _hovered ? const Duration(milliseconds: 90) : Duration.zero,
+          duration: Duration.zero,
           curve: Curves.easeOutCubic,
           height: widget.height,
           padding: widget.padding,

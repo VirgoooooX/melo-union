@@ -41,10 +41,12 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
           children: [
             SizedBox(
               width: 38,
-              child: _RowPlaybackIndicator(
-                index: widget.index,
-                hovered: hovered,
-                isPlaying: isPlaying,
+              child: Center(
+                child: _RowPlaybackIndicator(
+                  index: widget.index,
+                  hovered: hovered,
+                  isPlaying: isPlaying,
+                ),
               ),
             ),
             MeloTrackCover(
@@ -77,8 +79,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
             ),
             SizedBox(
               width: 132,
-              child: Align(
-                alignment: Alignment.centerLeft,
+              child: Center(
                 child: Wrap(
                   spacing: 4,
                   runSpacing: 4,
@@ -90,42 +91,37 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
               ),
             ),
             SizedBox(
-              width: 84,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  IconButton(
-                    tooltip: variants.length > 1
-                        ? '管理多个来源的收藏状态'
-                        : hasFavorite
-                            ? '取消喜欢'
-                            : '喜欢',
-                    onPressed: () => _handleFavoriteTap(
-                      context,
-                      repository,
-                      variants,
-                    ),
-                    splashRadius: 20,
-                    visualDensity: VisualDensity.compact,
-                    icon: Icon(
-                      hasFavorite
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      color: hasFavorite
-                          ? MeloColors.favorite
-                          : MeloColors.textTertiary,
-                      size: 21,
-                    ),
+              width: 64,
+              child: Center(
+                child: IconButton(
+                  tooltip: variants.length > 1
+                      ? '管理多个来源的收藏状态'
+                      : hasFavorite
+                          ? '取消喜欢'
+                          : '喜欢',
+                  onPressed: () => _handleFavoriteTap(
+                    context,
+                    repository,
+                    variants,
                   ),
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 130),
-                    opacity: hovered || isPlaying ? 1 : 0,
-                    child: IgnorePointer(
-                      ignoring: !hovered && !isPlaying,
-                      child: _TrackMoreMenu(track: primary),
-                    ),
+                  splashRadius: 20,
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    hasFavorite
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    color: hasFavorite
+                        ? MeloColors.favorite
+                        : MeloColors.textTertiary,
+                    size: 21,
                   ),
-                ],
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 56,
+              child: Center(
+                child: _TrackMoreMenu(track: primary),
               ),
             ),
           ],
@@ -247,31 +243,25 @@ class _RowPlaybackIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isPlaying ? MeloColors.primary700 : MeloColors.textTertiary;
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 130),
-      child: isPlaying
-          ? Icon(
-              Icons.graphic_eq_rounded,
-              key: const ValueKey('playing'),
-              color: color,
-              size: 18,
-            )
-          : hovered
-              ? Icon(
-                  Icons.play_arrow_rounded,
-                  key: const ValueKey('hover-play'),
-                  color: MeloColors.primary700,
-                  size: 20,
-                )
-              : Text(
-                  '$index'.padLeft(2, '0'),
-                  key: const ValueKey('row-index'),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-    );
+    return isPlaying
+        ? Icon(
+            Icons.graphic_eq_rounded,
+            color: color,
+            size: 18,
+          )
+        : hovered
+            ? Icon(
+                Icons.play_arrow_rounded,
+                color: MeloColors.primary700,
+                size: 20,
+              )
+            : Text(
+                '$index'.padLeft(2, '0'),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w700,
+                    ),
+              );
   }
 }
 
