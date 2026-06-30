@@ -1344,19 +1344,13 @@ final class QqMusicProvider implements MusicProvider {
   }
 
   /// Converts a QQ profile-order song map to [SourceTrack].
+  /// Sets likedAt to the current time (fetch time) as a qq_import marker.
   SourceTrack _trackFromProfileSong(Map<String, Object?> songData) {
     final songmid = songData['songmid']?.toString() ?? '';
     final albumMid = songData['albummid']?.toString() ?? '';
     final artists = songData['singer'] as List<Object?>? ?? const [];
-    return SourceTrack(
-      ref: ProviderTrackRef(
-        providerId: descriptor.id,
-        trackId: songmid,
-        extraIds: {
-          if (songmid.isNotEmpty) 'song_mid': songmid,
-          if (albumMid.isNotEmpty) 'album_mid': albumMid,
-        },
-      ),
+    return _buildQqTrack(
+      songmid: songmid,
       title: songData['songname']?.toString() ?? 'Untitled',
       artists: artists
           .whereType<Map<Object?, Object?>>()
@@ -1364,48 +1358,93 @@ final class QqMusicProvider implements MusicProvider {
           .where((n) => n.isNotEmpty)
           .toList(growable: false),
       album: songData['albumname']?.toString(),
-      duration:
-          Duration(seconds: (songData['interval'] as num?)?.toInt() ?? 0),
+      intervalSeconds: (songData['interval'] as num?)?.toInt() ?? 0,
       isFavorited: true,
-      artwork: albumMid.isEmpty
-          ? null
-          : Uri.parse(
-              'https://y.gtimg.cn/music/photo_new/T002R300x300M000$albumMid.jpg'),
-      isPlayable: true,
-      isDownloadable: true,
+      albumMid: albumMid,
+      likedAt: _now().toUtc(),
+      likedAtSource: 'qq_import',
+      likedAtPrecision: 'unknown',
     );
   }
 
   /// Converts a QQ playlist song entry (from cdlist.songlist) to [SourceTrack].
+  /// Handles multiple field naming conventions:
+  ///   - songmid / mid (primary id)
+  ///   - songname / name (title)
+  ///   - albumname / album.name (album name)
+  ///   - albummid / album.mid (album mid)
   SourceTrack _trackFromPlaylistSong(Map<String, Object?> song) {
-    final songmid = song['songmid']?.toString() ?? '';
-    final albumMid = song['albummid']?.toString() ?? '';
+    final songmid = song['songmid']?.toString() ??
+        song['mid']?.toString() ??
+        '';
+    final albumMid = song['albummid']?.toString() ??
+        _nestedString(song['album'], 'mid') ??
+        '';
     final artists = song['singer'] as List<Object?>? ?? const [];
+    final albumName = song['albumname']?.toString() ??
+        _nestedString(song['album'], 'name');
+    return _buildQqTrack(
+      songmid: songmid,
+      title: song['songname']?.toString() ??
+          song['name']?.toString() ??
+          'Untitled',
+      artists: artists
+          .whereType<Map<Object?, Object?>>()
+          .map((s) => s['name']?.toString() ?? '')
+          .where((n) => n.isNotEmpty)
+          .toList(growable: false),
+      album: albumName,
+      intervalSeconds: (song['interval'] as num?)?.toInt() ?? 0,
+      isFavorited: false,
+      albumMid: albumMid,
+    );
+  }
+
+  /// Extracts a nested string field (e.g. album → mid).
+  /// Handles both map and list-of-maps (singer list) shapes.
+  String _nestedString(Object? value, String key) {
+    if (value is Map<Object?, Object?>) {
+      return _stringMap(value)[key]?.toString() ?? '';
+    }
+    return '';
+  }
+
+  /// Shared SourceTrack builder for QQ Music songs.
+  SourceTrack _buildQqTrack({
+    required String songmid,
+    required String title,
+    required List<String> artists,
+    String? album,
+    required int intervalSeconds,
+    required bool isFavorited,
+    String? albumMid,
+    DateTime? likedAt,
+    String? likedAtSource,
+    String? likedAtPrecision,
+  }) {
     return SourceTrack(
       ref: ProviderTrackRef(
         providerId: descriptor.id,
         trackId: songmid,
         extraIds: {
           if (songmid.isNotEmpty) 'song_mid': songmid,
-          if (albumMid.isNotEmpty) 'album_mid': albumMid,
+          if (albumMid != null && albumMid.isNotEmpty) 'album_mid': albumMid,
         },
       ),
-      title: song['songname']?.toString() ?? 'Untitled',
-      artists: artists
-          .whereType<Map<Object?, Object?>>()
-          .map((s) => s['name']?.toString() ?? '')
-          .where((n) => n.isNotEmpty)
-          .toList(growable: false),
-      album: song['albumname']?.toString(),
-      duration:
-          Duration(seconds: (song['interval'] as num?)?.toInt() ?? 0),
-      isFavorited: false,
-      artwork: albumMid.isEmpty
+      title: title,
+      artists: artists,
+      album: album,
+      duration: Duration(seconds: intervalSeconds),
+      isFavorited: isFavorited,
+      artwork: albumMid == null || albumMid.isEmpty
           ? null
           : Uri.parse(
               'https://y.gtimg.cn/music/photo_new/T002R300x300M000$albumMid.jpg'),
       isPlayable: true,
       isDownloadable: true,
+      likedAt: likedAt,
+      likedAtSource: likedAtSource,
+      likedAtPrecision: likedAtPrecision,
     );
   }
 
@@ -1452,32 +1491,14 @@ final class QqMusicProvider implements MusicProvider {
       final parts = dataStr.split('|');
       String value(int index) =>
           index < parts.length ? parts[index].trim() : '';
-      final songmid = value(0);
-      final name = value(1);
-      final artist = value(3);
-      final albumMid = value(4);
-      final albumName = value(5);
-      final interval = int.tryParse(value(7)) ?? 0;
-      return SourceTrack(
-        ref: ProviderTrackRef(
-          providerId: descriptor.id,
-          trackId: songmid,
-          extraIds: {
-            if (songmid.isNotEmpty) 'song_mid': songmid,
-            if (albumMid.isNotEmpty) 'album_mid': albumMid,
-          },
-        ),
-        title: name.isNotEmpty ? name : 'Untitled',
-        artists: artist.isNotEmpty ? [artist] : [],
-        album: albumName.isNotEmpty ? albumName : null,
-        duration: Duration(seconds: interval),
+      return _buildQqTrack(
+        songmid: value(0),
+        title: value(1).isNotEmpty ? value(1) : 'Untitled',
+        artists: value(3).isNotEmpty ? [value(3)] : [],
+        album: value(5).isNotEmpty ? value(5) : null,
+        intervalSeconds: int.tryParse(value(7)) ?? 0,
         isFavorited: false,
-        artwork: albumMid.isEmpty
-            ? null
-            : Uri.parse(
-                'https://y.gtimg.cn/music/photo_new/T002R300x300M000$albumMid.jpg'),
-        isPlayable: true,
-        isDownloadable: true,
+        albumMid: value(4).isNotEmpty ? value(4) : null,
       );
     }
     // Fallback to field-based parsing.

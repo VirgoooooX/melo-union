@@ -55,6 +55,9 @@ final class SourceTrack {
     this.artwork,
     this.isPlayable = true,
     this.isDownloadable = false,
+    this.likedAt,
+    this.likedAtSource,
+    this.likedAtPrecision,
   });
 
   final ProviderTrackRef ref;
@@ -68,6 +71,17 @@ final class SourceTrack {
   final bool isPlayable;
   final bool isDownloadable;
 
+  /// UTC timestamp of when this track was liked (null for imported unknowns).
+  final DateTime? likedAt;
+
+  /// Origin of the liked-at value:
+  ///   'app_action' | 'sync_detected' | 'qq_import' | 'unknown' | null
+  final String? likedAtSource;
+
+  /// Precision of the liked-at timestamp:
+  ///   'exact' | 'approximate' | 'unknown' | null
+  final String? likedAtPrecision;
+
   SourceTrack copyWith({
     ProviderTrackRef? ref,
     String? title,
@@ -79,6 +93,10 @@ final class SourceTrack {
     Uri? artwork,
     bool? isPlayable,
     bool? isDownloadable,
+    DateTime? likedAt,
+    String? likedAtSource,
+    String? likedAtPrecision,
+    bool clearLikedAt = false,
   }) {
     return SourceTrack(
       ref: ref ?? this.ref,
@@ -91,6 +109,11 @@ final class SourceTrack {
       artwork: artwork ?? this.artwork,
       isPlayable: isPlayable ?? this.isPlayable,
       isDownloadable: isDownloadable ?? this.isDownloadable,
+      likedAt: clearLikedAt ? null : likedAt ?? this.likedAt,
+      likedAtSource:
+          clearLikedAt ? null : likedAtSource ?? this.likedAtSource,
+      likedAtPrecision:
+          clearLikedAt ? null : likedAtPrecision ?? this.likedAtPrecision,
     );
   }
 }

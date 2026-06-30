@@ -246,11 +246,21 @@ final class NeteaseMusicProvider implements MusicProvider {
       }
     }
 
-    // 3. Fetch song details in chunks of 200
+    // 3. Fetch song details in chunks of 200, attach liked timestamps
     final tracks = <SourceTrack>[];
     for (final chunk in _chunks(ids, 200)) {
       tracks.addAll(
-        await _songDetails(chunk, favoritedIds: ids.toSet()),
+        (await _songDetails(chunk, favoritedIds: ids.toSet())).map((track) {
+          final at = idToAt[track.ref.trackId];
+          if (at != null && at > 0) {
+            return track.copyWith(
+              likedAt: DateTime.fromMillisecondsSinceEpoch(at, isUtc: true),
+              likedAtSource: 'netease_raw',
+              likedAtPrecision: 'exact',
+            );
+          }
+          return track;
+        }),
       );
     }
 

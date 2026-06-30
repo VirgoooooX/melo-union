@@ -331,7 +331,10 @@ class DemoRepository extends ChangeNotifier {
       PlaylistReferenceResolver(registry);
 
   Future<List<UnifiedFavoriteTrack>> loadAllFavorites() =>
-      favoritesService.buildAllFavorites(registry);
+      favoritesService.buildAllFavoritesWithResult(
+        registry,
+        overrides: favoritesOverrideRegistry,
+      ).then((r) => r.tracks);
 
   Future<List<SourceTrack>> loadRecommendations(ProviderId providerId) async {
     final entry = registry.entryOf(providerId);
@@ -465,6 +468,21 @@ class DemoRepository extends ChangeNotifier {
       );
     }
     await entry.provider.setFavorite(track: track.ref, liked: liked);
+
+    if (liked) {
+      // Record app-action liked-at timestamp (precise).
+      favoritesOverrideRegistry.recordLikedAt(
+        track.ref,
+        LikedAtMetadata(
+          likedAt: DateTime.now().toUtc(),
+          source: LikedAtMetadata.sourceAppAction,
+          precision: LikedAtMetadata.precisionExact,
+        ),
+      );
+    } else {
+      // Remove liked-at metadata when unliking.
+      favoritesOverrideRegistry.removeLikedAt(track.ref);
+    }
     notifyListeners();
   }
 

@@ -19,6 +19,41 @@ final class UnifiedFavoriteTrack {
   final List<SourceTrack> variants;
 
   bool get hasMultipleSources => variants.length > 1;
+
+  /// Best available liked-at metadata across all variants.
+  /// Prefers app_action (exact) over sync_detected (approximate) over anything else.
+  LikedAtMetadata? get bestLikedAt {
+    LikedAtMetadata? best;
+    for (final variant in variants) {
+      final candidate = _metadataFromTrack(variant);
+      if (candidate == null) continue;
+      if (best == null || _rank(candidate) > _rank(best)) {
+        best = candidate;
+      }
+    }
+    return best;
+  }
+
+  static int _rank(LikedAtMetadata m) {
+    if (m.source == LikedAtMetadata.sourceAppAction &&
+        m.precision == LikedAtMetadata.precisionExact) {
+      return 4;
+    }
+    if (m.source == LikedAtMetadata.sourceAppAction) return 3;
+    if (m.source == LikedAtMetadata.sourceNeteaseRaw) return 3;
+    if (m.source == LikedAtMetadata.sourceSyncDetected) return 2;
+    if (m.source == LikedAtMetadata.sourceQqImport) return 1;
+    return 0;
+  }
+
+  static LikedAtMetadata? _metadataFromTrack(SourceTrack track) {
+    if (track.likedAtSource == null) return null;
+    return LikedAtMetadata(
+      likedAt: track.likedAt,
+      source: track.likedAtSource!,
+      precision: track.likedAtPrecision ?? LikedAtMetadata.precisionUnknown,
+    );
+  }
 }
 
 final class UnifiedFavoritesService {
@@ -53,6 +88,32 @@ final class UnifiedFavoritesService {
     }
 
     final groups = <_FavoriteGroup>[];
+
+    // Sync QQ / external-source liked-at to the registry:
+    //   First detection → record current time as likedAt (qq_import / sync_detected).
+    //   Already seen → do nothing (registry keeps the original detection time).
+    if (overrides != null) {
+      final now = DateTime.now().toUtc();
+      for (final snapshot in snapshots) {
+        for (final track in snapshot.tracks) {
+          if (track.likedAtSource == 'qq_import' ||
+              track.likedAtSource == null) {
+            final existing = overrides.likedAtFor(track.ref);
+            if (existing == null) {
+              // First time we've seen this track → freeze the current time.
+              overrides.recordLikedAt(
+                track.ref,
+                LikedAtMetadata(
+                  likedAt: now,
+                  source: LikedAtMetadata.sourceQqImport,
+                  precision: LikedAtMetadata.precisionUnknown,
+                ),
+              );
+            }
+          }
+        }
+      }
+    }
     for (final snapshot in snapshots) {
       for (final track in snapshot.tracks) {
         // Apply hidden track override
@@ -78,6 +139,24 @@ final class UnifiedFavoritesService {
           groups.add(_FavoriteGroup(track));
         } else {
           groups[existingIndex].variants.add(track);
+        }
+      }
+    }
+
+    // Apply registry liked-at overrides to SourceTrack variants
+    for (final group in groups) {
+      for (var i = 0; i < group.variants.length; i++) {
+        final variant = group.variants[i];
+        final regMeta = overrides?.likedAtFor(variant.ref);
+        if (regMeta != null) {
+          // Registry data (app_action or sync_detected) takes precedence
+          // over what the provider returned (qq_import / unknown).
+          group.variants[i] = variant.copyWith(
+            likedAt: regMeta.likedAt,
+            likedAtSource: regMeta.source,
+            likedAtPrecision: regMeta.precision,
+            clearLikedAt: regMeta.likedAt == null,
+          );
         }
       }
     }

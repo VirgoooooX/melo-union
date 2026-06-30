@@ -39,8 +39,8 @@ void main() {
 
     expect(provider.descriptor.id, qqMusicProviderId);
     expect(provider.descriptor.supports(ProviderCapability.search), isTrue);
-    expect(provider.descriptor.supports(ProviderCapability.readFavorites),
-        isTrue);
+    expect(
+        provider.descriptor.supports(ProviderCapability.readFavorites), isTrue);
 
     final results = await provider.search('晴天');
     expect(results, hasLength(1));
@@ -221,8 +221,7 @@ void main() {
   test('pullFavorites maps profile order songs', () async {
     final provider = QqMusicProvider(
       client: _FakeClient((request) {
-        expect(request.url.path,
-            contains('fcg_get_profile_order_asset.fcg'));
+        expect(request.url.path, contains('fcg_get_profile_order_asset.fcg'));
         return http.Response.bytes(
           utf8.encode(jsonEncode({
             'code': 0,
@@ -268,9 +267,11 @@ void main() {
     expect(snapshot.tracks[0].isFavorited, isTrue);
     expect(snapshot.tracks[0].ref.extraIds['song_mic'], isNull);
     expect(snapshot.tracks[0].ref.extraIds['song_mid'], 'mid_002');
-    expect(snapshot.tracks[0].artwork.toString(),
-        contains('alb_002'));
+    expect(snapshot.tracks[0].artwork.toString(), contains('alb_002'));
     expect(snapshot.tracks[0].artists, ['周杰伦']);
+    expect(snapshot.tracks[0].likedAtSource, 'qq_import');
+    expect(snapshot.tracks[0].likedAtPrecision, 'unknown');
+    expect(snapshot.tracks[0].likedAt, isNotNull);
   });
 
   test('getProfile returns uin from cookie', () async {
@@ -295,8 +296,7 @@ void main() {
     final provider = QqMusicProvider(
       client: _FakeClient((request) {
         callCount++;
-        if (request.url.path
-            .contains('fcg_get_profile_order_asset.fcg')) {
+        if (request.url.path.contains('fcg_get_profile_order_asset.fcg')) {
           if (callCount == 1) {
             // reqtype=1 (favorites check)
             return http.Response.bytes(
@@ -354,8 +354,7 @@ void main() {
           200,
         );
       }),
-      credentials:
-          QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+      credentials: QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
     );
 
     final playlists = await provider.getUserPlaylists();
@@ -371,12 +370,10 @@ void main() {
   test('getPlaylistTracks from regular playlist strips JSONP', () async {
     final provider = QqMusicProvider(
       client: _FakeClient((request) {
-        expect(request.url.path,
-            contains('fcg_ucc_getcdinfo_byids_cp.fcg'));
+        expect(request.url.path, contains('fcg_ucc_getcdinfo_byids_cp.fcg'));
         return http.Response.bytes(
           utf8.encode(
-            'MusicJsonCallback(' +
-                jsonEncode({
+            'MusicJsonCallback(${jsonEncode({
                   'code': 0,
                   'cdlist': [
                     {
@@ -403,8 +400,7 @@ void main() {
                       ],
                     },
                   ],
-                }) +
-                ')',
+                })})',
           ),
           200,
         );
@@ -422,8 +418,7 @@ void main() {
       () async {
     final provider = QqMusicProvider(
       client: _FakeClient((request) {
-        expect(request.url.path,
-            contains('fcg_get_profile_order_asset.fcg'));
+        expect(request.url.path, contains('fcg_get_profile_order_asset.fcg'));
         return http.Response.bytes(
           utf8.encode(jsonEncode({
             'code': 0,
@@ -447,8 +442,7 @@ void main() {
           200,
         );
       }),
-      credentials:
-          QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+      credentials: QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
     );
 
     final tracks = await provider.getPlaylistTracks('profile:favorites');
@@ -464,8 +458,8 @@ void main() {
         final decoded = jsonDecode(
           utf8.decode((request as http.Request).bodyBytes),
         );
-        expect(decoded['recomPlaylist']['module'],
-            'playlist.HotRecommendServer');
+        expect(
+            decoded['recomPlaylist']['module'], 'playlist.HotRecommendServer');
         return http.Response.bytes(
           utf8.encode(jsonEncode({
             'code': 0,
@@ -497,52 +491,25 @@ void main() {
     expect(playlists[0].playCount, 99999);
   });
 
-  test('getDailyRecommendations falls back to search on failure', () async {
-    var callCount = 0;
+  test('getDailyRecommendations returns SmartRadio songs', () async {
     final provider = QqMusicProvider(
       client: _FakeClient((request) {
-        callCount++;
-        if (callCount == 1) {
-          // SmartRadio attempt
-          expect(request.url.path, contains('musicu.fcg'));
-          return http.Response.bytes(
-            utf8.encode(jsonEncode({
-              'code': 0,
-              'recommend': {
-                'code': 0,
-                'data': {
-                  'songList': [
-                    {
-                      'songmid': 'rec_001',
-                      'songname': '推荐曲目',
-                      'albummid': 'rec_alb',
-                      'interval': 210,
-                      'singer': [
-                        {'name': '推荐歌手'},
-                      ],
-                    },
-                  ],
-                },
-              },
-            })),
-            200,
-          );
-        }
-        // Fallback to search
-        expect(request.url.path, contains('client_search_cp'));
+        expect(request.url.path, contains('musicu.fcg'));
+        // SmartRadio uses short field names: mid, name, album.mid
         return http.Response.bytes(
           utf8.encode(jsonEncode({
             'code': 0,
-            'data': {
-              'song': {
-                'list': [
+            'recommend': {
+              'code': 0,
+              'data': {
+                'songList': [
                   {
-                    'songmid': 'hot_001',
-                    'songname': '热门歌曲',
-                    'albummid': 'hot_alb',
-                    'interval': 200,
+                    'mid': 'rec_001',
+                    'name': '推荐曲目',
+                    'album': {'mid': 'rec_alb', 'name': '推荐专辑'},
+                    'interval': 210,
                     'singer': [
-                      {'name': '热门歌手'},
+                      {'name': '推荐歌手'},
                     ],
                   },
                 ],
@@ -557,6 +524,53 @@ void main() {
     final tracks = await provider.getDailyRecommendations();
     expect(tracks, isNotEmpty);
     expect(tracks[0].title, '推荐曲目');
+    expect(tracks[0].ref.trackId, 'rec_001');
+    expect(tracks[0].artists, ['推荐歌手']);
+  });
+
+  test('getDailyRecommendations falls back to search on SmartRadio failure',
+      () async {
+    // Send an error code from SmartRadio to trigger fallback
+    final provider = QqMusicProvider(
+      client: _FakeClient((request) {
+        if (request.url.path.contains('musicu.fcg')) {
+          return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'code': 0,
+              'recommend': {
+                'code': -1,
+                'data': null,
+              },
+            })),
+            200,
+          );
+        }
+        // Fallback search
+        return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'code': 0,
+            'data': {
+              'song': {
+                'list': [
+                  {
+                    'songmid': 'hot_001',
+                    'songname': '热门歌曲',
+                    'albummid': 'hot_alb',
+                    'interval': 200,
+                    'singer': [{'name': '热门歌手'}],
+                  },
+                ],
+              },
+            },
+          })),
+          200,
+        );
+      }),
+    );
+
+    final tracks = await provider.getDailyRecommendations();
+    expect(tracks, isNotEmpty);
+    expect(tracks[0].title, '热门歌曲');
   });
 }
 

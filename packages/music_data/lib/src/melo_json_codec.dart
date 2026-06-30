@@ -46,6 +46,19 @@ final class MeloJsonCodec {
     for (final refJson in _listOfMaps(overridesJson['hiddenTracks'])) {
       overrides.hideTrack(_decodeTrackRef(refJson));
     }
+    for (final entry in _listOfMaps(overridesJson['likedAtTracking'])) {
+      final ref = _decodeTrackRef(_requiredMap(entry, 'ref'));
+      final meta = _stringKeyedMap(entry['metadata'] as Map<Object?, Object?>?);
+      overrides.recordLikedAt(
+        ref,
+        LikedAtMetadata(
+          likedAt: _optionalDateTime(meta['likedAt']?.toString()),
+          source: meta['source']?.toString() ?? LikedAtMetadata.sourceUnknown,
+          precision: meta['precision']?.toString() ??
+              LikedAtMetadata.precisionUnknown,
+        ),
+      );
+    }
 
     return MeloDataSnapshot(
       playlists: [
@@ -169,11 +182,17 @@ final class MeloJsonCodec {
       'isFavorited': track.isFavorited,
       'isPlayable': track.isPlayable,
       'isDownloadable': track.isDownloadable,
+      if (track.likedAt != null)
+        'likedAt': track.likedAt!.toUtc().toIso8601String(),
+      if (track.likedAtSource != null) 'likedAtSource': track.likedAtSource,
+      if (track.likedAtPrecision != null)
+        'likedAtPrecision': track.likedAtPrecision,
     };
   }
 
   SourceTrack _decodeSourceTrack(Map<String, Object?> json) {
     final artwork = json['artwork'] as String?;
+    final likedAtStr = json['likedAt'] as String?;
     return SourceTrack(
       ref: _decodeTrackRef(_requiredMap(json, 'ref')),
       title: _requiredString(json, 'title'),
@@ -185,6 +204,10 @@ final class MeloJsonCodec {
       isFavorited: json['isFavorited'] as bool? ?? false,
       isPlayable: json['isPlayable'] as bool? ?? true,
       isDownloadable: json['isDownloadable'] as bool? ?? false,
+      likedAt:
+          likedAtStr == null ? null : DateTime.parse(likedAtStr).toUtc(),
+      likedAtSource: json['likedAtSource'] as String?,
+      likedAtPrecision: json['likedAtPrecision'] as String?,
     );
   }
 
@@ -200,6 +223,18 @@ final class MeloJsonCodec {
       ],
       'hiddenTracks': [
         for (final ref in registry.hiddenTracks) _encodeTrackRef(ref),
+      ],
+      'likedAtTracking': [
+        for (final entry in registry.likedAtTracking.entries)
+          {
+            'ref': _encodeTrackRef(entry.key),
+            'metadata': {
+              if (entry.value.likedAt != null)
+                'likedAt': entry.value.likedAt!.toUtc().toIso8601String(),
+              'source': entry.value.source,
+              'precision': entry.value.precision,
+            },
+          },
       ],
     };
   }
@@ -286,5 +321,10 @@ final class MeloJsonCodec {
     return {
       for (final entry in raw.entries) entry.key as String: entry.value,
     };
+  }
+
+  DateTime? _optionalDateTime(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return DateTime.tryParse(value)?.toUtc();
   }
 }
