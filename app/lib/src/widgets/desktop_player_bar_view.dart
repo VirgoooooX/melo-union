@@ -58,69 +58,31 @@ class DesktopPlayerBar extends ConsumerWidget {
                 width: compact ? 108 : 148,
               ),
               const SizedBox(width: MeloSpacing.xs),
-              IconButton(
-                tooltip: '播放队列',
-                onPressed: queue.entries.isEmpty
-                    ? null
-                    : () => _showQueue(context, ref),
-                icon: Badge(
-                  label: Text('${queue.entries.length}'),
-                  isLabelVisible: queue.entries.isNotEmpty,
-                  child: const Icon(Icons.queue_music_outlined),
-                ),
-              ),
+              (() {
+                final mode = ref.watch(rightSidebarModeProvider);
+                return IconButton(
+                  tooltip: mode == RightSidebarMode.queue ? '显示歌词' : '显示播放队列',
+                  onPressed: () {
+                    ref.read(rightSidebarModeProvider.notifier).update(
+                        (state) => state == RightSidebarMode.queue
+                            ? RightSidebarMode.lyrics
+                            : RightSidebarMode.queue);
+                  },
+                  icon: Badge(
+                    label: Text('${queue.entries.length}'),
+                    isLabelVisible: queue.entries.isNotEmpty,
+                    child: Icon(
+                      mode == RightSidebarMode.queue
+                          ? Icons.queue_music_outlined
+                          : Icons.lyrics_outlined,
+                    ),
+                  ),
+                );
+              })(),
             ],
           );
         },
       ),
-    );
-  }
-
-  void _showQueue(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        final repository = ref.read(demoRepositoryProvider);
-        final queue = repository.queue;
-        return SafeArea(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-            itemCount: queue.entries.length,
-            separatorBuilder: (_, __) =>
-                const Divider(height: 1, color: MeloColors.border),
-            itemBuilder: (context, index) {
-              final entry = queue.entries[index];
-              final selected = index == queue.currentIndex;
-              return ListTile(
-                selected: selected,
-                leading: QueueTrackCover(
-                  seed: entry.track.title,
-                  artwork: entry.track.artwork,
-                  isPlaying: selected,
-                ),
-                title: Text(
-                  entry.track.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(
-                  entry.track.artists.join(' / '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: Text(_formatDuration(entry.track.duration)),
-                onTap: () {
-                  Navigator.pop(context);
-                  ref
-                      .read(demoRepositoryProvider)
-                      .selectTrackInQueue(entry.track.ref);
-                },
-              );
-            },
-          ),
-        );
-      },
     );
   }
 }
@@ -252,9 +214,14 @@ class _TransportControls extends StatelessWidget {
       children: [
         if (!compact)
           IconButton(
-            tooltip: '随机播放',
-            onPressed: null,
-            icon: const Icon(Icons.shuffle_rounded),
+            tooltip: repository.shuffleEnabled ? '关闭随机播放' : '随机播放',
+            onPressed: current == null ? null : repository.toggleShuffle,
+            icon: Icon(
+              Icons.shuffle_rounded,
+              color: repository.shuffleEnabled
+                  ? MeloColors.primary700
+                  : MeloColors.textSecondary,
+            ),
           ),
         IconButton(
           tooltip: '上一首',
@@ -266,10 +233,10 @@ class _TransportControls extends StatelessWidget {
           initialData: repository.audioPlayer.playerState,
           builder: (context, snapshot) {
             final state = snapshot.data;
-            final playing = (state?.playing ?? repository.isPlaying) ||
-                repository.isPlaybackActive;
+            final playing = state?.playing ?? repository.isPlaying;
             final completed =
                 state?.processingState == ProcessingState.completed;
+            final starting = repository.isPlaybackStarting && !completed;
             return FilledButton(
               onPressed: current == null
                   ? null
@@ -283,11 +250,19 @@ class _TransportControls extends StatelessWidget {
                 shape: const CircleBorder(),
                 padding: EdgeInsets.zero,
               ),
-              child: Icon(
-                playing && !completed
-                    ? Icons.pause_rounded
-                    : Icons.play_arrow_rounded,
-              ),
+              child: starting
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      playing && !completed
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                    ),
             );
           },
         ),
@@ -298,9 +273,16 @@ class _TransportControls extends StatelessWidget {
         ),
         if (!compact)
           IconButton(
-            tooltip: '循环播放',
-            onPressed: null,
-            icon: const Icon(Icons.repeat_rounded),
+            tooltip: _repeatTooltip(repository.repeatMode),
+            onPressed: current == null ? null : repository.cycleRepeatMode,
+            icon: Icon(
+              repository.repeatMode == PlaybackRepeatMode.one
+                  ? Icons.repeat_one_rounded
+                  : Icons.repeat_rounded,
+              color: repository.repeatMode == PlaybackRepeatMode.off
+                  ? MeloColors.textSecondary
+                  : MeloColors.primary700,
+            ),
           ),
       ],
     );
@@ -508,6 +490,12 @@ String _qualityLabel(AudioQuality quality) => switch (quality) {
       AudioQuality.standard => '较高',
       AudioQuality.high => '极高',
       AudioQuality.lossless => '无损',
+    };
+
+String _repeatTooltip(PlaybackRepeatMode mode) => switch (mode) {
+      PlaybackRepeatMode.off => '开启列表循环',
+      PlaybackRepeatMode.all => '切换到单曲循环',
+      PlaybackRepeatMode.one => '关闭循环播放',
     };
 
 SliderThemeData _playerSliderTheme(BuildContext context) {

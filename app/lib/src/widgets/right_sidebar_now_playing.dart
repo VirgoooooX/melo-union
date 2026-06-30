@@ -7,6 +7,7 @@ class RightSidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(demoRepositoryProvider);
     final track = repository.queue.current?.track;
+    final mode = ref.watch(rightSidebarModeProvider);
     return Material(
       color: MeloColors.surface,
       child: Padding(
@@ -33,38 +34,45 @@ class RightSidebar extends ConsumerWidget {
             const SizedBox(height: 10),
             _NowPlayingCard(track: track),
             const SizedBox(height: 22),
-            Row(
-              children: [
-                Text(
-                  '播放队列',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '(${repository.queue.entries.length})',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: MeloColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: null,
-                  child: const Text('清空'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            const Expanded(child: _QueuePreview()),
-            if (track != null) ...[
-              const Divider(color: MeloColors.border),
-              _Meta(
-                label: '来源 / 收藏状态',
-                value:
-                    '${_providerName(track)} · ${track.isFavorited ? '已收藏' : '未收藏'}',
+            if (mode == RightSidebarMode.queue) ...[
+              Row(
+                children: [
+                  Text(
+                    '播放队列',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '(${repository.queue.entries.length})',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: null,
+                    child: const Text('清空'),
+                  ),
+                ],
               ),
+              const SizedBox(height: 6),
+              const Expanded(child: _QueuePreview()),
+            ] else ...[
+              Row(
+                children: [
+                  Text(
+                    '歌词',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Expanded(child: _LyricsView(track: track)),
             ],
           ],
         ),
@@ -226,29 +234,6 @@ class _StatusPill extends StatelessWidget {
       );
 }
 
-class _Meta extends StatelessWidget {
-  const _Meta({required this.label, required this.value});
-  final String label;
-  final String value;
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Row(children: [
-          Text(label,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: MeloColors.textSecondary)),
-          const Spacer(),
-          Text(value,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(fontWeight: FontWeight.w600))
-        ]),
-      );
-}
-
 String _providerName(dynamic track) {
   final providerId = track.ref.providerId.value;
   if (providerId.contains('aurora') || providerId.contains('netease')) {
@@ -273,4 +258,172 @@ Widget _buildPlaceholder(String seed) {
     ),
     child: const Icon(Icons.graphic_eq_rounded, size: 54, color: Colors.white),
   );
+}
+
+class LyricLine {
+  final Duration time;
+  final String text;
+
+  LyricLine({required this.time, required this.text});
+}
+
+List<LyricLine> _parseLyrics(String lyrics) {
+  final List<LyricLine> list = [];
+  final lines = lyrics.split('\n');
+  final regex = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2,3})\]');
+  for (final line in lines) {
+    final match = regex.firstMatch(line);
+    if (match != null) {
+      final minutes = int.parse(match.group(1)!);
+      final seconds = int.parse(match.group(2)!);
+      final msStr = match.group(3)!;
+      final milliseconds = int.parse(msStr.padRight(3, '0').substring(0, 3));
+      final time = Duration(
+        minutes: minutes,
+        seconds: seconds,
+        milliseconds: milliseconds,
+      );
+      final text = line.substring(match.end).trim();
+      list.add(LyricLine(time: time, text: text));
+    } else {
+      final cleanText =
+          line.replaceAll(RegExp(r'\[\d{2}:\d{2}\.\d{2,3}\]'), '').trim();
+      if (cleanText.isNotEmpty) {
+        list.add(LyricLine(time: Duration.zero, text: cleanText));
+      }
+    }
+  }
+  list.sort((a, b) => a.time.compareTo(b.time));
+  return list;
+}
+
+int _getActiveIndex(List<LyricLine> lines, Duration position) {
+  int activeIndex = -1;
+  for (int i = 0; i < lines.length; i++) {
+    if (lines[i].time <= position) {
+      activeIndex = i;
+    } else {
+      break;
+    }
+  }
+  return activeIndex == -1 ? 0 : activeIndex;
+}
+
+class _LyricsView extends ConsumerStatefulWidget {
+  const _LyricsView({required this.track});
+  final dynamic track;
+
+  @override
+  ConsumerState<_LyricsView> createState() => _LyricsViewState();
+}
+
+class _LyricsViewState extends ConsumerState<_LyricsView> {
+  final ScrollController _scrollController = ScrollController();
+  final List<GlobalKey> _itemKeys = [];
+  int _lastActiveIndex = -1;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToActive(int index) {
+    if (index == _lastActiveIndex) return;
+    _lastActiveIndex = index;
+    if (index >= 0 && index < _itemKeys.length) {
+      final context = _itemKeys[index].currentContext;
+      if (context != null) {
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          alignment: 0.3,
+        );
+      } else if (_scrollController.hasClients) {
+        final targetOffset = (index * 48.0) - 100.0;
+        _scrollController.animateTo(
+          targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.track == null) {
+      return const Center(child: Text('暂无播放歌曲'));
+    }
+
+    final repository = ref.watch(demoRepositoryProvider);
+    final lyricsAsync = ref.watch(lyricsProvider(widget.track.ref));
+
+    return lyricsAsync.when(
+      loading: () => const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+      error: (error, _) => Center(child: Text('获取歌词失败: $error')),
+      data: (lyrics) {
+        if (lyrics == null || lyrics.trim().isEmpty) {
+          return const Center(child: Text('暂无歌词'));
+        }
+
+        final parsedLines = _parseLyrics(lyrics);
+
+        if (_itemKeys.length != parsedLines.length) {
+          _itemKeys.clear();
+          for (int i = 0; i < parsedLines.length; i++) {
+            _itemKeys.add(GlobalKey());
+          }
+        }
+
+        return StreamBuilder<Duration>(
+          stream: repository.positionStream,
+          initialData: repository.audioPlayer.position,
+          builder: (context, snapshot) {
+            final position = snapshot.data ?? Duration.zero;
+            final activeIndex = _getActiveIndex(parsedLines, position);
+
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _scrollToActive(activeIndex);
+            });
+
+            return ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: parsedLines.length,
+              itemBuilder: (context, index) {
+                final line = parsedLines[index];
+                final isActive = index == activeIndex;
+                return Container(
+                  key: _itemKeys[index],
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  alignment: Alignment.center,
+                  child: Text(
+                    line.text,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: isActive
+                              ? MeloColors.primary700
+                              : MeloColors.textSecondary,
+                          fontWeight:
+                              isActive ? FontWeight.bold : FontWeight.normal,
+                          fontSize: isActive ? 16 : 14,
+                        ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
 }

@@ -16,6 +16,7 @@ class MeloInteractiveRow extends StatefulWidget {
   const MeloInteractiveRow({
     required this.builder,
     this.onTap,
+    this.onDoubleTap,
     this.selected = false,
     this.height = MeloListMetrics.rowHeight,
     this.padding = const EdgeInsets.symmetric(
@@ -26,6 +27,7 @@ class MeloInteractiveRow extends StatefulWidget {
 
   final Widget Function(BuildContext context, bool hovered) builder;
   final VoidCallback? onTap;
+  final VoidCallback? onDoubleTap;
   final bool selected;
   final double height;
   final EdgeInsetsGeometry padding;
@@ -48,7 +50,7 @@ class _MeloInteractiveRowState extends State<MeloInteractiveRow> {
         widget.selected ? MeloColors.primary500 : Colors.transparent;
 
     return MouseRegion(
-      cursor: widget.onTap == null
+      cursor: widget.onTap == null && widget.onDoubleTap == null
           ? SystemMouseCursors.basic
           : SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
@@ -56,6 +58,7 @@ class _MeloInteractiveRowState extends State<MeloInteractiveRow> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
+        onDoubleTap: widget.onDoubleTap,
         child: AnimatedContainer(
           duration: Duration.zero,
           curve: Curves.easeOutCubic,

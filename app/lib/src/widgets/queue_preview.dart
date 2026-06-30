@@ -20,7 +20,8 @@ class _QueuePreview extends ConsumerWidget {
             borderRadius: MeloRadii.sm,
             child: InkWell(
               borderRadius: MeloRadii.sm,
-              onTap: () => repository.selectTrackInQueue(entry.track.ref),
+              onDoubleTap: () =>
+                  repository.playOrToggleQueueTrack(entry.track.ref),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                 child: Row(

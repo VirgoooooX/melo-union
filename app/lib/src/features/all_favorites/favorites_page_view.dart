@@ -192,6 +192,7 @@ class _FavoritesToolbar extends StatelessWidget {
               borderRadius: MeloRadii.sm,
               border: Border.all(color: MeloColors.border),
             ),
+            alignment: Alignment.center,
             child: TextField(
               controller: controller,
               onChanged: onQueryChanged,
@@ -201,6 +202,7 @@ class _FavoritesToolbar extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
               decoration: InputDecoration(
+                isDense: true,
                 filled: false,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
@@ -208,23 +210,34 @@ class _FavoritesToolbar extends StatelessWidget {
                 prefixIcon: const Icon(
                   Icons.search_rounded,
                   color: MeloColors.textSecondary,
+                  size: 20,
+                ),
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 40,
+                  minHeight: 40,
+                ),
+                suffixIconConstraints: const BoxConstraints(
+                  minWidth: 36,
+                  minHeight: 36,
                 ),
                 suffixIcon: query.isEmpty
                     ? null
                     : IconButton(
                         tooltip: '清除搜索',
                         onPressed: onClearQuery,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         icon: const Icon(
                           Icons.close_rounded,
                           color: MeloColors.textSecondary,
-                          size: 18,
+                          size: 16,
                         ),
                       ),
                 hintText: '搜索歌曲、歌手或专辑',
                 hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: MeloColors.textTertiary,
                     ),
-                contentPadding: const EdgeInsets.only(right: 12),
+                contentPadding: const EdgeInsets.only(right: 12, top: 2, bottom: 2),
               ),
             ),
           ),
@@ -234,13 +247,16 @@ class _FavoritesToolbar extends StatelessWidget {
         const SizedBox(width: 10),
         FilledButton.icon(
           onPressed: onPlayAll,
-          icon: const Icon(Icons.play_arrow_rounded, size: 19),
+          icon: const Icon(Icons.play_arrow_rounded, size: 20),
           label: const Text('播放全部'),
           style: FilledButton.styleFrom(
-            minimumSize: const Size(110, 40),
+            fixedSize: const Size.fromHeight(40),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             shape: const RoundedRectangleBorder(borderRadius: MeloRadii.sm),
             elevation: 0,
+            textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
           ),
         ),
       ],

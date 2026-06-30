@@ -35,7 +35,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
     return MeloInteractiveRow(
       selected: isPlaying,
       height: MeloListMetrics.rowHeight,
-      onTap: () => repository.playUnifiedTrack(widget.track),
+      onDoubleTap: () => repository.playOrToggleUnifiedTrack(widget.track),
       builder: (context, hovered) {
         return Row(
           children: [
@@ -168,6 +168,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
         track: source,
         liked: !source.isFavorited,
       );
+      ref.invalidate(allFavoritesProvider);
     } on ProviderException catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -653,6 +654,7 @@ class _FavoriteSourceItem extends ConsumerWidget {
                           track: liveVariant,
                           liked: !liveVariant.isFavorited,
                         );
+                        ref.invalidate(allFavoritesProvider);
                       } on ProviderException catch (error) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(

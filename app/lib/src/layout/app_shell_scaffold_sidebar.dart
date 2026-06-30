@@ -1,9 +1,10 @@
 part of 'app_shell_scaffold.dart';
 
 class _DesktopSidebar extends StatelessWidget {
-  const _DesktopSidebar({required this.current});
+  const _DesktopSidebar({required this.current, required this.width});
 
   final AppDestination current;
+  final double width;
 
   static const _main = [
     AppDestination.favorites,
@@ -19,7 +20,7 @@ class _DesktopSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: MeloDimensions.desktopSidebarWidth,
+      width: width,
       decoration: const BoxDecoration(
         color: MeloColors.canvasSoft,
         border: Border(right: BorderSide(color: MeloColors.border)),

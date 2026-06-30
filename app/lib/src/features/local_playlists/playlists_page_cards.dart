@@ -312,8 +312,8 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                           final selected = currentRef == track.ref;
                           return MeloInteractiveRow(
                             selected: selected,
-                            onTap: track.isPlayable
-                                ? () => repository.playTrack(track)
+                            onDoubleTap: track.isPlayable
+                                ? () => repository.playOrToggleTrack(track)
                                 : null,
                             builder: (context, hovered) => Row(
                               children: [
@@ -377,7 +377,8 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                                       tooltip: '播放',
                                       visualDensity: VisualDensity.compact,
                                       onPressed: track.isPlayable
-                                          ? () => repository.playTrack(track)
+                                          ? () => repository
+                                              .playOrToggleTrack(track)
                                           : null,
                                       icon: const Icon(
                                         Icons.play_arrow_rounded,

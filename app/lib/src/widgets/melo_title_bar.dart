@@ -35,12 +35,12 @@ class _MeloTitleBarState extends State<MeloTitleBar> with WindowListener {
   }
 
   @override
-  void onWindowMaximized() {
+  void onWindowMaximize() {
     setState(() => _isMaximized = true);
   }
 
   @override
-  void onWindowUnmaximized() {
+  void onWindowUnmaximize() {
     setState(() => _isMaximized = false);
   }
 

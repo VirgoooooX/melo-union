@@ -5,7 +5,6 @@ class _FavoritesLibraryPanel extends ConsumerStatefulWidget {
     required this.selectedProviderId,
     required this.query,
     required this.sort,
-    super.key,
   });
 
   final String? selectedProviderId;

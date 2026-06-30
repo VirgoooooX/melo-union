@@ -16,6 +16,10 @@ class AppShellScaffold extends ConsumerWidget {
     final width = MediaQuery.sizeOf(context).width;
     if (width < 960) return _MobileShell(current: current, child: child);
 
+    final widths = ref.watch(sidebarWidthsProvider);
+    final leftWidth = widths.left;
+    final rightWidth = widths.right;
+
     return Scaffold(
       backgroundColor: MeloColors.canvas,
       body: SafeArea(
@@ -25,7 +29,13 @@ class AppShellScaffold extends ConsumerWidget {
             Expanded(
               child: Row(
                 children: [
-                  _DesktopSidebar(current: current),
+                  _DesktopSidebar(current: current, width: leftWidth),
+                  _ResizeGrip(
+                    isLeft: true,
+                    onDrag: (delta) {
+                      ref.read(sidebarWidthsProvider.notifier).updateLeft(leftWidth + delta);
+                    },
+                  ),
                   Expanded(
                     child: DecoratedBox(
                       decoration: const BoxDecoration(
@@ -41,9 +51,15 @@ class AppShellScaffold extends ConsumerWidget {
                       child: child,
                     ),
                   ),
-                  if (width >= 1180)
+                  if (width >= 1180) ...[
+                    _ResizeGrip(
+                      isLeft: false,
+                      onDrag: (delta) {
+                        ref.read(sidebarWidthsProvider.notifier).updateRight(rightWidth - delta);
+                      },
+                    ),
                     Container(
-                      width: MeloDimensions.desktopNowPlayingWidth,
+                      width: rightWidth,
                       decoration: const BoxDecoration(
                         color: MeloColors.surface,
                         border:
@@ -51,6 +67,7 @@ class AppShellScaffold extends ConsumerWidget {
                       ),
                       child: const RightSidebar(),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -133,6 +150,46 @@ class _MobileShell extends StatelessWidget {
               label: AppShellScaffold.titleFor(item),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _ResizeGrip extends StatefulWidget {
+  const _ResizeGrip({required this.isLeft, required this.onDrag});
+
+  final bool isLeft;
+  final ValueChanged<double> onDrag;
+
+  @override
+  State<_ResizeGrip> createState() => _ResizeGripState();
+}
+
+class _ResizeGripState extends State<_ResizeGrip> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeLeftRight,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragUpdate: (details) {
+          widget.onDrag(details.delta.dx);
+        },
+        child: Container(
+          width: 8,
+          color: Colors.transparent,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: _hovered ? 2 : 1,
+              color: _hovered ? MeloColors.primary500 : MeloColors.border,
+            ),
+          ),
+        ),
       ),
     );
   }

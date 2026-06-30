@@ -129,7 +129,8 @@ class _SearchTrackRow extends ConsumerWidget {
     final selected = currentRef == track.ref;
     return MeloInteractiveRow(
       selected: selected,
-      onTap: track.isPlayable ? () => repository.playTrack(track) : null,
+      onDoubleTap:
+          track.isPlayable ? () => repository.playOrToggleTrack(track) : null,
       builder: (context, hovered) => Row(
         children: [
           SizedBox(

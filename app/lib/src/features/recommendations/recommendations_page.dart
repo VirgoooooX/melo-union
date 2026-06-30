@@ -160,9 +160,11 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                             final selected = currentRef == track.ref;
                             return MeloInteractiveRow(
                               selected: selected,
-                              onTap: () => ref
-                                  .read(demoRepositoryProvider)
-                                  .playTrack(track),
+                              onDoubleTap: track.isPlayable
+                                  ? () => ref
+                                      .read(demoRepositoryProvider)
+                                      .playOrToggleTrack(track)
+                                  : null,
                               builder: (context, hovered) => Row(
                                 children: [
                                   SizedBox(
@@ -387,9 +389,11 @@ void _showPlaylistSheet(
                           final track = tracks[index];
                           return MeloInteractiveRow(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
-                            onTap: () => ref
-                                .read(demoRepositoryProvider)
-                                .playTrack(track),
+                            onDoubleTap: track.isPlayable
+                                ? () => ref
+                                    .read(demoRepositoryProvider)
+                                    .playOrToggleTrack(track)
+                                : null,
                             builder: (context, hovered) => Row(
                               children: [
                                 SizedBox(

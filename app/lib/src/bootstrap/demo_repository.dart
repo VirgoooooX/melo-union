@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +21,8 @@ final allFavoritesProvider = FutureProvider<List<UnifiedFavoriteTrack>>((ref) {
   final repository = ref.read(demoRepositoryProvider);
   return repository.loadAllFavorites();
 });
+
+enum PlaybackRepeatMode { off, all, one }
 
 class DemoRepository extends ChangeNotifier {
   DemoRepository._({
@@ -45,8 +50,13 @@ class DemoRepository extends ChangeNotifier {
     );
     // Notify UI when audio player state changes (play/pause/complete)
     _audioPlayer.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.completed ||
-          state.processingState == ProcessingState.idle) {
+      if (state.processingState == ProcessingState.completed) {
+        _playbackRequested = false;
+        notifyListeners();
+        unawaited(_handlePlaybackCompleted());
+        return;
+      }
+      if (state.processingState == ProcessingState.idle) {
         _playbackRequested = false;
       }
       notifyListeners();
@@ -207,14 +217,20 @@ class DemoRepository extends ChangeNotifier {
   NeteaseCredentials? _neteaseCredentials;
   String? _selectedPlaylistId;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final Random _random = Random();
   String? _playingTrackId;
   bool _playbackRequested = false;
+  bool _shuffleEnabled = false;
+  bool _isAdvancingAfterCompletion = false;
+  PlaybackRepeatMode _repeatMode = PlaybackRepeatMode.off;
 
   PlaybackQueueState get queue => playbackCoordinator.queueState;
 
   bool get isPlaying => _audioPlayer.playing;
 
   bool get isPlaybackActive => _audioPlayer.playing || _playbackRequested;
+
+  bool get isPlaybackStarting => _playbackRequested && !_audioPlayer.playing;
 
   AudioPlayer get audioPlayer => _audioPlayer;
 
@@ -227,6 +243,10 @@ class DemoRepository extends ChangeNotifier {
   double get volume => _audioPlayer.volume;
 
   AudioQuality get playbackQuality => playbackCoordinator.quality;
+
+  bool get shuffleEnabled => _shuffleEnabled;
+
+  PlaybackRepeatMode get repeatMode => _repeatMode;
 
   List<ProviderRegistryEntry> get providerEntries => registry.allEntries();
 
@@ -438,11 +458,21 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<void> playTrack(SourceTrack track) async {
+    if (!track.isPlayable) return;
+
     playbackCoordinator.setQueue([track]);
     await playbackCoordinator.selectTrack(track.ref);
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
     notifyListeners();
+  }
+
+  Future<void> playOrToggleTrack(SourceTrack track) async {
+    if (queue.current?.track.ref == track.ref) {
+      await togglePlayPause();
+      return;
+    }
+    await playTrack(track);
   }
 
   Future<void> playTracks(List<SourceTrack> tracks) async {
@@ -458,13 +488,28 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<void> playUnifiedTrack(UnifiedFavoriteTrack track) async {
-    playbackCoordinator.setQueue(track.variants);
-    if (track.variants.isNotEmpty) {
-      await playbackCoordinator.selectTrack(track.variants.first.ref);
+    final playableVariants = track.variants
+        .where((variant) => variant.isPlayable)
+        .toList(growable: false);
+    if (playableVariants.isEmpty) return;
+
+    playbackCoordinator.setQueue(playableVariants);
+    if (playableVariants.isNotEmpty) {
+      await playbackCoordinator.selectTrack(playableVariants.first.ref);
     }
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
     notifyListeners();
+  }
+
+  Future<void> playOrToggleUnifiedTrack(UnifiedFavoriteTrack track) async {
+    final currentRef = queue.current?.track.ref;
+    if (currentRef != null &&
+        track.variants.any((variant) => variant.ref == currentRef)) {
+      await togglePlayPause();
+      return;
+    }
+    await playUnifiedTrack(track);
   }
 
   void enqueueTrack(SourceTrack track) {
@@ -479,15 +524,52 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> queueNext() async {
-    await playbackCoordinator.next();
+  Future<void> playOrToggleQueueTrack(ProviderTrackRef ref) async {
+    if (queue.current?.track.ref == ref) {
+      await togglePlayPause();
+      return;
+    }
+    await selectTrackInQueue(ref);
+  }
+
+  Future<void> queueNext({bool automatic = false}) async {
+    final queueState = queue;
+    if (queueState.entries.isEmpty) return;
+
+    if (automatic && _repeatMode == PlaybackRepeatMode.one) {
+      await _restartCurrentTrack();
+      return;
+    }
+
+    final nextRef = _nextTrackRef(queueState);
+    if (nextRef == null) {
+      if (automatic) {
+        _playbackRequested = false;
+        notifyListeners();
+      }
+      return;
+    }
+
+    await playbackCoordinator.selectTrack(nextRef);
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
     notifyListeners();
   }
 
   Future<void> queuePrevious() async {
-    await playbackCoordinator.previous();
+    final queueState = queue;
+    if (queueState.entries.isEmpty) return;
+
+    ProviderTrackRef? previousRef;
+    if (queueState.currentIndex > 0) {
+      previousRef = queueState.entries[queueState.currentIndex - 1].track.ref;
+    } else if (_repeatMode == PlaybackRepeatMode.all &&
+        queueState.entries.length > 1) {
+      previousRef = queueState.entries.last.track.ref;
+    }
+    if (previousRef == null) return;
+
+    await playbackCoordinator.selectTrack(previousRef);
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
     notifyListeners();
@@ -554,7 +636,7 @@ class DemoRepository extends ChangeNotifier {
       await _audioPlayer.pause();
     } else if (_playingTrackId != null) {
       _playbackRequested = true;
-      await _audioPlayer.play();
+      _startAudioPlayer();
     } else {
       await refreshPlaybackTicket();
     }
@@ -572,6 +654,20 @@ class DemoRepository extends ChangeNotifier {
     playbackCoordinator.quality = quality;
     _playingTrackId = null;
     await _syncNativePlayback(playWhenReady: isPlaybackActive);
+    notifyListeners();
+  }
+
+  void toggleShuffle() {
+    _shuffleEnabled = !_shuffleEnabled;
+    notifyListeners();
+  }
+
+  void cycleRepeatMode() {
+    _repeatMode = switch (_repeatMode) {
+      PlaybackRepeatMode.off => PlaybackRepeatMode.all,
+      PlaybackRepeatMode.all => PlaybackRepeatMode.one,
+      PlaybackRepeatMode.one => PlaybackRepeatMode.off,
+    };
     notifyListeners();
   }
 
@@ -607,12 +703,63 @@ class DemoRepository extends ChangeNotifier {
           url,
           headers: currentTicket.headers.isEmpty ? null : currentTicket.headers,
         );
-        _audioPlayer.play();
+        _startAudioPlayer();
       } catch (e) {
         debugPrint('Audio Error: $e');
         _playingTrackId = null;
         _playbackRequested = false;
       }
+    }
+  }
+
+  ProviderTrackRef? _nextTrackRef(PlaybackQueueState queueState) {
+    if (queueState.entries.isEmpty || queueState.currentIndex < 0) {
+      return null;
+    }
+    if (_shuffleEnabled && queueState.entries.length > 1) {
+      var nextIndex = queueState.currentIndex;
+      while (nextIndex == queueState.currentIndex) {
+        nextIndex = _random.nextInt(queueState.entries.length);
+      }
+      return queueState.entries[nextIndex].track.ref;
+    }
+
+    final nextIndex = queueState.currentIndex + 1;
+    if (nextIndex < queueState.entries.length) {
+      return queueState.entries[nextIndex].track.ref;
+    }
+    if (_repeatMode == PlaybackRepeatMode.all &&
+        queueState.entries.length > 1) {
+      return queueState.entries.first.track.ref;
+    }
+    return null;
+  }
+
+  Future<void> _restartCurrentTrack() async {
+    await _audioPlayer.seek(Duration.zero);
+    _playbackRequested = true;
+    _startAudioPlayer();
+    notifyListeners();
+  }
+
+  void _startAudioPlayer() {
+    unawaited(
+      _audioPlayer.play().catchError((Object error, StackTrace stackTrace) {
+        debugPrint('Audio Error: $error');
+        _playingTrackId = null;
+        _playbackRequested = false;
+        notifyListeners();
+      }),
+    );
+  }
+
+  Future<void> _handlePlaybackCompleted() async {
+    if (_isAdvancingAfterCompletion) return;
+    _isAdvancingAfterCompletion = true;
+    try {
+      await queueNext(automatic: true);
+    } finally {
+      _isAdvancingAfterCompletion = false;
     }
   }
 
