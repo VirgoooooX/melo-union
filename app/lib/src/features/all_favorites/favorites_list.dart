@@ -148,12 +148,12 @@ class _FavoritesTableHeader extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(width: 38, child: Text('#', style: labelStyle)),
-          const SizedBox(width: 46),
+          const SizedBox(width: MeloListMetrics.trackCoverSize + 12),
           Expanded(
-            flex: 4,
+            flex: 3,
             child: Text('歌曲', style: labelStyle),
           ),
-          Expanded(flex: 2, child: Text('歌手', style: labelStyle)),
+          Expanded(flex: 3, child: Text('专辑', style: labelStyle)),
           SizedBox(width: 132, child: Text('来源', style: labelStyle)),
           SizedBox(width: 84, child: Text('收藏', style: labelStyle)),
         ],
@@ -206,8 +206,8 @@ class _FavoriteRowSkeleton extends StatelessWidget {
             radius: MeloRadii.sm,
           ),
           const SizedBox(width: 12),
-          const Expanded(flex: 4, child: _SkeletonTextGroup()),
-          const Expanded(flex: 2, child: _SkeletonTextGroup(short: true)),
+          const Expanded(flex: 3, child: _SkeletonTextGroup()),
+          const Expanded(flex: 3, child: _SkeletonTextGroup(short: true)),
           const SizedBox(
             width: 132,
             child: _SkeletonBox(

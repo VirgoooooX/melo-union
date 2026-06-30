@@ -56,23 +56,17 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              flex: 4,
-              child: Text(
-                widget.track.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: isPlaying
-                          ? MeloColors.primary700
-                          : MeloColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
+              flex: 3,
+              child: _TrackTitleBlock(
+                title: widget.track.title,
+                artists: widget.track.artists,
+                active: isPlaying,
               ),
             ),
             Expanded(
-              flex: 2,
+              flex: 3,
               child: Text(
-                widget.track.artists.join(' / '),
+                _albumLabel(variants),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -186,6 +180,57 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
       }
     }
   }
+}
+
+class _TrackTitleBlock extends StatelessWidget {
+  const _TrackTitleBlock({
+    required this.title,
+    required this.artists,
+    required this.active,
+  });
+
+  final String title;
+  final List<String> artists;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: active ? MeloColors.primary700 : MeloColors.textPrimary,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          artists.join(' / '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: MeloColors.textTertiary,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+String _albumLabel(List<SourceTrack> variants) {
+  for (final variant in variants) {
+    final album = variant.album;
+    if (album != null && album.trim().isNotEmpty) {
+      return album;
+    }
+  }
+  return '未知专辑';
 }
 
 class _RowPlaybackIndicator extends StatelessWidget {

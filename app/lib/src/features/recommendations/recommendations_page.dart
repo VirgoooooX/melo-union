@@ -184,26 +184,17 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    flex: 4,
-                                    child: Text(
-                                      track.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            color: selected
-                                                ? MeloColors.primary700
-                                                : MeloColors.textPrimary,
-                                            fontWeight: FontWeight.w800,
-                                          ),
+                                    flex: 3,
+                                    child: _RecommendationTrackTitleBlock(
+                                      title: track.title,
+                                      artists: track.artists,
+                                      active: selected,
                                     ),
                                   ),
                                   Expanded(
                                     flex: 3,
                                     child: Text(
-                                      '${track.artists.join(' / ')} · ${track.album ?? '今日推荐'}',
+                                      track.album ?? '今日推荐',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: Theme.of(context)
@@ -417,24 +408,17 @@ void _showPlaylistSheet(
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  flex: 4,
-                                  child: Text(
-                                    track.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: MeloColors.textPrimary,
-                                          fontWeight: FontWeight.w800,
-                                        ),
+                                  flex: 3,
+                                  child: _RecommendationTrackTitleBlock(
+                                    title: track.title,
+                                    artists: track.artists,
+                                    active: false,
                                   ),
                                 ),
                                 Expanded(
                                   flex: 3,
                                   child: Text(
-                                    '${track.artists.join(' / ')} · ${track.album ?? '歌单'}',
+                                    track.album ?? '歌单',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context)
@@ -461,6 +445,47 @@ void _showPlaylistSheet(
       );
     },
   );
+}
+
+class _RecommendationTrackTitleBlock extends StatelessWidget {
+  const _RecommendationTrackTitleBlock({
+    required this.title,
+    required this.artists,
+    required this.active,
+  });
+
+  final String title;
+  final List<String> artists;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: active ? MeloColors.primary700 : MeloColors.textPrimary,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          artists.join(' / '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: MeloColors.textTertiary,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      ],
+    );
+  }
 }
 
 String _playlistMeta(ProviderPlaylist playlist) {

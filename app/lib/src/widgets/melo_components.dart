@@ -4,9 +4,9 @@ import 'package:provider_contract/provider_contract.dart';
 import '../design/melo_tokens.dart';
 
 abstract final class MeloListMetrics {
-  static const rowHeight = 52.0;
+  static const rowHeight = 64.0;
   static const compactRowHeight = 48.0;
-  static const trackCoverSize = 36.0;
+  static const trackCoverSize = 42.0;
   static const sourceColumnWidth = 132.0;
   static const actionColumnWidth = 84.0;
   static const rowHorizontalPadding = 16.0;

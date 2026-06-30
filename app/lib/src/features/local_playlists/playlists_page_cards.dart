@@ -346,26 +346,17 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  flex: 4,
-                                  child: Text(
-                                    track.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: selected
-                                              ? MeloColors.primary700
-                                              : MeloColors.textPrimary,
-                                          fontWeight: FontWeight.w800,
-                                        ),
+                                  flex: 3,
+                                  child: _PlaylistTrackTitleBlock(
+                                    title: track.title,
+                                    artists: track.artists,
+                                    active: selected,
                                   ),
                                 ),
                                 Expanded(
                                   flex: 3,
                                   child: Text(
-                                    '${track.artists.join(' / ')} · ${track.album ?? '网易云'}',
+                                    track.album ?? '网易云',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context)
@@ -404,6 +395,47 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
           ),
         );
       },
+    );
+  }
+}
+
+class _PlaylistTrackTitleBlock extends StatelessWidget {
+  const _PlaylistTrackTitleBlock({
+    required this.title,
+    required this.artists,
+    required this.active,
+  });
+
+  final String title;
+  final List<String> artists;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: active ? MeloColors.primary700 : MeloColors.textPrimary,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          artists.join(' / '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: MeloColors.textTertiary,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      ],
     );
   }
 }

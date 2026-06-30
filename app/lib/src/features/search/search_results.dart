@@ -151,23 +151,17 @@ class _SearchTrackRow extends ConsumerWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            flex: 4,
-            child: Text(
-              track.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: selected
-                        ? MeloColors.primary700
-                        : MeloColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
+            flex: 3,
+            child: _SearchTrackTitleBlock(
+              title: track.title,
+              artists: track.artists,
+              active: selected,
             ),
           ),
           Expanded(
             flex: 3,
             child: Text(
-              '${track.artists.join(' / ')} · ${track.album ?? providerName}',
+              track.album ?? providerName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -229,6 +223,47 @@ class _SearchTrackRow extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SearchTrackTitleBlock extends StatelessWidget {
+  const _SearchTrackTitleBlock({
+    required this.title,
+    required this.artists,
+    required this.active,
+  });
+
+  final String title;
+  final List<String> artists;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: active ? MeloColors.primary700 : MeloColors.textPrimary,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          artists.join(' / '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: MeloColors.textTertiary,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      ],
     );
   }
 }
