@@ -40,7 +40,7 @@ void main() {
     expect(provider.descriptor.id, qqMusicProviderId);
     expect(provider.descriptor.supports(ProviderCapability.search), isTrue);
     expect(provider.descriptor.supports(ProviderCapability.readFavorites),
-        isFalse);
+        isTrue);
 
     final results = await provider.search('晴天');
     expect(results, hasLength(1));
@@ -215,7 +215,348 @@ void main() {
       QqMusicQrLoginMode.wechat,
     ]);
     expect(
-        provider.descriptor.supports(ProviderCapability.authenticate), isFalse);
+        provider.descriptor.supports(ProviderCapability.authenticate), isTrue);
+  });
+
+  test('pullFavorites maps profile order songs', () async {
+    final provider = QqMusicProvider(
+      client: _FakeClient((request) {
+        expect(request.url.path,
+            contains('fcg_get_profile_order_asset.fcg'));
+        return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'code': 0,
+            'data': {
+              'totalsong': 2,
+              'songlist': [
+                {
+                  'data': {
+                    'songmid': 'mid_002',
+                    'songname': '七里香',
+                    'albumname': '七里香',
+                    'albummid': 'alb_002',
+                    'interval': 300,
+                    'singer': [
+                      {'name': '周杰伦'},
+                    ],
+                  },
+                },
+                {
+                  'data': {
+                    'songmid': 'mid_001',
+                    'songname': '晴天',
+                    'albumname': '叶惠美',
+                    'albummid': 'alb_001',
+                    'interval': 269,
+                    'singer': [
+                      {'name': '周杰伦'},
+                    ],
+                  },
+                },
+              ],
+            },
+          })),
+          200,
+        );
+      }),
+      credentials: QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+    );
+
+    final snapshot = await provider.pullFavorites();
+    expect(snapshot.tracks, hasLength(2));
+    expect(snapshot.tracks[0].title, '七里香');
+    expect(snapshot.tracks[0].isFavorited, isTrue);
+    expect(snapshot.tracks[0].ref.extraIds['song_mic'], isNull);
+    expect(snapshot.tracks[0].ref.extraIds['song_mid'], 'mid_002');
+    expect(snapshot.tracks[0].artwork.toString(),
+        contains('alb_002'));
+    expect(snapshot.tracks[0].artists, ['周杰伦']);
+  });
+
+  test('getProfile returns uin from cookie', () async {
+    final provider = QqMusicProvider(
+      credentials: QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+    );
+    final profile = await provider.getProfile();
+    expect(profile?.accountId, 'o12345');
+    expect(profile?.displayName, 'o12345');
+  });
+
+  test('getProfile throws when signed out', () async {
+    final provider = QqMusicProvider();
+    expect(
+      () => provider.getProfile(),
+      throwsA(isA<AuthenticationRequiredException>()),
+    );
+  });
+
+  test('getUserPlaylists maps created and collected playlists', () async {
+    var callCount = 0;
+    final provider = QqMusicProvider(
+      client: _FakeClient((request) {
+        callCount++;
+        if (request.url.path
+            .contains('fcg_get_profile_order_asset.fcg')) {
+          if (callCount == 1) {
+            // reqtype=1 (favorites check)
+            return http.Response.bytes(
+              utf8.encode(jsonEncode({
+                'code': 0,
+                'data': {'totalsong': 5},
+              })),
+              200,
+            );
+          }
+          // reqtype=3 (profile ordered playlists)
+          return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'code': 0,
+              'data': {
+                'cdlist': [
+                  {
+                    'dissid': '3003',
+                    'dissname': '收藏歌单B',
+                    'songnum': 12,
+                    'listennum': 800,
+                  },
+                ],
+              },
+            })),
+            200,
+          );
+        }
+        // fcg_user_created_diss
+        expect(request.url.path, contains('fcg_user_created_diss'));
+        return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'code': 0,
+            'data': {
+              'disslist': [
+                {
+                  'dissid': '1001',
+                  'diss_name': '我的最爱',
+                  'song_cnt': 30,
+                  'listen_num': 1500,
+                  'diss_cover': 'http://example.com/cover.jpg',
+                },
+              ],
+              'list': [
+                {
+                  'dissid': '2002',
+                  'dissname': '收藏歌单A',
+                  'song_count': 20,
+                  'listennum': 3000,
+                  'imgurl': 'http://example.com/img.jpg',
+                },
+              ],
+            },
+          })),
+          200,
+        );
+      }),
+      credentials:
+          QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+    );
+
+    final playlists = await provider.getUserPlaylists();
+    // Virtual favorites + created + collected + profile ordered
+    expect(playlists.length, greaterThanOrEqualTo(3));
+    final ids = playlists.map((p) => p.playlistId).toSet();
+    expect(ids, contains('profile:favorites'));
+    expect(ids, contains('1001'));
+    expect(ids, contains('2002'));
+    expect(ids, contains('3003'));
+  });
+
+  test('getPlaylistTracks from regular playlist strips JSONP', () async {
+    final provider = QqMusicProvider(
+      client: _FakeClient((request) {
+        expect(request.url.path,
+            contains('fcg_ucc_getcdinfo_byids_cp.fcg'));
+        return http.Response.bytes(
+          utf8.encode(
+            'MusicJsonCallback(' +
+                jsonEncode({
+                  'code': 0,
+                  'cdlist': [
+                    {
+                      'dissname': 'Test Playlist',
+                      'songlist': [
+                        {
+                          'songmid': 's1',
+                          'songname': 'Song One',
+                          'albummid': 'a1',
+                          'interval': 200,
+                          'singer': [
+                            {'name': 'Artist A'},
+                          ],
+                        },
+                        {
+                          'songmid': 's2',
+                          'songname': 'Song Two',
+                          'albummid': 'a2',
+                          'interval': 180,
+                          'singer': [
+                            {'name': 'Artist B'},
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                }) +
+                ')',
+          ),
+          200,
+        );
+      }),
+    );
+
+    final tracks = await provider.getPlaylistTracks('12345');
+    expect(tracks, hasLength(2));
+    expect(tracks[0].title, 'Song One');
+    expect(tracks[0].artists, ['Artist A']);
+    expect(tracks[1].title, 'Song Two');
+  });
+
+  test('getPlaylistTracks resolves profile:favorites virtual playlist',
+      () async {
+    final provider = QqMusicProvider(
+      client: _FakeClient((request) {
+        expect(request.url.path,
+            contains('fcg_get_profile_order_asset.fcg'));
+        return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'code': 0,
+            'data': {
+              'totalsong': 1,
+              'songlist': [
+                {
+                  'data': {
+                    'songmid': 'fav_001',
+                    'songname': 'Favorite Song',
+                    'albummid': 'fav_alb',
+                    'interval': 250,
+                    'singer': [
+                      {'name': 'Favorite Artist'},
+                    ],
+                  },
+                },
+              ],
+            },
+          })),
+          200,
+        );
+      }),
+      credentials:
+          QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+    );
+
+    final tracks = await provider.getPlaylistTracks('profile:favorites');
+    expect(tracks, hasLength(1));
+    expect(tracks[0].title, 'Favorite Song');
+    expect(tracks[0].isFavorited, isTrue);
+  });
+
+  test('getRecommendedPlaylists maps musicu.fcg hot recommend', () async {
+    final provider = QqMusicProvider(
+      client: _FakeClient((request) {
+        expect(request.url.path, contains('musicu.fcg'));
+        final decoded = jsonDecode(
+          utf8.decode((request as http.Request).bodyBytes),
+        );
+        expect(decoded['recomPlaylist']['module'],
+            'playlist.HotRecommendServer');
+        return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'code': 0,
+            'recomPlaylist': {
+              'code': 0,
+              'data': {
+                'v_hot': [
+                  {
+                    'content_id': 5001,
+                    'title': '热门推荐',
+                    'cover': 'http://example.com/cover.jpg',
+                    'listen_num': 99999,
+                    'song_cnt': 50,
+                  },
+                ],
+              },
+            },
+          })),
+          200,
+        );
+      }),
+    );
+
+    final playlists = await provider.getRecommendedPlaylists(limit: 5);
+    expect(playlists, hasLength(1));
+    expect(playlists[0].name, '热门推荐');
+    expect(playlists[0].playlistId, '5001');
+    expect(playlists[0].trackCount, 50);
+    expect(playlists[0].playCount, 99999);
+  });
+
+  test('getDailyRecommendations falls back to search on failure', () async {
+    var callCount = 0;
+    final provider = QqMusicProvider(
+      client: _FakeClient((request) {
+        callCount++;
+        if (callCount == 1) {
+          // SmartRadio attempt
+          expect(request.url.path, contains('musicu.fcg'));
+          return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'code': 0,
+              'recommend': {
+                'code': 0,
+                'data': {
+                  'songList': [
+                    {
+                      'songmid': 'rec_001',
+                      'songname': '推荐曲目',
+                      'albummid': 'rec_alb',
+                      'interval': 210,
+                      'singer': [
+                        {'name': '推荐歌手'},
+                      ],
+                    },
+                  ],
+                },
+              },
+            })),
+            200,
+          );
+        }
+        // Fallback to search
+        expect(request.url.path, contains('client_search_cp'));
+        return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'code': 0,
+            'data': {
+              'song': {
+                'list': [
+                  {
+                    'songmid': 'hot_001',
+                    'songname': '热门歌曲',
+                    'albummid': 'hot_alb',
+                    'interval': 200,
+                    'singer': [
+                      {'name': '热门歌手'},
+                    ],
+                  },
+                ],
+              },
+            },
+          })),
+          200,
+        );
+      }),
+    );
+
+    final tracks = await provider.getDailyRecommendations();
+    expect(tracks, isNotEmpty);
+    expect(tracks[0].title, '推荐曲目');
   });
 }
 

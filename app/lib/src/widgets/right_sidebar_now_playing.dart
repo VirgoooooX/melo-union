@@ -34,46 +34,55 @@ class RightSidebar extends ConsumerWidget {
             const SizedBox(height: 10),
             _NowPlayingCard(track: track),
             const SizedBox(height: 22),
-            if (mode == RightSidebarMode.queue) ...[
-              Row(
-                children: [
-                  Text(
-                    '播放队列',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
+            Container(
+              height: 40,
+              alignment: Alignment.centerLeft,
+              child: mode == RightSidebarMode.queue
+                  ? Row(
+                      children: [
+                        Text(
+                          '播放队列',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
                         ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '(${repository.queue.entries.length})',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: MeloColors.textSecondary,
-                          fontWeight: FontWeight.w600,
+                        const SizedBox(width: 6),
+                        Text(
+                          '(${repository.queue.entries.length})',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: MeloColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: null,
-                    child: const Text('清空'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              const Expanded(child: _QueuePreview()),
-            ] else ...[
-              Row(
-                children: [
-                  Text(
-                    '歌词',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
+                        const Spacer(),
+                        TextButton(
+                          onPressed: null,
+                          style: TextButton.styleFrom(
+                            minimumSize: Size.zero,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('清空'),
                         ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Expanded(child: _LyricsView(track: track)),
-            ],
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Text(
+                          '歌词',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 6),
+            Expanded(
+              child: mode == RightSidebarMode.queue
+                  ? const _QueuePreview()
+                  : _LyricsView(track: track),
+            ),
           ],
         ),
       ),

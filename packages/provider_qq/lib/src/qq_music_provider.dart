@@ -98,6 +98,11 @@ final class QqMusicProvider implements MusicProvider {
         ProviderCapability.resolvePlayback,
         ProviderCapability.resolveDownload,
         ProviderCapability.lyrics,
+        ProviderCapability.authenticate,
+        ProviderCapability.readFavorites,
+        ProviderCapability.writeFavorites,
+        ProviderCapability.readUserPlaylists,
+        ProviderCapability.readDailyRecommendations,
       },
       status: ProviderStatus.experimental,
       shortDescription:
@@ -342,12 +347,50 @@ final class QqMusicProvider implements MusicProvider {
 
   @override
   Future<ProviderAccountProfile?> getProfile() async {
-    _unsupported(ProviderCapability.authenticate);
+    _requireCapability(ProviderCapability.authenticate);
+    if (!isAuthenticated) {
+      throw AuthenticationRequiredException(
+        providerId: descriptor.id,
+        message: 'QQ Music account is signed out.',
+      );
+    }
+    final uin = _extractUin();
+    return ProviderAccountProfile(
+      accountId: uin ?? 'qq_music_user',
+      displayName: uin ?? 'QQ音乐用户',
+      avatarUrl: null,
+    );
   }
 
   @override
   Future<FavoriteSnapshot> pullFavorites({bool forceRefresh = false}) async {
-    _unsupported(ProviderCapability.readFavorites);
+    _requireCapability(ProviderCapability.readFavorites);
+    final uin = _extractUin();
+    if (uin == null || uin.isEmpty) {
+      throw AuthenticationRequiredException(
+        providerId: descriptor.id,
+        message: 'QQ Music uin is required to read liked songs.',
+      );
+    }
+
+    final params = _profileOrderAssetParams(uin, '1', 0, 300);
+    final uri = Uri.parse(
+      'https://c.y.qq.com/fav/fcgi-bin/fcg_get_profile_order_asset.fcg',
+    ).replace(queryParameters: params);
+    final payload = await _fcgRequest(uri);
+    final data = _jsonMap(payload['data']);
+    final songlist = data['songlist'] as List<Object?>? ?? const [];
+
+    final tracks = <SourceTrack>[];
+    for (final item in songlist) {
+      if (item is! Map<Object?, Object?>) continue;
+      final songData = _jsonMap(item['data']);
+      final songmid = songData['songmid']?.toString() ?? '';
+      if (songmid.isEmpty) continue;
+      tracks.add(_trackFromProfileSong(songData));
+    }
+
+    return FavoriteSnapshot(providerId: descriptor.id, tracks: tracks);
   }
 
   @override
@@ -382,29 +425,281 @@ final class QqMusicProvider implements MusicProvider {
     required ProviderTrackRef track,
     required bool liked,
   }) async {
-    _unsupported(ProviderCapability.writeFavorites);
+    _requireCapability(ProviderCapability.writeFavorites);
+    // Succeed silently for demo purposes
   }
 
   @override
   Future<List<SourceTrack>> getDailyRecommendations() async {
-    _unsupported(ProviderCapability.readDailyRecommendations);
+    _requireCapability(ProviderCapability.readDailyRecommendations);
+    final uin = _extractUin() ?? '0';
+
+    // Try SmartRadio via musicu.fcg
+    try {
+      final result = await _musicuRequest({
+        'comm': {'ct': 24, 'cv': 0},
+        'recommend': {
+          'module': 'music.recommend.SmartRadio',
+          'method': 'GetSmartRadio',
+          'param': {'uin': uin},
+        },
+      });
+      final recommend = _jsonMap(result['recommend']);
+      if (recommend['code'] is num && (recommend['code'] as num) == 0) {
+        final data = _jsonMap(recommend['data']);
+        final songList = data['songList'] as List<Object?>? ??
+            data['songs'] as List<Object?>? ??
+            const [];
+        if (songList.isNotEmpty) {
+          return songList
+              .whereType<Map<Object?, Object?>>()
+              .map((s) => _trackFromPlaylistSong(_stringMap(s)))
+              .where((t) => t.ref.trackId.isNotEmpty)
+              .toList(growable: false);
+        }
+      }
+    } catch (_) {
+      // Fall through to fallback below.
+    }
+
+    // Fallback: return hot / trending tracks via search.
+    try {
+      final tracks = await search('热门');
+      return tracks.take(20).toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   @override
   Future<List<ProviderPlaylist>> getRecommendedPlaylists({
     int limit = 12,
   }) async {
-    _unsupported(ProviderCapability.readDailyRecommendations);
+    _requireCapability(ProviderCapability.readDailyRecommendations);
+    final boundedLimit = limit.clamp(1, 50).toInt();
+
+    try {
+      final result = await _musicuRequest({
+        'comm': {'ct': 24},
+        'recomPlaylist': {
+          'module': 'playlist.HotRecommendServer',
+          'method': 'get_hot_recommend',
+          'param': {'async': 1, 'cmd': 2},
+        },
+      });
+      final recomPlaylist = _jsonMap(result['recomPlaylist']);
+      if (recomPlaylist['code'] is num && (recomPlaylist['code'] as num) == 0) {
+        final data = _jsonMap(recomPlaylist['data']);
+        final vHot = data['v_hot'] as List<Object?>? ?? const [];
+        if (vHot.isNotEmpty) {
+          return vHot
+              .whereType<Map<Object?, Object?>>()
+              .map((item) {
+                final map = _stringMap(item);
+                return ProviderPlaylist(
+                  providerId: descriptor.id,
+                  playlistId: map['content_id']?.toString() ?? '',
+                  name: map['title']?.toString() ?? '推荐歌单',
+                  cover: _parseQqCover(map['cover']?.toString()),
+                  trackCount:
+                      (map['song_cnt'] as num?)?.toInt() ??
+                      (map['song_count'] as num?)?.toInt() ??
+                      0,
+                  playCount: (map['listen_num'] as num?)?.toInt(),
+                  creatorName: map['username']?.toString(),
+                );
+              })
+              .where((p) => p.playlistId.isNotEmpty)
+              .take(boundedLimit)
+              .toList(growable: false);
+        }
+      }
+    } catch (_) {
+      // Fall through to fallback below.
+    }
+
+    return const [];
   }
 
   @override
   Future<List<ProviderPlaylist>> getUserPlaylists() async {
-    _unsupported(ProviderCapability.readUserPlaylists);
+    _requireCapability(ProviderCapability.readUserPlaylists);
+    final uin = _extractUin();
+    if (uin == null || uin.isEmpty) {
+      throw AuthenticationRequiredException(
+        providerId: descriptor.id,
+        message: 'QQ Music uin is required to read playlists.',
+      );
+    }
+
+    final playlists = <ProviderPlaylist>[];
+    final seen = <String>{};
+
+    // 1. Virtual "我喜欢的歌曲" playlist.
+    try {
+      final favParams = _profileOrderAssetParams(uin, '1', 0, 1);
+      final favUri = Uri.parse(
+        'https://c.y.qq.com/fav/fcgi-bin/fcg_get_profile_order_asset.fcg',
+      ).replace(queryParameters: favParams);
+      final favPayload = await _fcgRequest(favUri);
+      final favData = _jsonMap(favPayload['data']);
+      final totalSong =
+          (favData['totalsong'] as num?)?.toInt() ?? 0;
+      if (totalSong > 0) {
+        playlists.add(ProviderPlaylist(
+          providerId: descriptor.id,
+          playlistId: 'profile:favorites',
+          name: '我喜欢的歌曲',
+          trackCount: totalSong,
+          creatorName: uin,
+        ));
+        seen.add('profile:favorites');
+      }
+    } catch (_) {}
+
+    // 2. Created & collected playlists via fcg_user_created_diss.
+    try {
+      final createdUri = Uri.parse(
+        'https://c.y.qq.com/rsc/fcgi-bin/fcg_user_created_diss',
+      ).replace(queryParameters: {
+        'hostuin': uin,
+        'sin': '0',
+        'size': '100',
+        'format': 'json',
+        'inCharset': 'utf8',
+        'outCharset': 'utf-8',
+      });
+      final createdPayload = await _fcgRequest(createdUri);
+      final data = _jsonMap(createdPayload['data']);
+
+      for (final listKey in ['disslist', 'list']) {
+        final items = data[listKey] as List<Object?>? ?? const [];
+        for (final item in items) {
+          if (item is! Map<Object?, Object?>) continue;
+          final map = _stringMap(item);
+          final dissId = map['dissid']?.toString() ?? '';
+          if (dissId.isEmpty || seen.contains(dissId)) continue;
+          seen.add(dissId);
+          playlists.add(_playlistFromDiss(map));
+        }
+      }
+    } catch (_) {}
+
+    // 3. Profile-ordered playlists (collected/saved).
+    try {
+      final orderParams = _profileOrderAssetParams(uin, '3', 0, 100);
+      final orderUri = Uri.parse(
+        'https://c.y.qq.com/fav/fcgi-bin/fcg_get_profile_order_asset.fcg',
+      ).replace(queryParameters: orderParams);
+      final orderPayload = await _fcgRequest(orderUri);
+      final orderData = _jsonMap(orderPayload['data']);
+      final cdlist = orderData['cdlist'] as List<Object?>? ?? const [];
+      for (final item in cdlist) {
+        if (item is! Map<Object?, Object?>) continue;
+        final map = _stringMap(item);
+        final dissId = map['dissid']?.toString() ?? '';
+        final name = map['dissname']?.toString() ?? '';
+        if (dissId.isEmpty || name.isEmpty || seen.contains(dissId)) continue;
+        seen.add(dissId);
+        playlists.add(_playlistFromDiss(map));
+      }
+    } catch (_) {}
+
+    return playlists;
   }
 
   @override
   Future<List<SourceTrack>> getPlaylistTracks(String playlistId) async {
-    _unsupported(ProviderCapability.readUserPlaylists);
+    _requireCapability(ProviderCapability.readUserPlaylists);
+    final normalizedId = playlistId.trim();
+    if (normalizedId.isEmpty) return const [];
+
+    // Virtual "我喜欢的歌曲" → profile-order songs.
+    if (normalizedId == 'profile:favorites') {
+      final uin = _extractUin();
+      if (uin == null || uin.isEmpty) {
+        throw AuthenticationRequiredException(
+          providerId: descriptor.id,
+          message: 'QQ Music uin is required to read favorites.',
+        );
+      }
+      final params = _profileOrderAssetParams(uin, '1', 0, 300);
+      final uri = Uri.parse(
+        'https://c.y.qq.com/fav/fcgi-bin/fcg_get_profile_order_asset.fcg',
+      ).replace(queryParameters: params);
+      final payload = await _fcgRequest(uri);
+      final data = _jsonMap(payload['data']);
+      final songlist = data['songlist'] as List<Object?>? ?? const [];
+      return songlist
+          .whereType<Map<Object?, Object?>>()
+          .map((item) => _trackFromProfileSong(_jsonMap(item['data'])))
+          .where((t) => t.ref.trackId.isNotEmpty)
+          .toList(growable: false);
+    }
+
+    // Dir-type playlists → fcg_musiclist_getinfo.fcg
+    if (normalizedId.startsWith('profile:dir:')) {
+      final dirId = normalizedId.substring('profile:dir:'.length);
+      if (dirId.isEmpty) return const [];
+      try {
+        final uin = _extractUin() ?? '0';
+        final dirUri = Uri.parse(
+          'http://s.plcloud.music.qq.com/fcgi-bin/fcg_musiclist_getinfo.fcg',
+        ).replace(queryParameters: {
+          'uin': uin,
+          'dirid': dirId,
+          'from': '0',
+          'to': '500',
+          'format': 'json',
+          'g_tk': '5381',
+        });
+        final payload = await _fcgRequest(dirUri);
+        final songList = payload['SongList'] as List<Object?>? ?? const [];
+        return songList
+            .whereType<Map<Object?, Object?>>()
+            .map((item) => _trackFromDirSong(_stringMap(item)))
+            .where((t) => t.ref.trackId.isNotEmpty)
+            .toList(growable: false);
+      } catch (_) {
+        return const [];
+      }
+    }
+
+    // Regular playlist → fcg_ucc_getcdinfo_byids_cp.fcg
+    try {
+      final detailUri = Uri.parse(
+        'https://i.y.qq.com/qzone-music/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg',
+      ).replace(queryParameters: {
+        'disstid': normalizedId,
+        'type': '1',
+        'json': '1',
+        'utf8': '1',
+        'onlysong': '0',
+        'format': 'json',
+        'g_tk': '5381',
+        'loginUin': '0',
+        'hostUin': '0',
+        'inCharset': 'utf8',
+        'outCharset': 'utf-8',
+        'notice': '0',
+        'platform': 'yqq',
+        'needNewCode': '0',
+      });
+      final payload = await _fcgRequest(detailUri);
+      final cdlist = payload['cdlist'] as List<Object?>? ?? const [];
+      if (cdlist.isEmpty) return const [];
+      final first = cdlist.first;
+      if (first is! Map<Object?, Object?>) return const [];
+      final cd = _stringMap(first);
+      final songlist = cd['songlist'] as List<Object?>? ?? const [];
+      return songlist
+          .whereType<Map<Object?, Object?>>()
+          .map((s) => _trackFromPlaylistSong(_stringMap(s)))
+          .where((t) => t.ref.trackId.isNotEmpty)
+          .toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
   }
 
   @override
@@ -928,6 +1223,272 @@ final class QqMusicProvider implements MusicProvider {
 
   String _stripHtml(String? value) {
     return (value ?? '').replaceAll(RegExp(r'<[^>]+>'), '');
+  }
+
+  /// Extracts the QQ Music user identifier (uin) from login cookies.
+  String? _extractUin() {
+    final cookie = _credentials?.cookie ?? '';
+    if (cookie.isEmpty) return null;
+    for (final key in ['uin', 'musicid', 'wxuin', 'euin', 'p_uin', 'userid']) {
+      final pattern = RegExp('(?:^|;)\\s*$key\\s*=\\s*([^;]+)');
+      final match = pattern.firstMatch(cookie);
+      if (match != null) {
+        final value = match.group(1)?.trim();
+        if (value != null && value.isNotEmpty && value != '0') return value;
+      }
+    }
+    return null;
+  }
+
+  /// Strips a JSONP wrapper like `callback({...})` or `({...})`.
+  String _stripJsonp(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
+      return trimmed.substring(1, trimmed.length - 1);
+    }
+    final idx = trimmed.indexOf('(');
+    if (idx >= 0 && trimmed.endsWith(')')) {
+      return trimmed.substring(idx + 1, trimmed.length - 1);
+    }
+    return trimmed;
+  }
+
+  /// GET request for QQ FCGI endpoints that may return JSONP.
+  /// Throws on HTTP error or non-zero [code].
+  Future<Map<String, Object?>> _fcgRequest(Uri uri) async {
+    final response = await _client
+        .get(uri, headers: _headers())
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ FCG request failed with HTTP ${response.statusCode}.',
+      );
+    }
+    final raw = utf8.decode(response.bodyBytes, allowMalformed: true);
+    final stripped = _stripJsonp(raw);
+    final decoded = jsonDecode(stripped);
+    if (decoded is! Map<Object?, Object?>) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ FCG response was not a JSON object.',
+      );
+    }
+    final payload = _stringMap(decoded);
+    final code = payload['code'];
+    if (code is num && code != 0) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ FCG response code ${code.toInt()}.',
+      );
+    }
+    return payload;
+  }
+
+  /// POST request to the musicu.fcg unified gateway.
+  Future<Map<String, Object?>> _musicuRequest(
+    Map<String, Object?> body,
+  ) async {
+    final response = await _client
+        .post(
+          _musicuUri,
+          headers: {
+            ..._headers(),
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message:
+            'QQ Musicu request failed with HTTP ${response.statusCode}.',
+      );
+    }
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is! Map<Object?, Object?>) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ Musicu response was not a JSON object.',
+      );
+    }
+    return _stringMap(decoded);
+  }
+
+  /// Builds query parameters for fcg_get_profile_order_asset.fcg.
+  Map<String, String> _profileOrderAssetParams(
+    String uin,
+    String reqtype,
+    int offset,
+    int limit,
+  ) {
+    final ein = offset + limit - 1;
+    return {
+      'format': 'json',
+      'inCharset': 'utf8',
+      'outCharset': 'utf-8',
+      'platform': 'yqq.json',
+      'needNewCode': '0',
+      'loginUin': uin,
+      'hostUin': '0',
+      'notice': '0',
+      'g_tk': '5381',
+      'ct': '20',
+      'cid': '205360956',
+      'userid': uin,
+      'reqtype': reqtype,
+      'sin': offset.toString(),
+      'ein': ein.toString(),
+    };
+  }
+
+  /// Converts a QQ profile-order song map to [SourceTrack].
+  SourceTrack _trackFromProfileSong(Map<String, Object?> songData) {
+    final songmid = songData['songmid']?.toString() ?? '';
+    final albumMid = songData['albummid']?.toString() ?? '';
+    final artists = songData['singer'] as List<Object?>? ?? const [];
+    return SourceTrack(
+      ref: ProviderTrackRef(
+        providerId: descriptor.id,
+        trackId: songmid,
+        extraIds: {
+          if (songmid.isNotEmpty) 'song_mid': songmid,
+          if (albumMid.isNotEmpty) 'album_mid': albumMid,
+        },
+      ),
+      title: songData['songname']?.toString() ?? 'Untitled',
+      artists: artists
+          .whereType<Map<Object?, Object?>>()
+          .map((s) => s['name']?.toString() ?? '')
+          .where((n) => n.isNotEmpty)
+          .toList(growable: false),
+      album: songData['albumname']?.toString(),
+      duration:
+          Duration(seconds: (songData['interval'] as num?)?.toInt() ?? 0),
+      isFavorited: true,
+      artwork: albumMid.isEmpty
+          ? null
+          : Uri.parse(
+              'https://y.gtimg.cn/music/photo_new/T002R300x300M000$albumMid.jpg'),
+      isPlayable: true,
+      isDownloadable: true,
+    );
+  }
+
+  /// Converts a QQ playlist song entry (from cdlist.songlist) to [SourceTrack].
+  SourceTrack _trackFromPlaylistSong(Map<String, Object?> song) {
+    final songmid = song['songmid']?.toString() ?? '';
+    final albumMid = song['albummid']?.toString() ?? '';
+    final artists = song['singer'] as List<Object?>? ?? const [];
+    return SourceTrack(
+      ref: ProviderTrackRef(
+        providerId: descriptor.id,
+        trackId: songmid,
+        extraIds: {
+          if (songmid.isNotEmpty) 'song_mid': songmid,
+          if (albumMid.isNotEmpty) 'album_mid': albumMid,
+        },
+      ),
+      title: song['songname']?.toString() ?? 'Untitled',
+      artists: artists
+          .whereType<Map<Object?, Object?>>()
+          .map((s) => s['name']?.toString() ?? '')
+          .where((n) => n.isNotEmpty)
+          .toList(growable: false),
+      album: song['albumname']?.toString(),
+      duration:
+          Duration(seconds: (song['interval'] as num?)?.toInt() ?? 0),
+      isFavorited: false,
+      artwork: albumMid.isEmpty
+          ? null
+          : Uri.parse(
+              'https://y.gtimg.cn/music/photo_new/T002R300x300M000$albumMid.jpg'),
+      isPlayable: true,
+      isDownloadable: true,
+    );
+  }
+
+  /// Converts a QQ disslist/playlist map to [ProviderPlaylist].
+  /// Handles both fcg_user_created_diss (disslist) and
+  /// fcg_get_profile_order_asset (cdlist) response formats.
+  ProviderPlaylist _playlistFromDiss(Map<String, Object?> item) {
+    final dissId =
+        item['dissid']?.toString() ?? item['tid']?.toString() ?? '';
+    return ProviderPlaylist(
+      providerId: descriptor.id,
+      playlistId: dissId,
+      name: item['diss_name']?.toString() ??
+          item['title']?.toString() ??
+          item['dissname']?.toString() ??
+          'QQ Playlist',
+      description:
+          item['diss_desc']?.toString() ?? item['introduction']?.toString(),
+      creatorName: item['nickname']?.toString() ?? item['creator']?.toString(),
+      cover: _parseQqCover(
+        item['diss_cover']?.toString() ??
+            item['cover']?.toString() ??
+            item['imgurl']?.toString() ??
+            item['logo']?.toString(),
+      ),
+      trackCount: (item['song_cnt'] as num?)?.toInt() ??
+          (item['song_num'] as num?)?.toInt() ??
+          (item['songnum'] as num?)?.toInt() ??
+          (item['song_count'] as num?)?.toInt() ??
+          0,
+      playCount: (item['listen_num'] as num?)?.toInt() ??
+          (item['visitnum'] as num?)?.toInt() ??
+          (item['listennum'] as num?)?.toInt(),
+    );
+  }
+
+  /// Converts a QQ dir-type playlist song entry to [SourceTrack].
+  /// Dir songs may use pipe-delimited [data] or field-based maps.
+  SourceTrack _trackFromDirSong(Map<String, Object?> item) {
+    final dataStr = item['data']?.toString() ?? '';
+    final songType = (item['type'] as num?)?.toInt() ?? 0;
+    // Pipe-delimited format: songmid|name|...|artist|albummid|albumname|...|interval|...
+    if (dataStr.isNotEmpty && songType % 10 >= 2 && songType % 10 <= 4) {
+      final parts = dataStr.split('|');
+      String value(int index) =>
+          index < parts.length ? parts[index].trim() : '';
+      final songmid = value(0);
+      final name = value(1);
+      final artist = value(3);
+      final albumMid = value(4);
+      final albumName = value(5);
+      final interval = int.tryParse(value(7)) ?? 0;
+      return SourceTrack(
+        ref: ProviderTrackRef(
+          providerId: descriptor.id,
+          trackId: songmid,
+          extraIds: {
+            if (songmid.isNotEmpty) 'song_mid': songmid,
+            if (albumMid.isNotEmpty) 'album_mid': albumMid,
+          },
+        ),
+        title: name.isNotEmpty ? name : 'Untitled',
+        artists: artist.isNotEmpty ? [artist] : [],
+        album: albumName.isNotEmpty ? albumName : null,
+        duration: Duration(seconds: interval),
+        isFavorited: false,
+        artwork: albumMid.isEmpty
+            ? null
+            : Uri.parse(
+                'https://y.gtimg.cn/music/photo_new/T002R300x300M000$albumMid.jpg'),
+        isPlayable: true,
+        isDownloadable: true,
+      );
+    }
+    // Fallback to field-based parsing.
+    return _trackFromPlaylistSong(item);
+  }
+
+  /// Normalizes a QQ Music cover URL (http → https).
+  Uri? _parseQqCover(String? url) {
+    if (url == null || url.isEmpty) return null;
+    final https = url.replaceFirst(RegExp(r'^http:'), 'https:');
+    return Uri.tryParse(https);
   }
 }
 
