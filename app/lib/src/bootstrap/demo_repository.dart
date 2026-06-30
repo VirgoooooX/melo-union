@@ -36,13 +36,17 @@ class DemoRepository extends ChangeNotifier {
     NeteaseCredentials? neteaseCredentials,
     this.neteaseSessionStore,
     this.playbackBridge = const PlaybackPlatformBridge(),
+    AudioQuality playbackQuality = AudioQuality.standard,
   })  : favoritesOverrideRegistry =
             favoritesOverrideRegistry ?? FavoritesOverrideRegistry(),
         _neteaseCredentials = neteaseCredentials,
         _selectedPlaylistId = playlists.listPlaylists().isEmpty
             ? null
             : playlists.listPlaylists().first.id {
-    playbackCoordinator = PlaybackCoordinator(registry: registry);
+    playbackCoordinator = PlaybackCoordinator(
+      registry: registry,
+      defaultQuality: playbackQuality,
+    );
     downloadCoordinator = DownloadCoordinator(
       registry: registry,
       seedTasks: seedDownloadTasks,
@@ -187,6 +191,7 @@ class DemoRepository extends ChangeNotifier {
       neteaseCredentials: neteaseCredentials,
       neteaseSessionStore: neteaseSessionStore,
       playbackBridge: const PlaybackPlatformBridge(),
+      playbackQuality: snapshot?.playbackQuality ?? AudioQuality.standard,
     );
     final allSeededTracks = [
       for (final provider in additionalProviders.whereType<FakeMusicProvider>())
@@ -325,6 +330,7 @@ class DemoRepository extends ChangeNotifier {
       playlists: playlistList,
       downloadTasks: downloadCoordinator.allTasks,
       localMediaItems: downloadCoordinator.localItems,
+      playbackQuality: playbackQuality,
       favoritesOverrides: favoritesOverrideRegistry,
     );
   }
@@ -654,6 +660,7 @@ class DemoRepository extends ChangeNotifier {
     playbackCoordinator.quality = quality;
     _playingTrackId = null;
     await _syncNativePlayback(playWhenReady: isPlaybackActive);
+    _persistSoon();
     notifyListeners();
   }
 

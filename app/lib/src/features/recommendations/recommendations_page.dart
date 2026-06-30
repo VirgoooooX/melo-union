@@ -168,7 +168,7 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                               builder: (context, hovered) => Row(
                                 children: [
                                   SizedBox(
-                                    width: 38,
+                                    width: 32,
                                     child: Icon(
                                       selected
                                           ? Icons.graphic_eq_rounded
@@ -179,18 +179,25 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                                           : MeloColors.textTertiary,
                                     ),
                                   ),
-                                  MeloTrackCover(
-                                    seed: track.title,
-                                    artwork: track.artwork,
-                                    isActive: selected,
-                                  ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 16),
                                   Expanded(
                                     flex: 3,
-                                    child: _RecommendationTrackTitleBlock(
-                                      title: track.title,
-                                      artists: track.artists,
-                                      active: selected,
+                                    child: Row(
+                                      children: [
+                                        MeloTrackCover(
+                                          seed: track.title,
+                                          artwork: track.artwork,
+                                          isActive: selected,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: _RecommendationTrackTitleBlock(
+                                            title: track.title,
+                                            artists: track.artists,
+                                            active: selected,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   Expanded(
@@ -397,7 +404,7 @@ void _showPlaylistSheet(
                             builder: (context, hovered) => Row(
                               children: [
                                 SizedBox(
-                                  width: 38,
+                                  width: 32,
                                   child: Icon(
                                     Icons.play_arrow_rounded,
                                     size: 18,
@@ -406,17 +413,24 @@ void _showPlaylistSheet(
                                         : MeloColors.textTertiary,
                                   ),
                                 ),
-                                MeloTrackCover(
-                                  seed: track.title,
-                                  artwork: track.artwork,
-                                ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 16),
                                 Expanded(
                                   flex: 3,
-                                  child: _RecommendationTrackTitleBlock(
-                                    title: track.title,
-                                    artists: track.artists,
-                                    active: false,
+                                  child: Row(
+                                    children: [
+                                      MeloTrackCover(
+                                        seed: track.title,
+                                        artwork: track.artwork,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _RecommendationTrackTitleBlock(
+                                          title: track.title,
+                                          artists: track.artists,
+                                          active: false,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 Expanded(

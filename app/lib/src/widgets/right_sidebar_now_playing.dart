@@ -89,7 +89,7 @@ class _NowPlayingCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (track == null) {
       return _Panel(
-          child: Text('播放一首歌后，这里会展示当前歌曲、来源和收藏状态。',
+          child: Text('播放一首歌后，这里会展示当前歌曲、歌词和播放队列。',
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium

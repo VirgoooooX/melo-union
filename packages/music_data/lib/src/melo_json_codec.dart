@@ -21,6 +21,7 @@ final class MeloJsonCodec {
         for (final item in snapshot.localMediaItems)
           _encodeLocalMediaItem(item),
       ],
+      'playbackQuality': snapshot.playbackQuality.name,
       'favoritesOverrides': _encodeFavoritesOverrides(
         snapshot.favoritesOverrides,
       ),
@@ -59,6 +60,9 @@ final class MeloJsonCodec {
         for (final item in _listOfMaps(json['localMediaItems']))
           _decodeLocalMediaItem(item),
       ],
+      playbackQuality: AudioQuality.values.byName(
+        json['playbackQuality'] as String? ?? AudioQuality.standard.name,
+      ),
       favoritesOverrides: overrides,
     );
   }

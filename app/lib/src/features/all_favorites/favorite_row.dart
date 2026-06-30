@@ -40,7 +40,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
         return Row(
           children: [
             SizedBox(
-              width: 38,
+              width: 32,
               child: Center(
                 child: _RowPlaybackIndicator(
                   index: widget.index,
@@ -49,20 +49,27 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                 ),
               ),
             ),
-            MeloTrackCover(
-              seed: widget.track.title,
-              isActive: isPlaying,
-              artwork: widget.track.variants
-                  .firstWhere((v) => v.artwork != null, orElse: () => primary)
-                  .artwork,
-            ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               flex: 3,
-              child: _TrackTitleBlock(
-                title: widget.track.title,
-                artists: widget.track.artists,
-                active: isPlaying,
+              child: Row(
+                children: [
+                  MeloTrackCover(
+                    seed: widget.track.title,
+                    isActive: isPlaying,
+                    artwork: widget.track.variants
+                        .firstWhere((v) => v.artwork != null, orElse: () => primary)
+                        .artwork,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _TrackTitleBlock(
+                      title: widget.track.title,
+                      artists: widget.track.artists,
+                      active: isPlaying,
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(

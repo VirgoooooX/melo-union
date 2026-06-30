@@ -21,7 +21,7 @@ class MeloHttpOverrides extends HttpOverrides {
 Future<void> main() async {
   HttpOverrides.global = MeloHttpOverrides();
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
@@ -32,6 +32,8 @@ Future<void> main() async {
       titleBarStyle: TitleBarStyle.hidden,
     );
     windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.setAsFrameless();
+      await windowManager.setHasShadow(false);
       await windowManager.show();
       await windowManager.focus();
     });

@@ -10,7 +10,6 @@ class _DesktopSidebar extends StatelessWidget {
     AppDestination.favorites,
     AppDestination.playlists,
     AppDestination.recommendations,
-    AppDestination.search,
   ];
   static const _utility = [
     AppDestination.downloads,
@@ -22,67 +21,27 @@ class _DesktopSidebar extends StatelessWidget {
     return Container(
       width: width,
       decoration: const BoxDecoration(
-        color: MeloColors.canvasSoft,
+        color: MeloColors.surface,
         border: Border(right: BorderSide(color: MeloColors.border)),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+      padding: const EdgeInsets.fromLTRB(24, 28, 20, 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _BrandLockup(),
-          const SizedBox(height: 34),
           for (final item in _main) ...[
             _SidebarItem(destination: item, selected: item == current),
-            const SizedBox(height: 6),
+            const SizedBox(height: 14),
           ],
-          const Spacer(),
+          const SizedBox(height: 34),
           Container(height: 1, color: MeloColors.border),
-          const SizedBox(height: 14),
+          const SizedBox(height: 26),
           for (final item in _utility) ...[
             _SidebarItem(destination: item, selected: item == current),
-            const SizedBox(height: 6),
+            const SizedBox(height: 14),
           ],
+          const Spacer(),
         ],
       ),
-    );
-  }
-}
-
-class _BrandLockup extends StatelessWidget {
-  const _BrandLockup();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: MeloColors.primary700,
-            borderRadius: MeloRadii.sm,
-            boxShadow: MeloShadows.control,
-          ),
-          child: const Icon(
-            Icons.graphic_eq_rounded,
-            color: Colors.white,
-            size: 18,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'MeloUnion',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: MeloColors.textPrimary,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.45,
-                ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -124,46 +83,23 @@ class _SidebarItemState extends State<_SidebarItem> {
           child: AnimatedContainer(
             duration: Duration.zero,
             curve: Curves.easeOutCubic,
-            height: 42,
-            padding: const EdgeInsets.only(left: 0, right: 10),
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
               color: background,
               borderRadius: MeloRadii.sm,
               border: Border.all(
-                color: Colors.transparent,
+                color: selected ? MeloColors.primary100 : Colors.transparent,
               ),
             ),
             child: Row(
               children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 120),
-                  width: 3,
-                  height: selected ? 22 : 0,
-                  decoration: const BoxDecoration(
-                    color: MeloColors.primary600,
-                    borderRadius: MeloRadii.pill,
-                  ),
+                Icon(
+                  AppShellScaffold.iconFor(widget.destination, selected),
+                  color: foreground,
+                  size: 21,
                 ),
-                const SizedBox(width: 9),
-                AnimatedContainer(
-                  duration: Duration.zero,
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? MeloColors.surface
-                        : _hovered
-                            ? MeloColors.primary50
-                            : Colors.transparent,
-                    borderRadius: MeloRadii.sm,
-                  ),
-                  child: Icon(
-                    AppShellScaffold.iconFor(widget.destination, selected),
-                    color: foreground,
-                    size: 19,
-                  ),
-                ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 14),
                 Text(
                   AppShellScaffold.titleFor(widget.destination),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(

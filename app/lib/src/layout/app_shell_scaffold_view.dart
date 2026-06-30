@@ -21,58 +21,76 @@ class AppShellScaffold extends ConsumerWidget {
     final rightWidth = widths.right;
 
     return Scaffold(
-      backgroundColor: MeloColors.canvas,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: Column(
-          children: [
-            const MeloTitleBar(),
-            Expanded(
-              child: Row(
-                children: [
-                  _DesktopSidebar(current: current, width: leftWidth),
-                  _ResizeGrip(
-                    isLeft: true,
-                    onDrag: (delta) {
-                      ref.read(sidebarWidthsProvider.notifier).updateLeft(leftWidth + delta);
-                    },
-                  ),
-                  Expanded(
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            MeloColors.canvasSoft,
-                            MeloColors.canvas,
-                          ],
+        child: Container(
+          decoration: const BoxDecoration(
+            color: MeloColors.surface,
+            borderRadius: MeloRadii.window,
+          ),
+          foregroundDecoration: BoxDecoration(
+            borderRadius: MeloRadii.window,
+            border: Border.all(color: MeloColors.borderStrong),
+          ),
+          child: ClipRRect(
+            borderRadius: MeloRadii.window,
+            child: Column(
+              children: [
+                const MeloTitleBar(),
+                Expanded(
+                  child: Row(
+                    children: [
+                      _DesktopSidebar(current: current, width: leftWidth),
+                      _ResizeGrip(
+                        isLeft: true,
+                        onDrag: (delta) {
+                          ref
+                              .read(sidebarWidthsProvider.notifier)
+                              .updateLeft(leftWidth + delta);
+                        },
+                      ),
+                      Expanded(
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                MeloColors.canvasSoft,
+                                MeloColors.canvas,
+                              ],
+                            ),
+                          ),
+                          child: child,
                         ),
                       ),
-                      child: child,
-                    ),
+                      if (width >= 1180) ...[
+                        _ResizeGrip(
+                          isLeft: false,
+                          onDrag: (delta) {
+                            ref
+                                .read(sidebarWidthsProvider.notifier)
+                                .updateRight(rightWidth - delta);
+                          },
+                        ),
+                        Container(
+                          width: rightWidth,
+                          decoration: const BoxDecoration(
+                            color: MeloColors.surface,
+                            border: Border(
+                              left: BorderSide(color: MeloColors.border),
+                            ),
+                          ),
+                          child: const RightSidebar(),
+                        ),
+                      ],
+                    ],
                   ),
-                  if (width >= 1180) ...[
-                    _ResizeGrip(
-                      isLeft: false,
-                      onDrag: (delta) {
-                        ref.read(sidebarWidthsProvider.notifier).updateRight(rightWidth - delta);
-                      },
-                    ),
-                    Container(
-                      width: rightWidth,
-                      decoration: const BoxDecoration(
-                        color: MeloColors.surface,
-                        border:
-                            Border(left: BorderSide(color: MeloColors.border)),
-                      ),
-                      child: const RightSidebar(),
-                    ),
-                  ],
-                ],
-              ),
+                ),
+                const DesktopPlayerBar(),
+              ],
             ),
-            const DesktopPlayerBar(),
-          ],
+          ),
         ),
       ),
     );

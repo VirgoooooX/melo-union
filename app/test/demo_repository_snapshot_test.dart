@@ -58,12 +58,14 @@ void main() {
           ),
         ],
         localMediaItems: [downloaded],
+        playbackQuality: AudioQuality.lossless,
         favoritesOverrides: overrides,
       ),
     );
 
     expect(repository.playlistList.single.id, 'playlist_saved');
     expect(repository.downloadCoordinator.isAvailableLocally(ref), isTrue);
+    expect(repository.playbackQuality, AudioQuality.lossless);
     expect(repository.favoritesOverrideRegistry.hiddenTracks, contains(ref));
 
     final exported = repository.toSnapshot();
@@ -71,6 +73,7 @@ void main() {
     expect(exported.playlists.single.name, 'Saved Locally');
     expect(exported.downloadTasks.single.status, DownloadStatus.completed);
     expect(exported.localMediaItems.single.filePath, downloaded.filePath);
+    expect(exported.playbackQuality, AudioQuality.lossless);
     expect(exported.favoritesOverrides.hiddenTracks, contains(ref));
   });
 }

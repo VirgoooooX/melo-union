@@ -318,7 +318,7 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                             builder: (context, hovered) => Row(
                               children: [
                                 SizedBox(
-                                  width: 38,
+                                  width: 32,
                                   child: selected
                                       ? const Icon(
                                           Icons.graphic_eq_rounded,
@@ -339,18 +339,25 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                                               ),
                                         ),
                                 ),
-                                MeloTrackCover(
-                                  seed: track.title,
-                                  artwork: track.artwork,
-                                  isActive: selected,
-                                ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 16),
                                 Expanded(
                                   flex: 3,
-                                  child: _PlaylistTrackTitleBlock(
-                                    title: track.title,
-                                    artists: track.artists,
-                                    active: selected,
+                                  child: Row(
+                                    children: [
+                                      MeloTrackCover(
+                                        seed: track.title,
+                                        artwork: track.artwork,
+                                        isActive: selected,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: _PlaylistTrackTitleBlock(
+                                          title: track.title,
+                                          artists: track.artists,
+                                          active: selected,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 Expanded(

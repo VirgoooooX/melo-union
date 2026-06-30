@@ -47,7 +47,7 @@ class _MeloTitleBarState extends State<MeloTitleBar> with WindowListener {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 40,
+      height: 46,
       decoration: const BoxDecoration(
         color: MeloColors.surface,
         border: Border(
@@ -59,13 +59,14 @@ class _MeloTitleBarState extends State<MeloTitleBar> with WindowListener {
       ),
       child: Row(
         children: [
-          const SizedBox(width: 16),
+          const SizedBox(width: 22),
           Text(
             'MeloUnion',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: MeloColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
                 ),
           ),
           Expanded(
@@ -92,7 +93,7 @@ class _MeloTitleBarState extends State<MeloTitleBar> with WindowListener {
             icon: _isMaximized
                 ? Icons.filter_none_rounded
                 : Icons.crop_square_rounded,
-            iconSize: 14,
+            iconSize: 13,
             onPressed: () async {
               if (_isMaximized) {
                 await windowManager.unmaximize();
@@ -144,7 +145,7 @@ class _WindowControlButtonState extends State<_WindowControlButton> {
       child: GestureDetector(
         onTap: widget.onPressed,
         child: Container(
-          width: 46,
+          width: 42,
           height: double.infinity,
           color: _hovered ? widget.hoverColor : Colors.transparent,
           child: Center(

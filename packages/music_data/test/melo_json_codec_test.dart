@@ -82,6 +82,7 @@ void main() {
           downloadedAt: DateTime.utc(2026, 6, 29, 9),
         ),
       ],
+      playbackQuality: AudioQuality.lossless,
       favoritesOverrides: overrides,
     );
 
@@ -97,6 +98,7 @@ void main() {
     expect(decoded.playlists.single.items.single.trackRef, sourceRef);
     expect(decoded.downloadTasks.single.ticket, isNull);
     expect(decoded.downloadTasks.single.status, DownloadStatus.paused);
+    expect(decoded.playbackQuality, AudioQuality.lossless);
     expect(decoded.localMediaItems.single.filePath, contains('alpha_midnight'));
     expect(decoded.favoritesOverrides.shouldMerge(sourceRef, alternateRef),
         isTrue);
@@ -113,6 +115,7 @@ void main() {
     await store.write(MeloDataSnapshot(
       playlists: [LocalPlaylist(id: 'playlist_1', name: 'Saved')],
       downloadTasks: [DownloadTask(track: track, quality: AudioQuality.low)],
+      playbackQuality: AudioQuality.high,
     ));
 
     final restored = await store.read();
@@ -120,5 +123,6 @@ void main() {
     expect(restored, isNotNull);
     expect(restored!.playlists.single.id, 'playlist_1');
     expect(restored.downloadTasks.single.track.ref, sourceRef);
+    expect(restored.playbackQuality, AudioQuality.high);
   });
 }
