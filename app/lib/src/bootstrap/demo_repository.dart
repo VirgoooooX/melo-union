@@ -15,6 +15,16 @@ import '../platform/playback_platform_bridge.dart';
 import 'netease_session_store.dart';
 import 'qq_music_session_store.dart';
 
+class _CacheEntry<T> {
+  _CacheEntry(this.data, {DateTime? fetchedAt})
+      : _fetchedAt = fetchedAt ?? DateTime.now();
+
+  final T data;
+  final DateTime _fetchedAt;
+  bool isFresh(Duration ttl) =>
+      DateTime.now().difference(_fetchedAt) < ttl;
+}
+
 final demoRepositoryProvider = ChangeNotifierProvider<DemoRepository>(
   (ref) => DemoRepository.seeded(),
 );
@@ -341,19 +351,55 @@ class DemoRepository extends ChangeNotifier {
   PlaylistReferenceResolver get playlistResolver =>
       PlaylistReferenceResolver(registry);
 
-  Future<List<UnifiedFavoriteTrack>> loadAllFavorites() => favoritesService
-      .buildAllFavoritesWithResult(
-        registry,
-        overrides: favoritesOverrideRegistry,
-      )
-      .then((r) => r.tracks);
+  Future<List<UnifiedFavoriteTrack>> loadAllFavorites() {
+    return favoritesService
+        .buildAllFavoritesWithResult(
+          registry,
+          overrides: favoritesOverrideRegistry,
+        )
+        .then((r) {
+      _lastFavoritesData = r.tracks;
+      return r.tracks;
+    });
+  }
+
+  /// Most recently loaded favorites data, persisted across page rebuilds.
+  /// Null until the first successful load.
+  List<UnifiedFavoriteTrack>? _lastFavoritesData;
+  List<UnifiedFavoriteTrack>? get lastFavoritesData => _lastFavoritesData;
+
+  // ——— Generic TTL cache ———
+  static const _recommendationsTtl = Duration(minutes: 30);
+  static const _playlistsTtl = Duration(minutes: 10);
+
+  final Map<String, _CacheEntry<List<SourceTrack>>> _recCache = {};
+  final Map<String, _CacheEntry<List<ProviderPlaylist>>> _playlistCache = {};
+  final Map<String, _CacheEntry<List<SourceTrack>>> _playlistTrackCache = {};
+
+  List<SourceTrack>? cachedRecommendations(ProviderId pid) =>
+      _recCache[pid.value]?.data;
+  bool get hasFreshRecommendations =>
+      _recCache.values.any((e) => e.isFresh(_recommendationsTtl));
+
+  List<ProviderPlaylist>? cachedRemotePlaylists(ProviderId pid) =>
+      _playlistCache[pid.value]?.data;
+  bool hasFreshRemotePlaylists(ProviderId pid) =>
+      _playlistCache[pid.value]?.isFresh(_playlistsTtl) ?? false;
+
+  List<SourceTrack>? cachedPlaylistTracks(ProviderId pid, String playlistId) =>
+      _playlistTrackCache['${pid.value}/$playlistId']?.data;
+  bool hasFreshPlaylistTracks(ProviderId pid, String playlistId) =>
+      _playlistTrackCache['${pid.value}/$playlistId']
+          ?.isFresh(_playlistsTtl) ?? false;
 
   Future<List<SourceTrack>> loadRecommendations(ProviderId providerId) async {
     final entry = registry.entryOf(providerId);
     if (entry == null || !entry.isEnabled) {
       return const [];
     }
-    return entry.provider.getDailyRecommendations();
+    final result = await entry.provider.getDailyRecommendations();
+    _recCache[providerId.value] = _CacheEntry(result);
+    return result;
   }
 
   Future<List<ProviderPlaylist>> loadRecommendedPlaylists(
@@ -364,7 +410,9 @@ class DemoRepository extends ChangeNotifier {
     if (entry == null || !entry.isEnabled) {
       return const [];
     }
-    return entry.provider.getRecommendedPlaylists(limit: limit);
+    final result = await entry.provider.getRecommendedPlaylists(limit: limit);
+    _playlistCache['${providerId.value}/recommended'] = _CacheEntry(result);
+    return result;
   }
 
   Future<List<ProviderPlaylist>> loadChartPlaylists(
@@ -375,7 +423,9 @@ class DemoRepository extends ChangeNotifier {
     if (entry == null || !entry.isEnabled) {
       return const [];
     }
-    return entry.provider.getChartPlaylists(limit: limit);
+    final result = await entry.provider.getChartPlaylists(limit: limit);
+    _playlistCache['${providerId.value}/charts'] = _CacheEntry(result);
+    return result;
   }
 
   Future<List<ProviderPlaylist>> loadProviderPlaylists(
@@ -385,7 +435,9 @@ class DemoRepository extends ChangeNotifier {
     if (entry == null || !entry.isEnabled) {
       return const [];
     }
-    return entry.provider.getUserPlaylists();
+    final result = await entry.provider.getUserPlaylists();
+    _playlistCache[providerId.value] = _CacheEntry(result);
+    return result;
   }
 
   Future<List<SourceTrack>> loadProviderPlaylistTracks({
@@ -396,7 +448,10 @@ class DemoRepository extends ChangeNotifier {
     if (entry == null || !entry.isEnabled) {
       return const [];
     }
-    return entry.provider.getPlaylistTracks(playlistId);
+    final result = await entry.provider.getPlaylistTracks(playlistId);
+    _playlistTrackCache['${providerId.value}/$playlistId'] =
+        _CacheEntry(result);
+    return result;
   }
 
   MeloDataSnapshot toSnapshot() {

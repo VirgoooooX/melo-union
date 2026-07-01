@@ -26,27 +26,40 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
   final Map<String, Future<List<ProviderPlaylist>>> _chartFutures = {};
 
   Future<List<SourceTrack>> _recommendationsFuture(ProviderId providerId) {
+    final repo = ref.read(demoRepositoryProvider);
+    final cached = repo.cachedRecommendations(providerId);
+    if (cached != null && repo.hasFreshRecommendations) {
+      return Future.value(cached);
+    }
     return _recommendationFutures.putIfAbsent(
       providerId.value,
-      () => ref.read(demoRepositoryProvider).loadRecommendations(providerId),
+      () => repo.loadRecommendations(providerId),
     );
   }
 
   Future<List<ProviderPlaylist>> _recommendedPlaylistsFuture(
     ProviderId providerId,
   ) {
+    final repo = ref.read(demoRepositoryProvider);
+    final cached = repo.cachedRemotePlaylists(providerId);
+    if (cached != null && repo.hasFreshRemotePlaylists(providerId)) {
+      return Future.value(cached);
+    }
     return _playlistFutures.putIfAbsent(
       providerId.value,
-      () => ref.read(demoRepositoryProvider).loadRecommendedPlaylists(
-            providerId,
-          ),
+      () => repo.loadRecommendedPlaylists(providerId),
     );
   }
 
   Future<List<ProviderPlaylist>> _chartPlaylistsFuture(ProviderId providerId) {
+    final repo = ref.read(demoRepositoryProvider);
+    final cached = repo.cachedRemotePlaylists(providerId);
+    if (cached != null && repo.hasFreshRemotePlaylists(providerId)) {
+      return Future.value(cached);
+    }
     return _chartFutures.putIfAbsent(
       providerId.value,
-      () => ref.read(demoRepositoryProvider).loadChartPlaylists(providerId),
+      () => repo.loadChartPlaylists(providerId),
     );
   }
 
@@ -183,8 +196,18 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                     : FutureBuilder<List<SourceTrack>>(
                         future: _recommendationsFuture(selectedProviderId),
                         builder: (context, snapshot) {
+                          final cached = selectedEntry != null
+                              ? repository
+                                  .cachedRecommendations(selectedEntry.descriptor.id)
+                              : null;
                           if (snapshot.connectionState !=
                               ConnectionState.done) {
+                            if (cached != null && cached.isNotEmpty) {
+                              return _CachedRecommendationList(
+                                tracks: cached,
+                                currentRef: currentRef,
+                              );
+                            }
                             return const Center(
                                 child: CircularProgressIndicator());
                           }
@@ -674,6 +697,90 @@ class _RecommendationTrackTitleBlock extends StatelessWidget {
               ),
         ),
       ],
+    );
+  }
+}
+
+/// Simplified list display for cached recommendations during background refresh.
+class _CachedRecommendationList extends ConsumerWidget {
+  const _CachedRecommendationList({
+    required this.tracks,
+    required this.currentRef,
+  });
+
+  final List<SourceTrack> tracks;
+  final ProviderTrackRef? currentRef;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListView.separated(
+      itemCount: tracks.length,
+      separatorBuilder: (_, __) => const Divider(
+        height: 1,
+        color: MeloColors.border,
+      ),
+      itemBuilder: (context, index) {
+        final track = tracks[index];
+        final selected = currentRef == track.ref;
+        return MeloInteractiveRow(
+          selected: selected,
+          onDoubleTap: track.isPlayable
+              ? () => ref
+                  .read(demoRepositoryProvider)
+                  .playOrToggleTrack(track)
+              : null,
+          builder: (context, hovered) => Row(
+            children: [
+              SizedBox(
+                width: 32,
+                child: Icon(
+                  selected
+                      ? Icons.graphic_eq_rounded
+                      : Icons.play_arrow_rounded,
+                  size: 18,
+                  color: selected || hovered
+                      ? MeloColors.primary700
+                      : MeloColors.textTertiary,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 3,
+                child: Row(
+                  children: [
+                    MeloTrackCover(
+                      seed: track.title,
+                      artwork: track.artwork,
+                      isActive: selected,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _RecommendationTrackTitleBlock(
+                        title: track.title,
+                        artists: track.artists,
+                        active: selected,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  track.album ?? '今日推荐',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: MeloColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ),
+              MeloFavoriteButton(track: track),
+            ],
+          ),
+        );
+      },
     );
   }
 }

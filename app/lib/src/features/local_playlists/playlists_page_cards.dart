@@ -107,17 +107,29 @@ class _RemotePlaylistsPanelState extends ConsumerState<_RemotePlaylistsPanel> {
   }
 
   Future<List<ProviderPlaylist>> _loadPlaylists() {
-    return ref
-        .read(demoRepositoryProvider)
-        .loadProviderPlaylists(widget.providerId);
+    final repo = ref.read(demoRepositoryProvider);
+    final cached = repo.cachedRemotePlaylists(widget.providerId);
+    if (cached != null && repo.hasFreshRemotePlaylists(widget.providerId)) {
+      return Future.value(cached);
+    }
+    return repo.loadProviderPlaylists(widget.providerId);
   }
 
   @override
   Widget build(BuildContext context) {
+    final cached = ref
+        .read(demoRepositoryProvider)
+        .cachedRemotePlaylists(widget.providerId);
     return FutureBuilder<List<ProviderPlaylist>>(
       future: _playlistsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
+          if (cached != null && cached.isNotEmpty) {
+            return _RemotePlaylistGrid(
+              playlists: cached,
+              onSelected: widget.onSelected,
+            );
+          }
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
@@ -224,10 +236,21 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
   }
 
   Future<List<SourceTrack>> _loadTracks() {
-    return ref.read(demoRepositoryProvider).loadProviderPlaylistTracks(
-          providerId: widget.playlist.providerId,
-          playlistId: widget.playlist.playlistId,
-        );
+    final repo = ref.read(demoRepositoryProvider);
+    final cached = repo.cachedPlaylistTracks(
+      widget.playlist.providerId,
+      widget.playlist.playlistId,
+    );
+    if (cached != null && repo.hasFreshPlaylistTracks(
+      widget.playlist.providerId,
+      widget.playlist.playlistId,
+    )) {
+      return Future.value(cached);
+    }
+    return repo.loadProviderPlaylistTracks(
+      providerId: widget.playlist.providerId,
+      playlistId: widget.playlist.playlistId,
+    );
   }
 
   @override

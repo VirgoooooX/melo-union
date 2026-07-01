@@ -17,6 +17,7 @@ class _FavoritesLibraryPanel extends ConsumerStatefulWidget {
 
 class _FavoritesLibraryPanelState extends ConsumerState<_FavoritesLibraryPanel> {
   late final ScrollController _scrollController;
+  bool _hasAnimatedListEverRun = false;
 
   @override
   void initState() {
@@ -33,6 +34,7 @@ class _FavoritesLibraryPanelState extends ConsumerState<_FavoritesLibraryPanel> 
   @override
   Widget build(BuildContext context) {
     final favorites = ref.watch(allFavoritesProvider);
+    final cached = ref.read(demoRepositoryProvider).lastFavoritesData;
     return SizedBox(
       width: double.infinity,
       height: double.infinity,
@@ -45,75 +47,93 @@ class _FavoritesLibraryPanelState extends ConsumerState<_FavoritesLibraryPanel> 
         child: LayoutBuilder(
           builder: (context, constraints) {
             final double availableHeight = constraints.maxHeight;
-            // The non-list height is:
-            // TableHeader: 42, Divider: 1. Total = 43
-            final double availableListHeight = availableHeight - 43;
-            final double listUsableHeight = availableListHeight - 8.0;
-            final int maxRowsThatFit = !availableHeight.isFinite
-                ? 6
-                : listUsableHeight <= 0
-                    ? 1
-                    : (listUsableHeight / (MeloListMetrics.rowHeight + 1))
-                        .floor()
-                        .clamp(1, 10000);
 
             return favorites.when(
-              loading: () => _FavoritesLoadingState(
-                skeletonCount: maxRowsThatFit,
-              ),
+              loading: () {
+                // Silent refresh: show cached data from repository (app-lifetime).
+                if (cached != null && cached.isNotEmpty) {
+                  return _buildTrackList(cached, isInitialRender: false);
+                }
+                return _buildSkeleton(availableHeight);
+              },
               error: (error, _) => MeloErrorState(
                 message: '喜欢列表加载失败：$error',
                 onRetry: () => ref.invalidate(allFavoritesProvider),
               ),
               data: (tracks) {
                 final visible = _filterAndSort(tracks);
-                if (visible.isEmpty) {
-                  return const Column(
-                    children: [
-                      _FavoritesTableHeader(),
-                      Divider(height: 1, color: MeloColors.border),
-                      Expanded(
-                        child: MeloEmptyState(
-                          icon: Icons.favorite_border_rounded,
-                          title: '没有找到匹配的喜欢歌曲',
-                          subtitle: '换一个关键词，或切换到其他音乐来源试试。',
-                        ),
-                      ),
-                    ],
-                  );
-                }
-
-                return Column(
-                  children: [
-                    const _FavoritesTableHeader(),
-                    const Divider(height: 1, color: MeloColors.border),
-                    Expanded(
-                      child: Scrollbar(
-                        controller: _scrollController,
-                        child: ListView.separated(
-                          controller: _scrollController,
-                          physics: const ClampingScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          itemCount: visible.length,
-                          separatorBuilder: (_, __) => const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Divider(height: 1, color: MeloColors.border),
-                          ),
-                          itemBuilder: (context, index) => _FavoriteRow(
-                            index: index + 1,
-                            track: visible[index],
-                            providerId: widget.selectedProviderId,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
+                final isFirst = !_hasAnimatedListEverRun;
+                if (isFirst) _hasAnimatedListEverRun = true;
+                return _buildTrackList(visible, isInitialRender: isFirst);
               },
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildSkeleton(double availableHeight) {
+    final double availableListHeight = availableHeight - 43;
+    final double listUsableHeight = availableListHeight - 8.0;
+    final int maxRowsThatFit = !availableHeight.isFinite
+        ? 6
+        : listUsableHeight <= 0
+            ? 1
+            : (listUsableHeight / (MeloListMetrics.rowHeight + 1))
+                .floor()
+                .clamp(1, 10000);
+    return _FavoritesLoadingState(skeletonCount: maxRowsThatFit);
+  }
+
+  Widget _buildTrackList(List<UnifiedFavoriteTrack> tracks, {required bool isInitialRender}) {
+    if (tracks.isEmpty) {
+      return const Column(
+        children: [
+          _FavoritesTableHeader(),
+          Divider(height: 1, color: MeloColors.border),
+          Expanded(
+            child: MeloEmptyState(
+              icon: Icons.favorite_border_rounded,
+              title: '没有找到匹配的喜欢歌曲',
+              subtitle: '换一个关键词，或切换到其他音乐来源试试。',
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        const _FavoritesTableHeader(),
+        const Divider(height: 1, color: MeloColors.border),
+        Expanded(
+          child: Scrollbar(
+            controller: _scrollController,
+            child: isInitialRender
+                ? ListView.separated(
+                    controller: _scrollController,
+                    physics: const ClampingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: tracks.length,
+                    separatorBuilder: (_, __) => const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Divider(height: 1, color: MeloColors.border),
+                    ),
+                    itemBuilder: (context, index) => _FavoriteRow(
+                      index: index + 1,
+                      track: tracks[index],
+                      providerId: widget.selectedProviderId,
+                    ),
+                  )
+                : _SilentRefreshList(
+                    tracks: tracks,
+                    providerId: widget.selectedProviderId,
+                    scrollController: _scrollController,
+                  ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -152,6 +172,150 @@ class _FavoritesLibraryPanelState extends ConsumerState<_FavoritesLibraryPanel> 
         break;
     }
     return sorted;
+  }
+}
+
+/// AnimatedList wrapper that applies diff-based insert/remove animations
+/// when [tracks] changes, enabling silent refresh with visual transitions.
+///
+/// Only handles pure additions and removals (the common case for favorites).
+/// Sort/query/filter changes fall through to a non-animated rebuild.
+class _SilentRefreshList extends StatefulWidget {
+  const _SilentRefreshList({
+    required this.tracks,
+    required this.providerId,
+    required this.scrollController,
+  });
+
+  final List<UnifiedFavoriteTrack> tracks;
+  final String? providerId;
+  final ScrollController scrollController;
+
+  @override
+  State<_SilentRefreshList> createState() => _SilentRefreshListState();
+}
+
+class _SilentRefreshListState extends State<_SilentRefreshList> {
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  final List<UnifiedFavoriteTrack> _items = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _items.addAll(widget.tracks);
+  }
+
+  @override
+  void didUpdateWidget(_SilentRefreshList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.tracks, widget.tracks)) return;
+    _applyDiff(widget.tracks);
+  }
+
+  void _applyDiff(List<UnifiedFavoriteTrack> newTracks) {
+    final newIds = newTracks.map((t) => t.unifiedId).toList();
+    final oldIds = _items.map((t) => t.unifiedId).toList();
+    if (_listEquals(newIds, oldIds)) return;
+
+    // If items changed in more than simple add/remove (sort, filter, etc.),
+    // fall back to a non-animated rebuild.
+    final added = newIds.toSet().difference(oldIds.toSet());
+    final removed = oldIds.toSet().difference(newIds.toSet());
+    if (added.length + removed.length !=
+        (newIds.length - oldIds.length).abs()) {
+      // Complex change — rebuild silently.
+      _items
+        ..clear()
+        ..addAll(newTracks);
+      return;
+    }
+
+    // 1. Remove items (reverse order to keep indices valid).
+    for (int i = _items.length - 1; i >= 0; i--) {
+      if (!newIds.contains(_items[i].unifiedId)) {
+        final removed = _items[i];
+        _items.removeAt(i);
+        _listKey.currentState?.removeItem(
+          i,
+          (ctx, animation) => _AnimatedRemovingRow(
+            animation: animation,
+            track: removed,
+          ),
+          duration: const Duration(milliseconds: 300),
+        );
+      }
+    }
+
+    // 2. Insert new items.
+    final currentIds = _items.map((t) => t.unifiedId).toSet();
+    for (int i = 0; i < newTracks.length; i++) {
+      if (!currentIds.contains(newTracks[i].unifiedId)) {
+        _items.insert(i, newTracks[i]);
+        _listKey.currentState?.insertItem(
+          i,
+          duration: const Duration(milliseconds: 300),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedList.separated(
+      key: _listKey,
+      controller: widget.scrollController,
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      initialItemCount: _items.length,
+      separatorBuilder: (context, index, animation) => const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Divider(height: 1, color: MeloColors.border),
+      ),
+      removedSeparatorBuilder: (context, index, animation) => const SizedBox.shrink(),
+      itemBuilder: (context, index, animation) {
+        if (index >= _items.length) return const SizedBox.shrink();
+        return _FavoriteRow(
+          index: index + 1,
+          track: _items[index],
+          providerId: widget.providerId,
+        );
+      },
+    );
+  }
+
+  static bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+}
+
+/// Fade-out + height-collapse animation for removed rows.
+class _AnimatedRemovingRow extends StatelessWidget {
+  const _AnimatedRemovingRow({
+    required this.animation,
+    required this.track,
+  });
+
+  final Animation<double> animation;
+  final UnifiedFavoriteTrack track;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizeTransition(
+      sizeFactor: animation,
+      alignment: Alignment.topCenter,
+      child: FadeTransition(
+        opacity: animation,
+        child: _FavoriteRow(
+          index: 0,
+          track: track,
+          providerId: null,
+        ),
+      ),
+    );
   }
 }
 
