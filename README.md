@@ -13,13 +13,13 @@
 ## 📸 应用预览
 
 ### 1. 个性化推荐与歌单广场（多来源混合推荐）
-![MeloUnion 个性化推荐](docs/images/preview_recommendations.png)
+![MeloUnion 个性化推荐](docs/images/PixPin_2026-07-01_20-00-35.png)
 
 ### 2. 「全部喜欢」跨平台喜欢歌曲聚合视图
-![MeloUnion 全部喜欢](docs/images/preview_favorites.png)
+![MeloUnion 全部喜欢](docs/images/PixPin_2026-07-01_20-01-23.png)
 
 ### 3. 沉浸式唱片机全屏播放器（歌词与播放控制）
-![MeloUnion 全屏播放器](docs/images/preview_player.png)
+![MeloUnion 全屏播放器](docs/images/PixPin_2026-07-01_20-01-54.png)
 
 ---
 
