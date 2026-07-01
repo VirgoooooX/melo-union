@@ -5,12 +5,14 @@ class ProviderTabs extends StatelessWidget {
     required this.items,
     required this.selectedId,
     required this.onSelected,
+    this.onMorePressed,
     super.key,
   });
 
   final List<ProviderTabItem> items;
   final String selectedId;
   final ValueChanged<String> onSelected;
+  final VoidCallback? onMorePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +35,13 @@ class ProviderTabs extends StatelessWidget {
         itemBuilder: (context, index) => _ProviderTabButton(
           item: items[index],
           selected: items[index].id == selectedId,
-          onSelected: onSelected,
+          onSelected: (id) {
+            if (id == 'more' && onMorePressed != null) {
+              onMorePressed!();
+            } else {
+              onSelected(id);
+            }
+          },
         ),
       ),
     );

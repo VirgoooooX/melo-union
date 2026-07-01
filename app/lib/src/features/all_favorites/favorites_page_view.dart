@@ -59,14 +59,12 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
           _FavoritesTopRail(
             tabs: tabs,
             selectedId: selected,
-            onSelected: (value) {
-              if (value == 'more') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('后续接入的平台会在这里显示。')),
-                );
-                return;
-              }
-              setState(() => _selectedTab = value);
+            onSelected: (value) => setState(() => _selectedTab = value),
+            onMorePressed: () {
+              MeloSnackbar.show(
+                context: context,
+                message: '后续接入的平台会在这里显示。',
+              );
             },
           ),
           const SizedBox(height: 16),
@@ -134,11 +132,13 @@ class _FavoritesTopRail extends StatelessWidget {
     required this.tabs,
     required this.selectedId,
     required this.onSelected,
+    this.onMorePressed,
   });
 
   final List<ProviderTabItem> tabs;
   final String selectedId;
   final ValueChanged<String> onSelected;
+  final VoidCallback? onMorePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +148,7 @@ class _FavoritesTopRail extends StatelessWidget {
         items: tabs,
         selectedId: selectedId,
         onSelected: onSelected,
+        onMorePressed: onMorePressed,
       ),
     );
   }

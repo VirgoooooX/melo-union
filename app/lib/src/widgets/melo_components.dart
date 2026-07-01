@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider_contract/provider_contract.dart';
@@ -14,6 +15,13 @@ abstract final class MeloListMetrics {
   static const actionColumnWidth = 84.0;
   static const rowHorizontalPadding = 16.0;
 }
+
+/// Shared headers for artwork image requests across music providers.
+const meloArtworkHeaders = <String, String>{
+  'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Referer': 'https://music.163.com',
+};
 
 class MeloInteractiveRow extends StatefulWidget {
   const MeloInteractiveRow({
@@ -111,11 +119,7 @@ class MeloTrackCover extends StatelessWidget {
             width: size,
             height: size,
             fit: BoxFit.cover,
-            headers: const {
-              'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              'Referer': 'https://music.163.com',
-            },
+            headers: meloArtworkHeaders,
             errorBuilder: (_, __, ___) => _placeholder(),
           ),
         ),
@@ -147,6 +151,201 @@ class MeloTrackCover extends StatelessWidget {
         color: Colors.white,
         size: isActive ? size * .42 : size * .48,
       ),
+    );
+  }
+}
+
+/// Standalone artwork placeholder with deterministic HSL gradient.
+///
+/// Use across the app as a consistent fallback when artwork URL is
+/// missing or fails to load. Color is derived from [seed] so the same
+/// track always gets the same hue.
+class MeloArtworkPlaceholder extends StatelessWidget {
+  const MeloArtworkPlaceholder({
+    required this.seed,
+    this.size = MeloListMetrics.trackCoverSize,
+    this.borderRadius,
+    super.key,
+  });
+
+  final String seed;
+  final double size;
+  final BorderRadius? borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final hue = seed.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius ?? MeloRadii.sm,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            HSLColor.fromAHSL(1, hue.toDouble(), .54, .62).toColor(),
+            HSLColor.fromAHSL(1, (hue + 48) % 360, .54, .40).toColor(),
+          ],
+        ),
+      ),
+      child: const Icon(Icons.music_note_rounded, color: Colors.white),
+    );
+  }
+}
+
+/// Standardized empty state view — icon, title, optional subtitle.
+class MeloEmptyState extends StatelessWidget {
+  const MeloEmptyState({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: const BoxDecoration(
+              color: MeloColors.primary50,
+              borderRadius: MeloRadii.lg,
+            ),
+            child: Icon(icon, color: MeloColors.primary700, size: 28),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              subtitle!,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: MeloColors.textSecondary),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Standardized error state — message with optional retry button.
+class MeloErrorState extends StatelessWidget {
+  const MeloErrorState({
+    required this.message,
+    this.onRetry,
+    super.key,
+  });
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 280,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: MeloColors.textTertiary,
+              size: 34,
+            ),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            if (onRetry != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('重试'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Play/pause button with built-in starting spinner and completed-handling.
+///
+/// Wraps [FilledButton] with [CircleBorder]. Shows a [CircularProgressIndicator]
+/// when [starting] is true, play/pause icon otherwise. When [completed] is true,
+/// pressing the button triggers [onCompletedTap] (defaults to seek-to-zero +
+/// play) instead of [onPressed].
+class MeloPlayButton extends StatelessWidget {
+  const MeloPlayButton({
+    required this.isPlaying,
+    required this.isStarting,
+    required this.isCompleted,
+    required this.onPressed,
+    this.onCompletedTap,
+    this.enabled = true,
+    this.size = 42,
+    this.backgroundColor,
+    this.foregroundColor,
+    super.key,
+  });
+
+  final bool isPlaying;
+  final bool isStarting;
+  final bool isCompleted;
+  final VoidCallback onPressed;
+  final VoidCallback? onCompletedTap;
+  final bool enabled;
+  final double size;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      onPressed: enabled
+          ? (isCompleted
+              ? (onCompletedTap ?? onPressed)
+              : onPressed)
+          : null,
+      style: FilledButton.styleFrom(
+        fixedSize: Size.square(size),
+        shape: const CircleBorder(),
+        padding: EdgeInsets.zero,
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+      ),
+      child: isStarting
+          ? SizedBox.square(
+              dimension: size * 0.42,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: foregroundColor ?? Colors.white,
+              ),
+            )
+          : Icon(
+              isPlaying && !isCompleted
+                  ? Icons.pause_rounded
+                  : Icons.play_arrow_rounded,
+              size: size * 0.48,
+            ),
     );
   }
 }
@@ -340,35 +539,269 @@ String meloProviderLabel(ProviderId id) {
 /// White card with teal accent bar, styled via [SnackBarThemeData]
 /// in [MeloTheme]. Hides any current SnackBar first to prevent stacking.
 abstract final class MeloSnackbar {
+  static OverlayEntry? _activeEntry;
+  static Timer? _activeTimer;
+
   static void show({
     required BuildContext context,
     required String message,
     Duration duration = const Duration(seconds: 2),
   }) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Container(
-                width: 3,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: MeloColors.primary600,
-                  borderRadius: BorderRadius.circular(2),
+    _activeTimer?.cancel();
+    if (_activeEntry != null) {
+      try {
+        _activeEntry?.remove();
+      } catch (_) {}
+      _activeEntry = null;
+    }
+
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) return;
+
+    final entry = OverlayEntry(
+      builder: (context) => _MeloToastWidget(
+        message: message,
+        duration: duration,
+        onDismiss: () {
+          if (_activeEntry != null) {
+            try {
+              _activeEntry?.remove();
+            } catch (_) {}
+            _activeEntry = null;
+          }
+        },
+      ),
+    );
+
+    _activeEntry = entry;
+    overlay.insert(entry);
+  }
+}
+
+class _MeloToastWidget extends StatefulWidget {
+  const _MeloToastWidget({
+    required this.message,
+    required this.duration,
+    required this.onDismiss,
+  });
+
+  final String message;
+  final Duration duration;
+  final VoidCallback onDismiss;
+
+  @override
+  State<_MeloToastWidget> createState() => _MeloToastWidgetState();
+}
+
+class _MeloToastWidgetState extends State<_MeloToastWidget>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacityAnimation;
+  late final Animation<Offset> _slideAnimation;
+  Timer? _dismissTimer;
+  bool _isDismissed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, -0.4),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+
+    _controller.forward();
+
+    _dismissTimer = Timer(widget.duration, _dismiss);
+  }
+
+  void _dismiss() {
+    if (_isDismissed || !mounted) return;
+    _isDismissed = true;
+    _dismissTimer?.cancel();
+    _controller.reverse().then((_) {
+      if (mounted) {
+        widget.onDismiss();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _dismissTimer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: MediaQuery.paddingOf(context).top + 16,
+      left: 0,
+      right: 0,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: FadeTransition(
+          opacity: _opacityAnimation,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Material(
+              color: Colors.transparent,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: _dismiss,
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      maxWidth: 420,
+                      minWidth: 120,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.black.withValues(alpha: .06), width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .08),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      widget.message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: MeloSpacing.sm),
-              Expanded(
-                child: Text(message),
-              ),
-            ],
+            ),
           ),
-          duration: duration,
         ),
-      );
+      ),
+    );
   }
+}
+
+/// Standardized three-action track more menu (play next / add to playlist / download).
+///
+/// Use in any track row to provide consistent actions and feedback.
+/// Pass [addToPlaylistDialog] to enable the "add to playlist" action; when
+/// omitted the menu item shows a placeholder SnackBar.
+class MeloTrackMoreMenu extends ConsumerWidget {
+  const MeloTrackMoreMenu({
+    required this.track,
+    this.addToPlaylistDialog,
+    super.key,
+  });
+
+  final SourceTrack track;
+  final Widget? addToPlaylistDialog;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.read(demoRepositoryProvider);
+    return PopupMenuButton<_TrackMenuAction>(
+      tooltip: '更多操作',
+      icon: const Icon(Icons.more_horiz_rounded, size: 20),
+      offset: const Offset(0, 42),
+      shape: const RoundedRectangleBorder(borderRadius: MeloRadii.md),
+      onSelected: (action) async {
+        if (action == _TrackMenuAction.playNext) {
+          repository.enqueueTrack(track);
+          MeloSnackbar.show(
+            context: context,
+            message: '已添加到播放队列末尾。',
+          );
+          return;
+        }
+        if (action == _TrackMenuAction.addToPlaylist) {
+          if (addToPlaylistDialog != null) {
+            await showDialog<void>(
+              context: context,
+              builder: (_) => addToPlaylistDialog!,
+            );
+          } else {
+            MeloSnackbar.show(
+              context: context,
+              message: '加入本地歌单操作将在下个交互迭代接入。',
+            );
+          }
+          return;
+        }
+        repository.addDownloadTask(track);
+        MeloSnackbar.show(
+          context: context,
+          message: '已创建下载任务。',
+        );
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: _TrackMenuAction.playNext,
+          child: _MeloTrackMenuItem(
+            icon: Icons.queue_music_rounded,
+            label: '加入播放队列',
+          ),
+        ),
+        PopupMenuItem(
+          value: _TrackMenuAction.addToPlaylist,
+          child: const _MeloTrackMenuItem(
+            icon: Icons.playlist_add_rounded,
+            label: '加入本地歌单',
+          ),
+        ),
+        PopupMenuItem(
+          value: _TrackMenuAction.download,
+          enabled: track.isDownloadable,
+          child: _MeloTrackMenuItem(
+            icon: track.isDownloadable
+                ? Icons.download_rounded
+                : Icons.block_rounded,
+            label: track.isDownloadable ? '下载' : '当前来源不支持下载',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+enum _TrackMenuAction { playNext, addToPlaylist, download }
+
+class _MeloTrackMenuItem extends StatelessWidget {
+  const _MeloTrackMenuItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 10),
+          Text(label),
+        ],
+      );
 }
 
 /// Standardized favorite/unfavorite heart button.

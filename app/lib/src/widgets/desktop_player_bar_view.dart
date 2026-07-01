@@ -206,32 +206,16 @@ class _TransportControls extends StatelessWidget {
             final completed =
                 state?.processingState == ProcessingState.completed;
             final starting = repository.isPlaybackStarting && !completed;
-            return FilledButton(
-              onPressed: current == null
-                  ? null
-                  : completed
-                      ? () => repository.seek(Duration.zero).then(
-                            (_) => repository.togglePlayPause(),
-                          )
-                      : repository.togglePlayPause,
-              style: FilledButton.styleFrom(
-                fixedSize: const Size.square(42),
-                shape: const CircleBorder(),
-                padding: EdgeInsets.zero,
-              ),
-              child: starting
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Icon(
-                      playing && !completed
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
-                    ),
+            return MeloPlayButton(
+              isPlaying: playing,
+              isStarting: starting,
+              isCompleted: completed,
+              enabled: current != null,
+              size: 42,
+              onPressed: repository.togglePlayPause,
+              onCompletedTap: () => repository.seek(Duration.zero).then(
+                    (_) => repository.togglePlayPause(),
+                  ),
             );
           },
         ),
@@ -425,32 +409,15 @@ class _PlayerArtwork extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          headers: const {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://music.163.com',
-          },
-          errorBuilder: (_, __, ___) => _buildPlaceholder(),
+          headers: meloArtworkHeaders,
+          errorBuilder: (_, __, ___) => MeloArtworkPlaceholder(
+            seed: seed,
+            size: size,
+          ),
         ),
       );
     }
-    return _buildPlaceholder();
-  }
-
-  Widget _buildPlaceholder() {
-    final hue = seed.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: MeloRadii.sm,
-        gradient: LinearGradient(colors: [
-          HSLColor.fromAHSL(1, hue.toDouble(), .55, .62).toColor(),
-          HSLColor.fromAHSL(1, (hue + 50) % 360, .56, .38).toColor()
-        ]),
-      ),
-      child: const Icon(Icons.graphic_eq_rounded, color: Colors.white),
-    );
+    return MeloArtworkPlaceholder(seed: seed, size: size);
   }
 }
 

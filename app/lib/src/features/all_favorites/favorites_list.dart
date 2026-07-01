@@ -61,7 +61,7 @@ class _FavoritesLibraryPanelState extends ConsumerState<_FavoritesLibraryPanel> 
               loading: () => _FavoritesLoadingState(
                 skeletonCount: maxRowsThatFit,
               ),
-              error: (error, _) => _FavoritesErrorState(
+              error: (error, _) => MeloErrorState(
                 message: '喜欢列表加载失败：$error',
                 onRetry: () => ref.invalidate(allFavoritesProvider),
               ),
@@ -72,7 +72,13 @@ class _FavoritesLibraryPanelState extends ConsumerState<_FavoritesLibraryPanel> 
                     children: [
                       _FavoritesTableHeader(),
                       Divider(height: 1, color: MeloColors.border),
-                      Expanded(child: _FavoritesEmptyState()),
+                      Expanded(
+                        child: MeloEmptyState(
+                          icon: Icons.favorite_border_rounded,
+                          title: '没有找到匹配的喜欢歌曲',
+                          subtitle: '换一个关键词，或切换到其他音乐来源试试。',
+                        ),
+                      ),
                     ],
                   );
                 }
@@ -332,82 +338,6 @@ class _SkeletonBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: MeloColors.border.withValues(alpha: .55),
         borderRadius: radius,
-      ),
-    );
-  }
-}
-
-class _FavoritesEmptyState extends StatelessWidget {
-  const _FavoritesEmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: const BoxDecoration(
-              color: MeloColors.primary50,
-              borderRadius: MeloRadii.lg,
-            ),
-            child: const Icon(
-              Icons.favorite_border_rounded,
-              color: MeloColors.primary700,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '没有找到匹配的喜欢歌曲',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '换一个关键词，或切换到其他音乐来源试试。',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: MeloColors.textSecondary,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FavoritesErrorState extends StatelessWidget {
-  const _FavoritesErrorState({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 280,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.cloud_off_rounded,
-              color: MeloColors.textTertiary,
-              size: 34,
-            ),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('重试'),
-            ),
-          ],
-        ),
       ),
     );
   }

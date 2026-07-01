@@ -15,12 +15,6 @@ import 'lyrics_provider.dart';
 import 'melo_components.dart';
 import 'right_sidebar.dart';
 
-const _artworkHeaders = {
-  'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Referer': 'https://music.163.com',
-};
-
 Future<void> showMeloFullScreenPlayer(
   BuildContext context, {
   RightSidebarMode initialMode = RightSidebarMode.lyrics,
@@ -240,7 +234,7 @@ class _DynamicBackdrop extends StatelessWidget {
                         track!.artwork!.toString(),
                         fit: BoxFit.cover,
                         filterQuality: FilterQuality.low,
-                        headers: _artworkHeaders,
+                        headers: meloArtworkHeaders,
                         errorBuilder: (_, __, ___) =>
                             _BackdropPlaceholder(seed: track?.title ?? 'melo'),
                       ),
@@ -969,7 +963,7 @@ class _LargeArtwork extends StatelessWidget {
         child: Image.network(
           artwork.toString(),
           fit: BoxFit.cover,
-          headers: _artworkHeaders,
+          headers: meloArtworkHeaders,
           errorBuilder: (_, __, ___) => _ArtworkPlaceholder(seed: track.title),
         ),
       );
@@ -1659,30 +1653,17 @@ class _FullscreenTransport extends StatelessWidget {
             final completed =
                 state?.processingState == ProcessingState.completed;
             final starting = repository.isPlaybackStarting && !completed;
-            return FilledButton(
-              onPressed: completed
-                  ? () => repository.seek(Duration.zero).then(
-                        (_) => repository.togglePlayPause(),
-                      )
-                  : repository.togglePlayPause,
-              style: FilledButton.styleFrom(
-                fixedSize: const Size.square(68),
-                shape: const CircleBorder(),
-                padding: EdgeInsets.zero,
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF0A0E14),
-              ),
-              child: starting
-                  ? const SizedBox.square(
-                      dimension: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(
-                      playing && !completed
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
-                      size: 38,
-                    ),
+            return MeloPlayButton(
+              isPlaying: playing,
+              isStarting: starting,
+              isCompleted: completed,
+              size: 68,
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF0A0E14),
+              onPressed: repository.togglePlayPause,
+              onCompletedTap: () => repository.seek(Duration.zero).then(
+                    (_) => repository.togglePlayPause(),
+                  ),
             );
           },
         ),

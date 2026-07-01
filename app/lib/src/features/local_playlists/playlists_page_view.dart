@@ -48,15 +48,16 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
             items: tabs,
             selectedId: selected,
             onSelected: (id) {
-              if (id == 'more') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('后续 Provider 歌单会显示在这里。')));
-              } else {
-                setState(() {
-                  _selectedTab = id;
-                  _selectedRemotePlaylistId = null;
-                });
-              }
+              setState(() {
+                _selectedTab = id;
+                _selectedRemotePlaylistId = null;
+              });
+            },
+            onMorePressed: () {
+              MeloSnackbar.show(
+                context: context,
+                message: '后续 Provider 歌单会显示在这里。',
+              );
             },
           ),
           const SizedBox(height: 16),

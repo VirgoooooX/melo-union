@@ -19,7 +19,7 @@ class _SearchResults extends ConsumerWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('搜索失败：${snapshot.error}'));
+          return MeloErrorState(message: '搜索失败：${snapshot.error}');
         }
         final groups = snapshot.data ?? const <ProviderSearchResults>[];
         final filtered = selectedSource == 'all'
@@ -180,27 +180,7 @@ class _SearchTrackRow extends ConsumerWidget {
             ),
           ),
           MeloFavoriteButton(track: track),
-          AnimatedOpacity(
-            duration: const Duration(milliseconds: 120),
-            opacity: hovered || selected ? 1 : 0,
-            child: IgnorePointer(
-              ignoring: !hovered && !selected,
-              child: PopupMenuButton<String>(
-                tooltip: '更多',
-                icon: const Icon(Icons.more_horiz_rounded, size: 20),
-                onSelected: (value) {
-                  if (value == 'playlist') {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('加入本地歌单操作将在下个交互迭代接入。')),
-                    );
-                  }
-                },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'playlist', child: Text('加入本地歌单')),
-                ],
-              ),
-            ),
-          ),
+          MeloTrackMoreMenu(track: track),
         ],
       ),
     );

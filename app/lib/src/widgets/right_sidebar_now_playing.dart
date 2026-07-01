@@ -120,16 +120,19 @@ class _NowPlayingCard extends ConsumerWidget {
                     child: Image.network(
                       track.artwork!.toString(),
                       fit: BoxFit.cover,
-                      headers: const {
-                        'User-Agent':
-                            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Referer': 'https://music.163.com',
-                      },
-                      errorBuilder: (_, __, ___) =>
-                          _buildPlaceholder(track.title),
+                      headers: meloArtworkHeaders,
+                      errorBuilder: (_, __, ___) => MeloArtworkPlaceholder(
+                        seed: track.title,
+                        size: 96,
+                        borderRadius: MeloRadii.md,
+                      ),
                     ),
                   )
-                : _buildPlaceholder(track.title),
+                : MeloArtworkPlaceholder(
+                    seed: track.title,
+                    size: 96,
+                    borderRadius: MeloRadii.md,
+                  ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -236,23 +239,6 @@ class _StatusPill extends StatelessWidget {
           ],
         ),
       );
-}
-
-Widget _buildPlaceholder(String seed) {
-  final hue = seed.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
-  return Container(
-    width: double.infinity,
-    decoration: BoxDecoration(
-      borderRadius: MeloRadii.md,
-      gradient: LinearGradient(
-        colors: [
-          HSLColor.fromAHSL(1, hue.toDouble(), .52, .64).toColor(),
-          HSLColor.fromAHSL(1, (hue + 42) % 360, .54, .42).toColor(),
-        ],
-      ),
-    ),
-    child: const Icon(Icons.graphic_eq_rounded, size: 54, color: Colors.white),
-  );
 }
 
 class LyricLine {

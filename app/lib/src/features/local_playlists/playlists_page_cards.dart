@@ -121,7 +121,7 @@ class _RemotePlaylistsPanelState extends ConsumerState<_RemotePlaylistsPanel> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('歌单加载失败：${snapshot.error}'));
+          return MeloErrorState(message: '歌单加载失败：${snapshot.error}');
         }
         final playlists = snapshot.data ?? const [];
         if (playlists.isEmpty) {
@@ -243,7 +243,7 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('歌单曲目加载失败：${snapshot.error}'));
+          return MeloErrorState(message: '歌单曲目加载失败：${snapshot.error}');
         }
         final tracks = snapshot.data ?? const [];
         return Container(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../design/melo_tokens.dart';
+import 'melo_components.dart';
 
 class QueueTrackCover extends StatelessWidget {
   const QueueTrackCover({
@@ -55,35 +56,11 @@ class QueueTrackCover extends StatelessWidget {
         child: Image.network(
           imageUri.toString(),
           fit: BoxFit.cover,
-          headers: const {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://music.163.com',
-          },
-          errorBuilder: (_, __, ___) => _placeholder(),
+          headers: meloArtworkHeaders,
+          errorBuilder: (_, __, ___) => MeloArtworkPlaceholder(seed: seed),
         ),
       );
     }
-    return _placeholder();
-  }
-
-  Widget _placeholder() {
-    final hue = seed.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: MeloRadii.sm,
-        gradient: LinearGradient(
-          colors: [
-            HSLColor.fromAHSL(1, hue.toDouble(), .52, .64).toColor(),
-            HSLColor.fromAHSL(1, (hue + 42) % 360, .54, .42).toColor(),
-          ],
-        ),
-      ),
-      child: const Icon(
-        Icons.music_note_rounded,
-        color: Colors.white,
-        size: 20,
-      ),
-    );
+    return MeloArtworkPlaceholder(seed: seed);
   }
 }

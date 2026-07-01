@@ -115,14 +115,12 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
           ProviderTabs(
             items: tabs,
             selectedId: selected,
-            onSelected: (id) {
-              if (id == 'more') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('后续接入的推荐来源会显示在这里。')),
-                );
-                return;
-              }
-              setState(() => _selectedProvider = id);
+            onSelected: (id) => setState(() => _selectedProvider = id),
+            onMorePressed: () {
+              MeloSnackbar.show(
+                context: context,
+                message: '后续接入的推荐来源会显示在这里。',
+              );
             },
           ),
           const SizedBox(height: 20),
@@ -191,8 +189,8 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                                 child: CircularProgressIndicator());
                           }
                           if (snapshot.hasError) {
-                            return Center(
-                                child: Text('推荐加载失败：${snapshot.error}'));
+                            return MeloErrorState(
+                                message: '推荐加载失败：${snapshot.error}');
                           }
                           final tracks = snapshot.data ?? const [];
                           if (tracks.isEmpty) {
@@ -556,9 +554,8 @@ void _showPlaylistSheet(
                 const Divider(height: 1, color: MeloColors.border),
                 Expanded(
                   child: switch (snapshot.connectionState) {
-                    ConnectionState.done when snapshot.hasError => Center(
-                        child: Text('歌单加载失败：${snapshot.error}'),
-                      ),
+                    ConnectionState.done when snapshot.hasError =>
+                      MeloErrorState(message: '歌单加载失败：${snapshot.error}'),
                     ConnectionState.done when tracks.isEmpty =>
                       const Center(child: Text('歌单暂无歌曲。')),
                     ConnectionState.done => ListView.separated(

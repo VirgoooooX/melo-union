@@ -126,14 +126,17 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
             SizedBox(
               width: 56,
               child: Center(
-                child: _TrackMoreMenu(track: primary),
+                child: MeloTrackMoreMenu(
+                  track: primary,
+                  addToPlaylistDialog: _AddToPlaylistDialog(track: primary),
+                ),
               ),
             ),
           ],
         );
-      },
-    );
-  }
+        },
+      );
+    }
 
   Future<void> _handleFavoriteTap(
     BuildContext context,
@@ -239,86 +242,7 @@ class _RowPlaybackIndicator extends StatelessWidget {
   }
 }
 
-class _TrackMoreMenu extends ConsumerWidget {
-  const _TrackMoreMenu({required this.track});
 
-  final SourceTrack track;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.read(demoRepositoryProvider);
-    return PopupMenuButton<_TrackMenuAction>(
-      tooltip: '更多操作',
-      icon: const Icon(Icons.more_horiz_rounded, size: 20),
-      offset: const Offset(0, 42),
-      shape: const RoundedRectangleBorder(borderRadius: MeloRadii.md),
-      onSelected: (action) async {
-        if (action == _TrackMenuAction.playNext) {
-          repository.enqueueTrack(track);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已添加到播放队列末尾。')),
-          );
-          return;
-        }
-        if (action == _TrackMenuAction.addToPlaylist) {
-          await showDialog<void>(
-            context: context,
-            builder: (context) => _AddToPlaylistDialog(track: track),
-          );
-          return;
-        }
-        repository.addDownloadTask(track);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已创建下载任务。')),
-        );
-      },
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: _TrackMenuAction.playNext,
-          child: _TrackMenuItem(
-            icon: Icons.queue_music_rounded,
-            label: '加入播放队列',
-          ),
-        ),
-        const PopupMenuItem(
-          value: _TrackMenuAction.addToPlaylist,
-          child: _TrackMenuItem(
-            icon: Icons.playlist_add_rounded,
-            label: '加入本地歌单',
-          ),
-        ),
-        PopupMenuItem(
-          value: _TrackMenuAction.download,
-          enabled: track.isDownloadable,
-          child: _TrackMenuItem(
-            icon: track.isDownloadable
-                ? Icons.download_rounded
-                : Icons.block_rounded,
-            label: track.isDownloadable ? '下载' : '当前来源不支持下载',
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-enum _TrackMenuAction { playNext, addToPlaylist, download }
-
-class _TrackMenuItem extends StatelessWidget {
-  const _TrackMenuItem({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 10),
-          Text(label),
-        ],
-      );
-}
 
 class _AddToPlaylistDialog extends ConsumerWidget {
   const _AddToPlaylistDialog({required this.track});
@@ -380,8 +304,9 @@ class _AddToPlaylistDialog extends ConsumerWidget {
                         playlistId: playlist.id,
                         track: track,
                       );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('已加入“${playlist.name}”。')),
+                      MeloSnackbar.show(
+                        context: context,
+                        message: '已加入“${playlist.name}”。',
                       );
                       Navigator.pop(context);
                     },
@@ -621,3 +546,5 @@ class _FavoriteSourceItem extends ConsumerWidget {
     );
   }
 }
+
+
