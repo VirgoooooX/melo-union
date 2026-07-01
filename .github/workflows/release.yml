@@ -25,9 +25,62 @@ permissions:
   contents: write
 
 jobs:
+  release-config:
+    name: Resolve release targets
+    runs-on: ubuntu-latest
+    outputs:
+      build_android: ${{ steps.config.outputs.build_android }}
+      build_windows: ${{ steps.config.outputs.build_windows }}
+      tag: ${{ steps.config.outputs.tag }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Resolve targets
+        id: config
+        shell: bash
+        run: |
+          # 1. Resolve release tag name
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.release_tag }}"
+          else
+            tag="${{ github.ref_name }}"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+          # Default builds to true
+          build_android="true"
+          build_windows="true"
+
+          # 2. Parse targets
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            build_android="${{ inputs.build_android }}"
+            build_windows="${{ inputs.build_windows }}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            # Fetch tag annotations
+            git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+            tag_message="$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)')"
+            
+            # Check annotation message
+            if grep -qi '^platform=windows$' <<< "$tag_message"; then
+              build_android="false"
+            elif grep -qi '^platform=android$' <<< "$tag_message"; then
+              build_windows="false"
+            # Fallback check of tag name suffix for backward compatibility
+            elif [[ "${GITHUB_REF_NAME}" == *"-windows" ]]; then
+              build_android="false"
+            elif [[ "${GITHUB_REF_NAME}" == *"-android" ]]; then
+              build_windows="false"
+            fi
+          fi
+
+          echo "build_android=${build_android}" >> "$GITHUB_OUTPUT"
+          echo "build_windows=${build_windows}" >> "$GITHUB_OUTPUT"
+
   build-android:
     name: Build Android APK
-    if: (github.event_name == 'push' && !endsWith(github.ref_name, '-windows')) || (github.event_name == 'workflow_dispatch' && inputs.build_android)
+    needs: release-config
+    if: needs.release-config.outputs.build_android == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -70,7 +123,8 @@ jobs:
 
   build-windows:
     name: Build Windows App
-    if: (github.event_name == 'push' && !endsWith(github.ref_name, '-android')) || (github.event_name == 'workflow_dispatch' && inputs.build_windows)
+    needs: release-config
+    if: needs.release-config.outputs.build_windows == 'true'
     runs-on: windows-latest
     steps:
       - name: Checkout Repository
@@ -123,9 +177,10 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-android, build-windows]
+    needs: [release-config, build-android, build-windows]
     if: |
       always() &&
+      needs.release-config.result == 'success' &&
       (needs.build-android.result == 'success' || needs.build-android.result == 'skipped') &&
       (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
       (needs.build-android.result == 'success' || needs.build-windows.result == 'success')
@@ -158,19 +213,10 @@ jobs:
       - name: Verify Artifacts
         run: ls -R ./dist
 
-      - name: Determine Release Tag
-        id: get_tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ inputs.release_tag }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.get_tag.outputs.tag }}
+          tag_name: ${{ needs.release-config.outputs.tag }}
           files: ./dist/*
           draft: false
           prerelease: false
