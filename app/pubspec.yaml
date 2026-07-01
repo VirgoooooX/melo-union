@@ -1,7 +1,7 @@
 name: melo_union_app
 description: Phase 1-5 Flutter MVP skeleton for MeloUnion.
 publish_to: none
-version: 0.1.0
+version: 0.1.0+1
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -33,6 +33,7 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   flutter_test:
     sdk: flutter
+  msix: ^3.16.0
 
 dependency_overrides:
   just_audio_windows:
@@ -40,3 +41,11 @@ dependency_overrides:
 
 flutter:
   uses-material-design: true
+
+msix_config:
+  display_name: MeloUnion
+  publisher_display_name: MeloUnion
+  identity_name: MeloUnion.MeloUnion
+  publisher: CN=MeloUnion
+  capabilities: internetClient
+  generate_signing_certificate: true
