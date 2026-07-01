@@ -173,9 +173,12 @@ abstract final class MeloTheme {
       ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: MeloColors.textPrimary,
-        contentTextStyle: TextStyle(color: Colors.white),
-        shape: RoundedRectangleBorder(borderRadius: MeloRadii.md),
+        backgroundColor: MeloColors.surface,
+        contentTextStyle: TextStyle(color: MeloColors.textPrimary),
+        shape: RoundedRectangleBorder(
+          borderRadius: MeloRadii.md,
+          side: BorderSide(color: MeloColors.border),
+        ),
       ),
     );
   }

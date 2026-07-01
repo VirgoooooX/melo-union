@@ -20,8 +20,8 @@ final demoRepositoryProvider = ChangeNotifierProvider<DemoRepository>(
 );
 
 final allFavoritesProvider = FutureProvider<List<UnifiedFavoriteTrack>>((ref) {
-  final repository = ref.read(demoRepositoryProvider);
-  return repository.loadAllFavorites();
+  ref.watch(demoRepositoryProvider.select((r) => r.favoritesVersion));
+  return ref.read(demoRepositoryProvider).loadAllFavorites();
 });
 
 enum PlaybackRepeatMode { off, all, one }
@@ -262,6 +262,9 @@ class DemoRepository extends ChangeNotifier {
   PlaybackRepeatMode _repeatMode = PlaybackRepeatMode.off;
 
   /// Incremented on login/logout/toggle to trigger [allFavoritesProvider] refresh.
+  int _favoritesVersion = 0;
+
+  int get favoritesVersion => _favoritesVersion;
 
   PlaybackQueueState get queue => playbackCoordinator.queueState;
 
@@ -477,7 +480,7 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggleFavorite({
+  Future<bool> toggleFavorite({
     required SourceTrack track,
     required bool liked,
   }) async {
@@ -509,7 +512,9 @@ class DemoRepository extends ChangeNotifier {
       favoritesOverrideRegistry.removeLikedAt(track.ref);
     }
     _persistSoon();
+    _favoritesVersion++;
     notifyListeners();
+    return liked;
   }
 
   void setProviderEnabled(ProviderId providerId, bool enabled) {

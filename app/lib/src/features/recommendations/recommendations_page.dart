@@ -214,10 +214,6 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                               itemBuilder: (context, index) {
                                 final track = tracks[index];
                                 final selected = currentRef == track.ref;
-                                final favoriteAvailability =
-                                    repository.favoriteWriteAvailability(
-                                  track.ref.providerId,
-                                );
                                 return MeloInteractiveRow(
                                   selected: selected,
                                   onDoubleTap: track.isPlayable
@@ -276,28 +272,7 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                                               ),
                                         ),
                                       ),
-                                      IconButton(
-                                        tooltip: favoriteAvailability.reason ??
-                                            (track.isFavorited ? '取消喜欢' : '喜欢'),
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: favoriteAvailability
-                                                .isEnabled
-                                            ? () => ref
-                                                .read(demoRepositoryProvider)
-                                                .toggleFavorite(
-                                                  track: track,
-                                                  liked: !track.isFavorited,
-                                                )
-                                            : null,
-                                        icon: Icon(
-                                          track.isFavorited
-                                              ? Icons.favorite_rounded
-                                              : Icons.favorite_border_rounded,
-                                          color: track.isFavorited
-                                              ? MeloColors.favorite
-                                              : MeloColors.textTertiary,
-                                        ),
-                                      ),
+                                      MeloFavoriteButton(track: track),
                                     ],
                                   ),
                                 );

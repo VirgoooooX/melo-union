@@ -127,8 +127,6 @@ class _SearchTrackRow extends ConsumerWidget {
     final currentRef = ref.watch(
       demoRepositoryProvider.select((r) => r.queue.current?.track.ref),
     );
-    final availability =
-        repository.favoriteWriteAvailability(track.ref.providerId);
     final selected = currentRef == track.ref;
     return MeloInteractiveRow(
       selected: selected,
@@ -181,36 +179,7 @@ class _SearchTrackRow extends ConsumerWidget {
                   ),
             ),
           ),
-          Tooltip(
-            message: availability.reason ?? (track.isFavorited ? '取消喜欢' : '喜欢'),
-            child: IconButton(
-              visualDensity: VisualDensity.compact,
-              onPressed: availability.isEnabled
-                  ? () async {
-                      try {
-                        await repository.toggleFavorite(
-                          track: track,
-                          liked: !track.isFavorited,
-                        );
-                      } on ProviderException catch (error) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(error.message)),
-                          );
-                        }
-                      }
-                    }
-                  : null,
-              icon: Icon(
-                track.isFavorited
-                    ? Icons.favorite_rounded
-                    : Icons.favorite_border_rounded,
-                color: track.isFavorited
-                    ? MeloColors.favorite
-                    : MeloColors.textTertiary,
-              ),
-            ),
-          ),
+          MeloFavoriteButton(track: track),
           AnimatedOpacity(
             duration: const Duration(milliseconds: 120),
             opacity: hovered || selected ? 1 : 0,

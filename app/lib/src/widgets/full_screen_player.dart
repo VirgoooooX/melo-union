@@ -1799,8 +1799,9 @@ class _FullscreenFavoriteButtonState
           widget.track.ref.providerId,
         );
         if (!availability.isEnabled) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(availability.reason ?? '此来源无法写回收藏。')),
+          MeloSnackbar.show(
+            context: context,
+            message: availability.reason ?? '此来源无法写回收藏。',
           );
           return;
         }
@@ -1812,12 +1813,13 @@ class _FullscreenFavoriteButtonState
             track: widget.track,
             liked: newLiked,
           );
-          ref.invalidate(allFavoritesProvider);
+          // allFavoritesProvider is auto-invalidated by the repository.
         } on ProviderException catch (error) {
           if (!mounted) return;
           setState(() => _liked = !newLiked);
-          ScaffoldMessenger.of(this.context).showSnackBar(
-            SnackBar(content: Text(error.message)),
+          MeloSnackbar.show(
+            context: this.context,
+            message: error.message,
           );
         }
       },

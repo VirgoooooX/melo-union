@@ -100,29 +100,27 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
             SizedBox(
               width: 64,
               child: Center(
-                child: IconButton(
-                  tooltip: variants.length > 1
-                      ? '管理多个来源的收藏状态'
-                      : hasFavorite
-                          ? '取消喜欢'
-                          : '喜欢',
-                  onPressed: () => _handleFavoriteTap(
-                    context,
-                    repository,
-                    variants,
-                  ),
-                  splashRadius: 20,
-                  visualDensity: VisualDensity.compact,
-                  icon: Icon(
-                    hasFavorite
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                    color: hasFavorite
-                        ? MeloColors.favorite
-                        : MeloColors.textTertiary,
-                    size: 21,
-                  ),
-                ),
+                child: variants.length > 1
+                    ? IconButton(
+                        tooltip: '管理多个来源的收藏状态',
+                        onPressed: () => _handleFavoriteTap(
+                          context,
+                          repository,
+                          variants,
+                        ),
+                        splashRadius: 20,
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          hasFavorite
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          color: hasFavorite
+                              ? MeloColors.favorite
+                              : MeloColors.textTertiary,
+                          size: 21,
+                        ),
+                      )
+                    : MeloFavoriteButton(track: primary),
               ),
             ),
             SizedBox(
@@ -150,47 +148,6 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
           variants: variants,
         ),
       );
-      return;
-    }
-
-    final source = variants.first;
-    final availability =
-        repository.favoriteWriteAvailability(source.ref.providerId);
-    if (!availability.isEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(availability.reason ?? '此来源无法写回收藏。')),
-      );
-      return;
-    }
-    await _toggleSingle(context, repository, source);
-  }
-
-  Future<void> _toggleSingle(
-    BuildContext context,
-    DemoRepository repository,
-    SourceTrack source,
-  ) async {
-    final newLiked = !source.isFavorited;
-    try {
-      await repository.toggleFavorite(
-        track: source,
-        liked: newLiked,
-      );
-      ref.invalidate(allFavoritesProvider);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(newLiked ? '已收藏' : '已取消收藏'),
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
-    } on ProviderException catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
-      }
     }
   }
 }
@@ -635,9 +592,6 @@ class _FavoriteSourceItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(demoRepositoryProvider);
     final liveVariant = repository.sourceTrackByRef(variant.ref) ?? variant;
-    final availability =
-        repository.favoriteWriteAvailability(liveVariant.ref.providerId);
-    final canWrite = availability.isEnabled;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -658,41 +612,9 @@ class _FavoriteSourceItem extends ConsumerWidget {
                   ),
             ),
           ),
-          Tooltip(
-            message: canWrite
-                ? (liveVariant.isFavorited ? '取消喜欢' : '喜欢')
-                : availability.reason ?? '此来源无法写回收藏',
-            child: IconButton(
-              onPressed: canWrite
-                  ? () async {
-                      try {
-                        await repository.toggleFavorite(
-                          track: liveVariant,
-                          liked: !liveVariant.isFavorited,
-                        );
-                        ref.invalidate(allFavoritesProvider);
-                      } on ProviderException catch (error) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(error.message)),
-                          );
-                        }
-                      }
-                    }
-                  : null,
-              icon: Icon(
-                liveVariant.isFavorited
-                    ? Icons.favorite_rounded
-                    : canWrite
-                        ? Icons.favorite_border_rounded
-                        : Icons.lock_outline_rounded,
-                color: liveVariant.isFavorited
-                    ? MeloColors.favorite
-                    : canWrite
-                        ? MeloColors.textTertiary
-                        : MeloColors.textQuaternary,
-              ),
-            ),
+          MeloFavoriteButton(
+            track: liveVariant,
+            showSnackbar: false,
           ),
         ],
       ),

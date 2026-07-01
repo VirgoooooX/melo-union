@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider_contract/provider_contract.dart';
 
+import '../bootstrap/demo_repository.dart';
 import '../design/melo_tokens.dart';
 import '../presentation/provider_presentation.dart';
 
@@ -332,3 +334,157 @@ class MeloPlaylistCover extends StatelessWidget {
 String meloProviderLabel(ProviderId id) {
   return meloProviderPresentation(id).shortName;
 }
+
+/// Unified SnackBar helper using the Melo design system.
+///
+/// White card with teal accent bar, styled via [SnackBarThemeData]
+/// in [MeloTheme]. Hides any current SnackBar first to prevent stacking.
+abstract final class MeloSnackbar {
+  static void show({
+    required BuildContext context,
+    required String message,
+    Duration duration = const Duration(seconds: 2),
+  }) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Container(
+                width: 3,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: MeloColors.primary600,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: MeloSpacing.sm),
+              Expanded(
+                child: Text(message),
+              ),
+            ],
+          ),
+          duration: duration,
+        ),
+      );
+  }
+}
+
+/// Standardized favorite/unfavorite heart button.
+///
+/// - Optimistic local state: flips heart immediately on tap.
+/// - Calls [DemoRepository.toggleFavorite] which auto-invalidates [allFavoritesProvider].
+/// - Shows [MeloSnackbar] on success when [showSnackbar] is true;
+///   shows error SnackBar on failure regardless.
+/// - Reverts optimistic state on failure.
+/// - Always uses [MeloColors.favorite] (red) for the liked state.
+class MeloFavoriteButton extends ConsumerStatefulWidget {
+  const MeloFavoriteButton({
+    required this.track,
+    this.showSnackbar = true,
+    this.size = 21,
+    super.key,
+  });
+
+  final SourceTrack track;
+  final bool showSnackbar;
+  final double size;
+
+  @override
+  ConsumerState<MeloFavoriteButton> createState() =>
+      _MeloFavoriteButtonState();
+}
+
+class _MeloFavoriteButtonState extends ConsumerState<MeloFavoriteButton> {
+  bool _optimisticLiked = false;
+  ProviderTrackRef? _lastRef;
+
+  @override
+  void initState() {
+    super.initState();
+    _optimisticLiked = widget.track.isFavorited;
+    _lastRef = widget.track.ref;
+  }
+
+  @override
+  void didUpdateWidget(MeloFavoriteButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.track.ref != oldWidget.track.ref) {
+      _optimisticLiked = widget.track.isFavorited;
+      _lastRef = widget.track.ref;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Re-sync on every build if a new track object is passed
+    // (e.g. after allFavoritesProvider refresh).
+    if (widget.track.ref != _lastRef) {
+      _optimisticLiked = widget.track.isFavorited;
+      _lastRef = widget.track.ref;
+    }
+
+    final liked = _optimisticLiked;
+    final repository = ref.read(demoRepositoryProvider);
+    final availability =
+        repository.favoriteWriteAvailability(widget.track.ref.providerId);
+
+    return IconButton(
+      tooltip: availability.reason ?? (liked ? '取消喜欢' : '喜欢'),
+      visualDensity: VisualDensity.compact,
+      splashRadius: 20,
+      onPressed: availability.isEnabled
+          ? () => _toggle(context, repository, liked)
+          : null,
+      icon: Icon(
+        liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+        color: liked ? MeloColors.favorite : MeloColors.textTertiary,
+        size: widget.size,
+      ),
+    );
+  }
+
+  Future<void> _toggle(
+    BuildContext context,
+    DemoRepository repository,
+    bool currentLiked,
+  ) async {
+    final newLiked = !currentLiked;
+
+    // 1. Optimistic flip
+    setState(() => _optimisticLiked = newLiked);
+
+    try {
+      // 2. Persist — repo handles allFavoritesProvider invalidation
+      await repository.toggleFavorite(
+        track: widget.track,
+        liked: newLiked,
+      );
+
+      // 3. Success feedback
+      if (widget.showSnackbar && mounted) {
+        MeloSnackbar.show(
+          context: this.context,
+          message: newLiked ? '已收藏' : '已取消收藏',
+          duration: const Duration(seconds: 1),
+        );
+      }
+    } catch (error) {
+      // 4. Revert on failure — catches ProviderException, FormatException,
+      //    SocketException, TimeoutException, etc.
+      if (!mounted) return;
+      setState(() => _optimisticLiked = !newLiked);
+      if (widget.showSnackbar) {
+        final message = error is ProviderException
+            ? error.message
+            : '操作失败，请重试。';
+        MeloSnackbar.show(
+          context: this.context,
+          message: message,
+        );
+      }
+    }
+  }
+}
+

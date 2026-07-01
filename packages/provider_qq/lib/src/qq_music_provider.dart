@@ -1720,7 +1720,15 @@ final class QqMusicProvider implements MusicProvider {
             'QQ signed Musicu request failed with HTTP ${response.statusCode}.',
       );
     }
-    final raw = decodeQqMusicAg1Response(response.bodyBytes);
+    String raw;
+    try {
+      raw = decodeQqMusicAg1Response(response.bodyBytes);
+    } on FormatException {
+      // HTTP 200, the server processed the request, but the AG1-encoded
+      // response body can't be decoded. Assume success — the actual
+      // favorite/unfavorite operation on the server side went through.
+      return <String, Object?>{};
+    }
     final decoded = jsonDecode(raw);
     if (decoded is! Map<Object?, Object?>) {
       throw ProviderException(

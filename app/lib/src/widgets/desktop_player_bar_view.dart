@@ -24,7 +24,6 @@ class DesktopPlayerBar extends ConsumerWidget {
                 width: compact ? 226 : 276,
                 child: _CurrentTrackSummary(
                   current: current,
-                  repository: repository,
                 ),
               ),
               const SizedBox(width: MeloSpacing.md),
@@ -90,11 +89,9 @@ class DesktopPlayerBar extends ConsumerWidget {
 class _CurrentTrackSummary extends StatelessWidget {
   const _CurrentTrackSummary({
     required this.current,
-    required this.repository,
   });
 
   final SourceTrack? current;
-  final DemoRepository repository;
 
   @override
   Widget build(BuildContext context) {
@@ -162,97 +159,8 @@ class _CurrentTrackSummary extends StatelessWidget {
           ),
         ),
         const SizedBox(width: MeloSpacing.xs),
-        _FavoriteButton(track: track, repository: repository),
+        if (track != null) MeloFavoriteButton(track: track),
       ],
-    );
-  }
-}
-
-class _FavoriteButton extends ConsumerStatefulWidget {
-  const _FavoriteButton({
-    required this.track,
-    required this.repository,
-  });
-
-  final SourceTrack? track;
-  final DemoRepository repository;
-
-  @override
-  ConsumerState<_FavoriteButton> createState() => _FavoriteButtonState();
-}
-
-class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
-  bool _liked = false;
-  ProviderTrackRef? _lastRef;
-
-  @override
-  void initState() {
-    super.initState();
-    _syncFromWidget();
-  }
-
-  void _syncFromWidget() {
-    _liked = widget.track?.isFavorited ?? false;
-    _lastRef = widget.track?.ref;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Re-sync local state when a different track starts playing.
-    final currentRef = widget.track?.ref;
-    if (currentRef != _lastRef) {
-      _liked = widget.track?.isFavorited ?? false;
-      _lastRef = currentRef;
-    }
-
-    final liked = _liked;
-    return IconButton(
-      tooltip: liked ? '取消喜欢' : '喜欢',
-      visualDensity: VisualDensity.compact,
-      onPressed: widget.track == null
-          ? null
-          : () async {
-              final current = widget.track!;
-              final availability = widget.repository
-                  .favoriteWriteAvailability(current.ref.providerId);
-              if (!availability.isEnabled) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(availability.reason ?? '此来源无法写回收藏。')),
-                );
-                return;
-              }
-              final newLiked = !liked;
-              // Optimistic UI update — flip immediately.
-              setState(() => _liked = newLiked);
-              try {
-                await widget.repository.toggleFavorite(
-                  track: current,
-                  liked: newLiked,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(newLiked ? '已收藏' : '已取消收藏'),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                }
-                // Refresh "All Favorites" list on next read.
-                ref.invalidate(allFavoritesProvider);
-              } on ProviderException catch (error) {
-                if (context.mounted) {
-                  // Revert optimistic update on failure.
-                  setState(() => _liked = !newLiked);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(error.message)),
-                  );
-                }
-              }
-            },
-      icon: Icon(
-        liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-        color: liked ? MeloColors.primary600 : MeloColors.textTertiary,
-      ),
     );
   }
 }
