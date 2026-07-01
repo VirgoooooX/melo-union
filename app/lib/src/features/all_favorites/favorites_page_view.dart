@@ -51,6 +51,34 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
           data: (tracks) => _visibleTracks(tracks, selected).length,
           orElse: () => null,
         );
+    final isMobile = MediaQuery.sizeOf(context).width < 960;
+    if (isMobile) {
+      return _MobileAllFavoritesView(
+        tabs: tabs,
+        selected: selected,
+        visibleCount: visibleCount,
+        sort: _sort,
+        onTabSelected: (value) => setState(() => _selectedTab = value),
+        onSortSelected: (value) => setState(() => _sort = value),
+        onRefresh: () => ref.invalidate(allFavoritesProvider),
+        onMorePressed: () {
+          MeloSnackbar.show(
+            context: context,
+            message: '后续接入的平台会在这里显示。',
+          );
+        },
+        onPlayAll: () async {
+          final favorites = ref.read(allFavoritesProvider);
+          final tracks = favorites.maybeWhen(
+            data: (list) => _visibleTracks(list, selected),
+            orElse: () => const <UnifiedFavoriteTrack>[],
+          );
+          if (tracks.isNotEmpty) {
+            await repository.playUnifiedTracks(tracks);
+          }
+        },
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
@@ -124,6 +152,83 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
               .contains(_query);
       return providerMatch && queryMatch;
     }).toList(growable: false);
+  }
+}
+
+class _MobileAllFavoritesView extends StatelessWidget {
+  const _MobileAllFavoritesView({
+    required this.tabs,
+    required this.selected,
+    required this.visibleCount,
+    required this.sort,
+    required this.onTabSelected,
+    required this.onSortSelected,
+    required this.onRefresh,
+    required this.onPlayAll,
+    this.onMorePressed,
+  });
+
+  final List<ProviderTabItem> tabs;
+  final String selected;
+  final int? visibleCount;
+  final _FavoriteSort sort;
+  final ValueChanged<String> onTabSelected;
+  final ValueChanged<_FavoriteSort> onSortSelected;
+  final VoidCallback onRefresh;
+  final VoidCallback onPlayAll;
+  final VoidCallback? onMorePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () async => onRefresh(),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              child: ProviderTabs(
+                items: tabs,
+                selectedId: selected,
+                onSelected: onTabSelected,
+                onMorePressed: onMorePressed,
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+              child: Row(
+                children: [
+                  FilledButton.icon(
+                    onPressed: onPlayAll,
+                    icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                    label: Text(
+                      visibleCount == null ? '全部播放' : '全部播放（$visibleCount 首）',
+                    ),
+                    style: FilledButton.styleFrom(
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: MeloRadii.pill,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  _SortButton(sort: sort, onSelected: onSortSelected),
+                ],
+              ),
+            ),
+          ),
+          SliverFillRemaining(
+            hasScrollBody: true,
+            child: _MobileFavoritesLibrary(
+              selectedProviderId: selected == 'all' ? null : selected,
+              sort: sort,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -243,7 +348,8 @@ class _FavoritesToolbar extends StatelessWidget {
                 hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: MeloColors.textTertiary,
                     ),
-                contentPadding: const EdgeInsets.only(right: 12, top: 2, bottom: 2),
+                contentPadding:
+                    const EdgeInsets.only(right: 12, top: 2, bottom: 2),
               ),
             ),
           ),
@@ -309,6 +415,12 @@ class _SortButtonState extends State<_SortButton> {
       onSelected: widget.onSelected,
       offset: const Offset(0, 48),
       shape: RoundedRectangleBorder(borderRadius: MeloRadii.md),
+      popUpAnimationStyle: const AnimationStyle(
+        duration: Duration(milliseconds: 80),
+        reverseDuration: Duration(milliseconds: 60),
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
       itemBuilder: (context) => [
         for (final item in _FavoriteSort.values)
           PopupMenuItem(
@@ -316,7 +428,9 @@ class _SortButtonState extends State<_SortButton> {
             child: Row(
               children: [
                 Icon(
-                  item == widget.sort ? Icons.check_rounded : Icons.sort_rounded,
+                  item == widget.sort
+                      ? Icons.check_rounded
+                      : Icons.sort_rounded,
                   size: 18,
                   color: item == widget.sort
                       ? MeloColors.primary700

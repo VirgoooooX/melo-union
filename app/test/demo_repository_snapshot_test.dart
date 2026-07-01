@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:melo_union_app/src/bootstrap/demo_repository.dart';
+import 'package:melo_union_app/src/fakes/fake_music_provider.dart';
 import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
@@ -78,5 +79,47 @@ void main() {
     expect(exported.playbackQuality, AudioQuality.lossless);
     expect(exported.volume, closeTo(0.35, 0.001));
     expect(exported.favoritesOverrides.hiddenTracks, contains(ref));
+  });
+
+  test('DemoRepository reports playback issue and can retry current track',
+      () async {
+    final providerId = ProviderId('aurora_stream');
+    final track = SourceTrack(
+      ref: ProviderTrackRef(providerId: providerId, trackId: 'alpha_midnight'),
+      title: 'Midnight Signal',
+      artists: const ['Luna Park'],
+      duration: const Duration(minutes: 3, seconds: 10),
+      isFavorited: false,
+      isPlayable: true,
+    );
+    final repository = DemoRepository.seeded(
+      additionalProviders: [
+        FakeMusicProvider(
+          descriptor: ProviderDescriptor(
+            id: providerId,
+            displayName: 'Aurora Stream',
+            capabilities: const {ProviderCapability.resolvePlayback},
+          ),
+          profile: null,
+          seedTracks: [track],
+        ),
+      ],
+    );
+
+    await repository.playTrack(track);
+
+    expect(repository.hasPlaybackIssue, isTrue);
+    expect(repository.playbackIssue?.trackRef, track.ref);
+    expect(repository.playbackIssue?.title, '播放启动失败');
+
+    repository.dismissPlaybackIssue();
+    expect(repository.hasPlaybackIssue, isFalse);
+
+    await repository.retryCurrentPlayback();
+
+    expect(repository.hasPlaybackIssue, isTrue);
+    expect(repository.playbackIssue?.trackRef, track.ref);
+
+    repository.dispose();
   });
 }

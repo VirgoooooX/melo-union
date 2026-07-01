@@ -47,5 +47,7 @@ msix_config:
   publisher_display_name: MeloUnion
   identity_name: MeloUnion.MeloUnion
   publisher: CN=MeloUnion
+  logo_path: ../docs/logo-transparent.png
+  trim_logo: false
   capabilities: internetClient
   generate_signing_certificate: true

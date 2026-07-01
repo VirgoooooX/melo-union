@@ -321,9 +321,7 @@ class MeloPlayButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return FilledButton(
       onPressed: enabled
-          ? (isCompleted
-              ? (onCompletedTap ?? onPressed)
-              : onPressed)
+          ? (isCompleted ? (onCompletedTap ?? onPressed) : onPressed)
           : null,
       style: FilledButton.styleFrom(
         fixedSize: Size.square(size),
@@ -666,11 +664,13 @@ class _MeloToastWidgetState extends State<_MeloToastWidget>
                       maxWidth: 420,
                       minWidth: 120,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.black.withValues(alpha: .06), width: 1),
+                      border: Border.all(
+                          color: Colors.black.withValues(alpha: .06), width: 1),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: .08),
@@ -704,7 +704,7 @@ class _MeloToastWidgetState extends State<_MeloToastWidget>
   }
 }
 
-/// Standardized three-action track more menu (play next / add to playlist / download).
+/// Standardized track more menu (play next / add to playlist).
 ///
 /// Use in any track row to provide consistent actions and feedback.
 /// Pass [addToPlaylistDialog] to enable the "add to playlist" action; when
@@ -727,6 +727,12 @@ class MeloTrackMoreMenu extends ConsumerWidget {
       icon: const Icon(Icons.more_horiz_rounded, size: 20),
       offset: const Offset(0, 42),
       shape: const RoundedRectangleBorder(borderRadius: MeloRadii.md),
+      popUpAnimationStyle: const AnimationStyle(
+        duration: Duration(milliseconds: 80),
+        reverseDuration: Duration(milliseconds: 60),
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
       onSelected: (action) async {
         if (action == _TrackMenuAction.playNext) {
           repository.enqueueTrack(track);
@@ -750,11 +756,6 @@ class MeloTrackMoreMenu extends ConsumerWidget {
           }
           return;
         }
-        repository.addDownloadTask(track);
-        MeloSnackbar.show(
-          context: context,
-          message: '已创建下载任务。',
-        );
       },
       itemBuilder: (context) => [
         const PopupMenuItem(
@@ -771,22 +772,12 @@ class MeloTrackMoreMenu extends ConsumerWidget {
             label: '加入本地歌单',
           ),
         ),
-        PopupMenuItem(
-          value: _TrackMenuAction.download,
-          enabled: track.isDownloadable,
-          child: _MeloTrackMenuItem(
-            icon: track.isDownloadable
-                ? Icons.download_rounded
-                : Icons.block_rounded,
-            label: track.isDownloadable ? '下载' : '当前来源不支持下载',
-          ),
-        ),
       ],
     );
   }
 }
 
-enum _TrackMenuAction { playNext, addToPlaylist, download }
+enum _TrackMenuAction { playNext, addToPlaylist }
 
 class _MeloTrackMenuItem extends StatelessWidget {
   const _MeloTrackMenuItem({required this.icon, required this.label});
@@ -825,8 +816,7 @@ class MeloFavoriteButton extends ConsumerStatefulWidget {
   final double size;
 
   @override
-  ConsumerState<MeloFavoriteButton> createState() =>
-      _MeloFavoriteButtonState();
+  ConsumerState<MeloFavoriteButton> createState() => _MeloFavoriteButtonState();
 }
 
 class _MeloFavoriteButtonState extends ConsumerState<MeloFavoriteButton> {
@@ -909,9 +899,8 @@ class _MeloFavoriteButtonState extends ConsumerState<MeloFavoriteButton> {
       if (!mounted) return;
       setState(() => _optimisticLiked = !newLiked);
       if (widget.showSnackbar) {
-        final message = error is ProviderException
-            ? error.message
-            : '操作失败，请重试。';
+        final message =
+            error is ProviderException ? error.message : '操作失败，请重试。';
         MeloSnackbar.show(
           context: this.context,
           message: message,
@@ -920,4 +909,3 @@ class _MeloFavoriteButtonState extends ConsumerState<MeloFavoriteButton> {
     }
   }
 }
-

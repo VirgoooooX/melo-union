@@ -42,17 +42,19 @@ class RightSidebar extends ConsumerWidget {
                       children: [
                         Text(
                           '播放队列',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
                         ),
                         const SizedBox(width: 6),
                         Text(
                           '(${repository.queue.entries.length})',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: MeloColors.textSecondary,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: MeloColors.textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                         ),
                         const Spacer(),
                         TextButton(
@@ -61,7 +63,8 @@ class RightSidebar extends ConsumerWidget {
                               : repository.clearQueue,
                           style: TextButton.styleFrom(
                             minimumSize: Size.zero,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                           child: const Text('清空'),
@@ -72,9 +75,10 @@ class RightSidebar extends ConsumerWidget {
                       children: [
                         Text(
                           '歌词',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
                         ),
                       ],
                     ),

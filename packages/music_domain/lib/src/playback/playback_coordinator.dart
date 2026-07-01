@@ -39,6 +39,17 @@ class PlaybackCoordinator {
     _nextTicket = null;
   }
 
+  void removeAt(int index) {
+    if (index < 0 || index >= _queueState.entries.length) return;
+    final wasCurrent = index == _queueState.currentIndex;
+    _queueState = _queueState.removeAt(index);
+    _nextTicket = null;
+    if (wasCurrent) {
+      _currentTicket = null;
+      _currentError = null;
+    }
+  }
+
   /// Updates the [isFavorited] field of the track identified by [trackRef] in
   /// the current queue. No-op if the track is not in the queue.
   void updateFavoriteState(ProviderTrackRef trackRef, bool liked) {
@@ -102,7 +113,8 @@ class PlaybackCoordinator {
         _currentError = null;
       } catch (e) {
         // ignore: avoid_print
-        print('PlaybackCoordinator: failed to refresh ticket for ${currentEntry.track.title}: $e');
+        print(
+            'PlaybackCoordinator: failed to refresh ticket for ${currentEntry.track.title}: $e');
         _currentTicket = null;
         _currentError = e;
       }
@@ -148,7 +160,8 @@ class PlaybackCoordinator {
         _currentError = null;
       } catch (e) {
         // ignore: avoid_print
-        print('PlaybackCoordinator: failed to resolve ticket for ${currentEntry.track.title}: $e');
+        print(
+            'PlaybackCoordinator: failed to resolve ticket for ${currentEntry.track.title}: $e');
         _currentTicket = null;
         _currentError = e;
       }

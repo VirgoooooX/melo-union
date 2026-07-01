@@ -111,99 +111,176 @@ class MeloMobileMiniPlayer extends ConsumerWidget {
     final repository = ref.watch(demoRepositoryProvider);
     final track = repository.queue.current?.track;
     if (track == null) return const SizedBox.shrink();
+    final issue = repository.playbackIssue;
+    final hasIssue = issue?.trackRef == track.ref;
 
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: MeloColors.surface,
-        border: Border(top: BorderSide(color: MeloColors.border)),
-        boxShadow: MeloShadows.card,
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
       child: SafeArea(
         top: false,
         bottom: false,
-        child: SizedBox(
-          height: MeloDimensions.mobileMiniPlayerHeight,
-          child: Row(
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: MeloColors.surface,
+            borderRadius: MeloRadii.lg,
+            border: Border.all(
+              color: hasIssue
+                  ? MeloColors.favorite.withValues(alpha: .28)
+                  : MeloColors.border,
+            ),
+            boxShadow: MeloShadows.floating,
+          ),
+          child: Column(
             children: [
               Expanded(
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => showMeloFullScreenPlayer(context),
-                    onVerticalDragEnd: (details) {
-                      if ((details.primaryVelocity ?? 0) < -260) {
-                        showMeloFullScreenPlayer(context);
-                      }
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: MeloSpacing.md,
-                      ),
-                      child: Row(
-                        children: [
-                          MeloTrackCover(
-                            seed: track.title,
-                            artwork: track.artwork,
-                            isActive: true,
-                            size: 44,
-                          ),
-                          const SizedBox(width: MeloSpacing.sm),
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => showMeloFullScreenPlayer(context),
+                          onVerticalDragEnd: (details) {
+                            if ((details.primaryVelocity ?? 0) < -260) {
+                              showMeloFullScreenPlayer(context);
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: MeloSpacing.md,
+                            ),
+                            child: Row(
                               children: [
-                                Text(
-                                  track.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                MeloTrackCover(
+                                  seed: track.title,
+                                  artwork: track.artwork,
+                                  isActive:
+                                      repository.isPlaybackActive && !hasIssue,
+                                  size: 40,
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  track.artists.join(' / '),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: MeloColors.textSecondary,
+                                const SizedBox(width: MeloSpacing.sm),
+                                Expanded(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        hasIssue
+                                            ? (issue?.title ?? '播放失败')
+                                            : track.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: hasIssue
+                                                  ? MeloColors.favorite
+                                                  : MeloColors.textPrimary,
+                                              fontWeight: FontWeight.w800,
+                                            ),
                                       ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        hasIssue
+                                            ? (issue?.message ?? '请稍后重试')
+                                            : track.artists.join(' / '),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: MeloColors.textSecondary,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                    hasIssue
+                        ? IconButton.filledTonal(
+                            tooltip: '重试播放',
+                            onPressed: repository.retryCurrentPlayback,
+                            icon: const Icon(Icons.refresh_rounded),
+                          )
+                        : _MiniPlayButton(repository: repository),
+                    IconButton(
+                      tooltip: '播放队列',
+                      onPressed: () {
+                        showMeloFullScreenPlayer(
+                          context,
+                          initialMode: RightSidebarMode.queue,
+                        );
+                      },
+                      icon: Badge(
+                        label: Text('${repository.queue.entries.length}'),
+                        isLabelVisible: repository.queue.entries.isNotEmpty,
+                        child: const Icon(Icons.queue_music_rounded),
+                      ),
+                    ),
+                    const SizedBox(width: MeloSpacing.xs),
+                  ],
                 ),
               ),
-              _MiniPlayButton(repository: repository),
-              IconButton(
-                tooltip: '播放队列',
-                onPressed: () {
-                  showMeloFullScreenPlayer(
-                    context,
-                    initialMode: RightSidebarMode.queue,
-                  );
-                },
-                icon: Badge(
-                  label: Text('${repository.queue.entries.length}'),
-                  isLabelVisible: repository.queue.entries.isNotEmpty,
-                  child: const Icon(Icons.queue_music_rounded),
-                ),
-              ),
-              const SizedBox(width: MeloSpacing.xs),
+              _MiniPlayerProgress(repository: repository),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MiniPlayerProgress extends StatelessWidget {
+  const _MiniPlayerProgress({required this.repository});
+
+  final DemoRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    if (repository.hasPlaybackIssue) {
+      return const SizedBox(
+        height: 3,
+        child: ColoredBox(color: MeloColors.favorite),
+      );
+    }
+    return StreamBuilder<Duration?>(
+      stream: repository.durationStream,
+      initialData: repository.audioPlayer.duration,
+      builder: (context, durationSnapshot) {
+        final duration =
+            durationSnapshot.data ?? repository.queue.current?.track.duration;
+        return StreamBuilder<Duration>(
+          stream: repository.positionStream,
+          initialData: repository.audioPlayer.position,
+          builder: (context, positionSnapshot) {
+            final totalMs = duration?.inMilliseconds ?? 0;
+            final position = positionSnapshot.data ?? Duration.zero;
+            final positionMs = position.inMilliseconds.clamp(0, totalMs);
+            final value = totalMs <= 0 ? 0.0 : positionMs / totalMs;
+            return ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(16),
+              ),
+              child: LinearProgressIndicator(
+                minHeight: 3,
+                value: value,
+                color: MeloColors.primary600,
+                backgroundColor: MeloColors.border,
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -1243,6 +1320,7 @@ class _FullscreenQueue extends ConsumerWidget {
           selected: index == queue.currentIndex,
           index: index,
           onPlay: () => repository.playOrToggleQueueTrack(entry.track.ref),
+          onRemove: () => repository.removeQueueEntry(index),
         );
       },
     );
@@ -1335,6 +1413,7 @@ class _QueueDrawer extends ConsumerWidget {
                         selected: index == queue.currentIndex,
                         onPlay: () =>
                             repository.playOrToggleQueueTrack(entry.track.ref),
+                        onRemove: () => repository.removeQueueEntry(index),
                       );
                     },
                   ),
@@ -1352,11 +1431,13 @@ class _QueueDrawerRow extends StatefulWidget {
     required this.track,
     required this.selected,
     required this.onPlay,
+    required this.onRemove,
   });
 
   final SourceTrack track;
   final bool selected;
   final VoidCallback onPlay;
+  final VoidCallback onRemove;
 
   @override
   State<_QueueDrawerRow> createState() => _QueueDrawerRowState();
@@ -1375,6 +1456,7 @@ class _QueueDrawerRowState extends State<_QueueDrawerRow> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onDoubleTap: widget.onPlay,
+        onSecondaryTap: widget.onRemove,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           margin: const EdgeInsets.only(bottom: 8),
@@ -1446,14 +1528,24 @@ class _QueueDrawerRowState extends State<_QueueDrawerRow> {
               AnimatedOpacity(
                 duration: const Duration(milliseconds: 120),
                 opacity: _hovered || widget.selected ? 1 : 0,
-                child: IconButton(
-                  tooltip: widget.selected ? '暂停/播放' : '播放这首',
-                  onPressed: widget.onPlay,
-                  icon: Icon(
-                    widget.selected
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: widget.selected ? '暂停/播放' : '播放这首',
+                      onPressed: widget.onPlay,
+                      icon: Icon(
+                        widget.selected
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '移出队列',
+                      onPressed: widget.onRemove,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1470,12 +1562,14 @@ class _QueueRow extends StatefulWidget {
     required this.selected,
     required this.index,
     required this.onPlay,
+    required this.onRemove,
   });
 
   final SourceTrack track;
   final bool selected;
   final int index;
   final VoidCallback onPlay;
+  final VoidCallback onRemove;
 
   @override
   State<_QueueRow> createState() => _QueueRowState();
@@ -1493,6 +1587,7 @@ class _QueueRowState extends State<_QueueRow> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onDoubleTap: widget.onPlay,
+        onSecondaryTap: widget.onRemove,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           margin: const EdgeInsets.only(bottom: 8),
@@ -1559,12 +1654,23 @@ class _QueueRowState extends State<_QueueRow> {
               AnimatedOpacity(
                 duration: const Duration(milliseconds: 120),
                 opacity: _hovered || widget.selected ? 1 : 0,
-                child: _GlassIconButton(
-                  tooltip: widget.selected ? '暂停/播放' : '播放这首',
-                  icon: widget.selected
-                      ? Icons.equalizer_rounded
-                      : Icons.play_arrow_rounded,
-                  onPressed: widget.onPlay,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _GlassIconButton(
+                      tooltip: widget.selected ? '暂停/播放' : '播放这首',
+                      icon: widget.selected
+                          ? Icons.equalizer_rounded
+                          : Icons.play_arrow_rounded,
+                      onPressed: widget.onPlay,
+                    ),
+                    const SizedBox(width: 6),
+                    _GlassIconButton(
+                      tooltip: '移出队列',
+                      icon: Icons.close_rounded,
+                      onPressed: widget.onRemove,
+                    ),
+                  ],
                 ),
               ),
             ],

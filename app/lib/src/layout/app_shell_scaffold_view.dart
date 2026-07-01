@@ -35,77 +35,80 @@ class AppShellScaffold extends ConsumerWidget {
           ),
           child: ClipRRect(
             borderRadius: MeloRadii.window,
-            child: Column(
-              children: [
-                const MeloTitleBar(),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Row(
-                        children: [
-                          _DesktopSidebar(current: current, width: leftWidth),
-                          Expanded(
-                            child: DecoratedBox(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    MeloColors.canvasSoft,
-                                    MeloColors.canvas,
-                                  ],
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                children: [
+                  const MeloTitleBar(),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Row(
+                          children: [
+                            _DesktopSidebar(current: current, width: leftWidth),
+                            Expanded(
+                              child: DecoratedBox(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      MeloColors.canvasSoft,
+                                      MeloColors.canvas,
+                                    ],
+                                  ),
                                 ),
+                                child: child,
                               ),
-                              child: child,
                             ),
-                          ),
-                          if (width >= 1180)
-                            Container(
-                              width: rightWidth,
-                              decoration: const BoxDecoration(
-                                color: MeloColors.surface,
-                                border: Border(
-                                  left: BorderSide(color: MeloColors.border),
+                            if (width >= 1180)
+                              Container(
+                                width: rightWidth,
+                                decoration: const BoxDecoration(
+                                  color: MeloColors.surface,
+                                  border: Border(
+                                    left: BorderSide(color: MeloColors.border),
+                                  ),
                                 ),
+                                child: const RightSidebar(),
                               ),
-                              child: const RightSidebar(),
-                            ),
-                        ],
-                      ),
-                      Positioned(
-                        left: leftWidth - 4,
-                        top: 0,
-                        bottom: 0,
-                        width: 8,
-                        child: _ResizeGrip(
-                          isLeft: true,
-                          onDrag: (delta) {
-                            ref
-                                .read(sidebarWidthsProvider.notifier)
-                                .updateLeft(leftWidth + delta);
-                          },
+                          ],
                         ),
-                      ),
-                      if (width >= 1180)
                         Positioned(
-                          right: rightWidth - 4,
+                          left: leftWidth - 4,
                           top: 0,
                           bottom: 0,
                           width: 8,
                           child: _ResizeGrip(
-                            isLeft: false,
+                            isLeft: true,
                             onDrag: (delta) {
                               ref
                                   .read(sidebarWidthsProvider.notifier)
-                                  .updateRight(rightWidth - delta);
+                                  .updateLeft(leftWidth + delta);
                             },
                           ),
                         ),
-                    ],
+                        if (width >= 1180)
+                          Positioned(
+                            right: rightWidth - 4,
+                            top: 0,
+                            bottom: 0,
+                            width: 8,
+                            child: _ResizeGrip(
+                              isLeft: false,
+                              onDrag: (delta) {
+                                ref
+                                    .read(sidebarWidthsProvider.notifier)
+                                    .updateRight(rightWidth - delta);
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                const DesktopPlayerBar(),
-              ],
+                  const DesktopPlayerBar(),
+                ],
+              ),
             ),
           ),
         ),
@@ -154,40 +157,45 @@ class _MobileShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const destinations = [
-      AppDestination.favorites,
-      AppDestination.playlists,
       AppDestination.recommendations,
+      AppDestination.favorites,
       AppDestination.search,
+      AppDestination.playlists,
       AppDestination.settings,
     ];
-    final selected = destinations.indexOf(current);
+    final mobileCurrent =
+        current == AppDestination.downloads ? AppDestination.settings : current;
+    final selected = destinations.indexOf(mobileCurrent);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppShellScaffold.titleFor(current)),
-        actions: [
-          if (current != AppDestination.search)
-            IconButton(
-              tooltip: '搜索',
-              onPressed: () => context.go(AppDestination.search.path),
-              icon: const Icon(Icons.search_rounded),
+      backgroundColor: MeloColors.canvas,
+      body: SafeArea(
+        bottom: false,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [MeloColors.canvasSoft, MeloColors.canvas],
             ),
-        ],
+          ),
+          child: child,
+        ),
       ),
-      body: child,
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const MeloMobileMiniPlayer(),
           NavigationBar(
+            height: 64,
             selectedIndex: selected < 0 ? 0 : selected,
             onDestinationSelected: (index) =>
                 context.go(destinations[index].path),
             destinations: [
               for (final item in destinations)
                 NavigationDestination(
-                  icon: Icon(AppShellScaffold.iconFor(item, false)),
-                  selectedIcon: Icon(AppShellScaffold.iconFor(item, true)),
-                  label: AppShellScaffold.titleFor(item),
+                  icon: Icon(_mobileIconFor(item, false)),
+                  selectedIcon: Icon(_mobileIconFor(item, true)),
+                  label: _mobileLabelFor(item),
                 ),
             ],
           ),
@@ -195,6 +203,31 @@ class _MobileShell extends StatelessWidget {
       ),
     );
   }
+
+  static String _mobileLabelFor(AppDestination destination) =>
+      switch (destination) {
+        AppDestination.recommendations => '首页',
+        AppDestination.favorites => '喜欢',
+        AppDestination.search => '搜索',
+        AppDestination.playlists => '歌单',
+        AppDestination.settings => '我的',
+        AppDestination.downloads => '下载',
+      };
+
+  static IconData _mobileIconFor(AppDestination destination, bool selected) =>
+      switch (destination) {
+        AppDestination.recommendations =>
+          selected ? Icons.home_rounded : Icons.home_outlined,
+        AppDestination.favorites =>
+          selected ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+        AppDestination.search => Icons.search_rounded,
+        AppDestination.playlists =>
+          selected ? Icons.library_music_rounded : Icons.library_music_outlined,
+        AppDestination.settings =>
+          selected ? Icons.person_rounded : Icons.person_outline_rounded,
+        AppDestination.downloads =>
+          selected ? Icons.download_rounded : Icons.download_outlined,
+      };
 }
 
 class _ResizeGrip extends StatefulWidget {

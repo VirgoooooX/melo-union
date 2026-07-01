@@ -157,7 +157,7 @@ abstract final class MeloTheme {
       ),
       navigationBarTheme: const NavigationBarThemeData(
         backgroundColor: MeloColors.surface,
-        indicatorColor: MeloColors.primary50,
+        indicatorColor: MeloColors.primary100,
         labelTextStyle: WidgetStatePropertyAll(
           TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),

@@ -117,8 +117,7 @@ final class UnifiedFavoritesService {
         for (final entry in overrides.likedAtTracking.entries) {
           if (entry.value.source == LikedAtMetadata.sourceQqImport &&
               entry.value.likedAt != null) {
-            if (lastSync == null ||
-                entry.value.likedAt!.isAfter(lastSync)) {
+            if (lastSync == null || entry.value.likedAt!.isAfter(lastSync)) {
               lastSync = entry.value.likedAt;
             }
           }
@@ -139,7 +138,8 @@ final class UnifiedFavoritesService {
           }
         } else {
           final interval = Duration(
-            seconds: (span.inSeconds ~/ tracksToEstimate.length).clamp(1, 86400 * 180),
+            seconds: (span.inSeconds ~/ tracksToEstimate.length)
+                .clamp(1, 86400 * 180),
           );
           for (var i = 0; i < tracksToEstimate.length; i++) {
             overrides.recordLikedAt(
@@ -223,8 +223,8 @@ final class UnifiedFavoritesService {
     }
 
     // Sort all groups by liked-at descending (newest first), across all providers.
-    groups.sort((a, b) => _bestLikedAt(b.variants)
-        .compareTo(_bestLikedAt(a.variants)));
+    groups.sort(
+        (a, b) => _bestLikedAt(b.variants).compareTo(_bestLikedAt(a.variants)));
 
     final tracks = [
       for (var index = 0; index < groups.length; index++)

@@ -82,7 +82,7 @@ class _SourceResultSection extends ConsumerWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Row(
               children: [
                 MeloSourceBadge(providerId: group.provider.id),

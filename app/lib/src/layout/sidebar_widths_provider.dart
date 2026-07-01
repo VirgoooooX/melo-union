@@ -11,7 +11,8 @@ class SidebarWidths {
 }
 
 class SidebarWidthsNotifier extends StateNotifier<SidebarWidths> {
-  SidebarWidthsNotifier() : super(const SidebarWidths(left: 216.0, right: 280.0)) {
+  SidebarWidthsNotifier()
+      : super(const SidebarWidths(left: 216.0, right: 280.0)) {
     _load();
   }
 
@@ -84,6 +85,7 @@ class SidebarWidthsNotifier extends StateNotifier<SidebarWidths> {
   }
 }
 
-final sidebarWidthsProvider = StateNotifierProvider<SidebarWidthsNotifier, SidebarWidths>((ref) {
+final sidebarWidthsProvider =
+    StateNotifierProvider<SidebarWidthsNotifier, SidebarWidths>((ref) {
   return SidebarWidthsNotifier();
 });

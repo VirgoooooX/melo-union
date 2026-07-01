@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.svg" alt="MeloUnion logo" width="132">
+</p>
+
 # 🎵 MeloUnion 麦乐聚合音乐客户端
 
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-Teal?style=for-the-badge&logo=flutter)](https://flutter.dev)

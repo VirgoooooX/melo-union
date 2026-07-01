@@ -12,10 +12,12 @@ class _FavoritesLibraryPanel extends ConsumerStatefulWidget {
   final _FavoriteSort sort;
 
   @override
-  ConsumerState<_FavoritesLibraryPanel> createState() => _FavoritesLibraryPanelState();
+  ConsumerState<_FavoritesLibraryPanel> createState() =>
+      _FavoritesLibraryPanelState();
 }
 
-class _FavoritesLibraryPanelState extends ConsumerState<_FavoritesLibraryPanel> {
+class _FavoritesLibraryPanelState
+    extends ConsumerState<_FavoritesLibraryPanel> {
   late final ScrollController _scrollController;
   bool _hasAnimatedListEverRun = false;
 
@@ -86,7 +88,8 @@ class _FavoritesLibraryPanelState extends ConsumerState<_FavoritesLibraryPanel> 
     return _FavoritesLoadingState(skeletonCount: maxRowsThatFit);
   }
 
-  Widget _buildTrackList(List<UnifiedFavoriteTrack> tracks, {required bool isInitialRender}) {
+  Widget _buildTrackList(List<UnifiedFavoriteTrack> tracks,
+      {required bool isInitialRender}) {
     if (tracks.isEmpty) {
       return const Column(
         children: [
@@ -142,8 +145,8 @@ class _FavoritesLibraryPanelState extends ConsumerState<_FavoritesLibraryPanel> 
   ) {
     final visible = tracks.where((track) {
       final providerMatch = widget.selectedProviderId == null ||
-          track.variants
-              .any((item) => item.ref.providerId.value == widget.selectedProviderId);
+          track.variants.any(
+              (item) => item.ref.providerId.value == widget.selectedProviderId);
       final queryMatch = widget.query.isEmpty ||
           '${track.title} ${track.artists.join(' ')} ${track.variants.map((item) => item.album ?? '').join(' ')}'
               .toLowerCase()
@@ -271,7 +274,8 @@ class _SilentRefreshListState extends State<_SilentRefreshList> {
         padding: EdgeInsets.symmetric(horizontal: 16),
         child: Divider(height: 1, color: MeloColors.border),
       ),
-      removedSeparatorBuilder: (context, index, animation) => const SizedBox.shrink(),
+      removedSeparatorBuilder: (context, index, animation) =>
+          const SizedBox.shrink(),
       itemBuilder: (context, index, animation) {
         if (index >= _items.length) return const SizedBox.shrink();
         return _FavoriteRow(
@@ -289,6 +293,86 @@ class _SilentRefreshListState extends State<_SilentRefreshList> {
       if (a[i] != b[i]) return false;
     }
     return true;
+  }
+}
+
+class _MobileFavoritesLibrary extends ConsumerWidget {
+  const _MobileFavoritesLibrary({
+    required this.selectedProviderId,
+    required this.sort,
+  });
+
+  final String? selectedProviderId;
+  final _FavoriteSort sort;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final favorites = ref.watch(allFavoritesProvider);
+    final cached = ref.read(demoRepositoryProvider).lastFavoritesData;
+    return favorites.when(
+      loading: () {
+        if (cached != null && cached.isNotEmpty) {
+          return _buildList(context, _filterAndSort(cached));
+        }
+        return const Center(child: CircularProgressIndicator());
+      },
+      error: (error, _) => MeloErrorState(
+        message: '喜欢列表加载失败：$error',
+        onRetry: () => ref.invalidate(allFavoritesProvider),
+      ),
+      data: (tracks) => _buildList(context, _filterAndSort(tracks)),
+    );
+  }
+
+  Widget _buildList(BuildContext context, List<UnifiedFavoriteTrack> tracks) {
+    if (tracks.isEmpty) {
+      return const MeloEmptyState(
+        icon: Icons.favorite_border_rounded,
+        title: '没有找到匹配的喜欢歌曲',
+        subtitle: '切换来源或刷新后再试。',
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      itemCount: tracks.length,
+      separatorBuilder: (_, __) =>
+          const Divider(height: 1, color: MeloColors.border),
+      itemBuilder: (context, index) => _MobileFavoriteRow(
+        index: index + 1,
+        track: tracks[index],
+        providerId: selectedProviderId,
+      ),
+    );
+  }
+
+  List<UnifiedFavoriteTrack> _filterAndSort(List<UnifiedFavoriteTrack> tracks) {
+    final visible = tracks.where((track) {
+      return selectedProviderId == null ||
+          track.variants.any(
+            (item) => item.ref.providerId.value == selectedProviderId,
+          );
+    }).toList(growable: false);
+    switch (sort) {
+      case _FavoriteSort.recent:
+        break;
+      case _FavoriteSort.title:
+        visible.sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
+        break;
+      case _FavoriteSort.artist:
+        visible.sort(
+          (a, b) => a.artists
+              .join(' ')
+              .toLowerCase()
+              .compareTo(b.artists.join(' ').toLowerCase()),
+        );
+        break;
+      case _FavoriteSort.duration:
+        visible.sort((a, b) => a.duration.compareTo(b.duration));
+        break;
+    }
+    return visible;
   }
 }
 

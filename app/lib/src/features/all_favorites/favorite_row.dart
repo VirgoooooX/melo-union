@@ -58,7 +58,8 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                     seed: widget.track.title,
                     isActive: isPlaying,
                     artwork: widget.track.variants
-                        .firstWhere((v) => v.artwork != null, orElse: () => primary)
+                        .firstWhere((v) => v.artwork != null,
+                            orElse: () => primary)
                         .artwork,
                   ),
                   const SizedBox(width: 12),
@@ -134,9 +135,9 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
             ),
           ],
         );
-        },
-      );
-    }
+      },
+    );
+  }
 
   Future<void> _handleFavoriteTap(
     BuildContext context,
@@ -152,6 +153,144 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
         ),
       );
     }
+  }
+}
+
+class _MobileFavoriteRow extends ConsumerWidget {
+  const _MobileFavoriteRow({
+    required this.index,
+    required this.track,
+    required this.providerId,
+  });
+
+  final int index;
+  final UnifiedFavoriteTrack track;
+  final String? providerId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.watch(demoRepositoryProvider);
+    final currentRef = repository.queue.current?.track.ref;
+    final variants = providerId == null
+        ? track.variants
+        : track.variants
+            .where((item) => item.ref.providerId.value == providerId)
+            .toList(growable: false);
+    if (variants.isEmpty) return const SizedBox.shrink();
+
+    final primary = variants.first;
+    final selected = currentRef != null &&
+        variants.any((variant) => variant.ref == currentRef);
+    final hasFavorite = variants.any((variant) => variant.isFavorited);
+    final artwork = track.variants
+        .firstWhere((variant) => variant.artwork != null, orElse: () => primary)
+        .artwork;
+
+    return InkWell(
+      onTap: () => repository.playOrToggleUnifiedTrack(track),
+      borderRadius: MeloRadii.sm,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: selected
+                  ? const Icon(
+                      Icons.graphic_eq_rounded,
+                      color: MeloColors.primary700,
+                      size: 18,
+                    )
+                  : Text(
+                      '$index',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: MeloColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+            ),
+            const SizedBox(width: 10),
+            MeloTrackCover(
+              seed: track.title,
+              artwork: artwork,
+              isActive: selected,
+              size: 48,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    track.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: selected
+                              ? MeloColors.primary700
+                              : MeloColors.textPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    track.artists.join(' / '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textSecondary,
+                        ),
+                  ),
+                  const SizedBox(height: 5),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      for (final variant in variants.take(3))
+                        MeloSourceBadge(providerId: variant.ref.providerId),
+                      Text(
+                        _formatTrackDuration(track.duration),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: MeloColors.textTertiary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            variants.length > 1
+                ? IconButton(
+                    tooltip: hasFavorite ? '管理喜欢' : '喜欢',
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (context) => _FavoriteSourceDialog(
+                        track: track,
+                        variants: variants,
+                      ),
+                    ),
+                    icon: Icon(
+                      hasFavorite
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: hasFavorite
+                          ? MeloColors.favorite
+                          : MeloColors.textTertiary,
+                    ),
+                  )
+                : MeloFavoriteButton(track: primary),
+            MeloTrackMoreMenu(
+              track: primary,
+              addToPlaylistDialog: _AddToPlaylistDialog(track: primary),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -206,6 +345,12 @@ String _albumLabel(List<SourceTrack> variants) {
   return '未知专辑';
 }
 
+String _formatTrackDuration(Duration duration) {
+  final minutes = duration.inMinutes;
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
+}
+
 class _RowPlaybackIndicator extends StatelessWidget {
   const _RowPlaybackIndicator({
     required this.index,
@@ -241,8 +386,6 @@ class _RowPlaybackIndicator extends StatelessWidget {
               );
   }
 }
-
-
 
 class _AddToPlaylistDialog extends ConsumerWidget {
   const _AddToPlaylistDialog({required this.track});
@@ -546,5 +689,3 @@ class _FavoriteSourceItem extends ConsumerWidget {
     );
   }
 }
-
-

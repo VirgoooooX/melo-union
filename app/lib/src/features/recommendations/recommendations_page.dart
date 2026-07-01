@@ -119,6 +119,42 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
         _selectedShelfTab != null && shelfTabs.contains(_selectedShelfTab)
             ? _selectedShelfTab!
             : (shelfTabs.isEmpty ? null : shelfTabs.first);
+    final isMobile = MediaQuery.sizeOf(context).width < 960;
+    if (isMobile) {
+      return _MobileRecommendationsView(
+        tabs: tabs,
+        selected: selected,
+        selectedProviderId: selectedProviderId,
+        selectedShelfTab: selectedShelfTab,
+        shelfTabs: shelfTabs,
+        canShowPlaylists: canShowPlaylists,
+        selectedEntry: selectedEntry,
+        currentRef: currentRef,
+        repository: repository,
+        recommendationsFuture: selected == 'more' || !canShowPlaylists
+            ? null
+            : _recommendationsFuture(selectedProviderId),
+        playlistsFuture: selected == 'more' || selectedShelfTab == null
+            ? null
+            : selectedShelfTab == _ShelfTab.playlists
+                ? _recommendedPlaylistsFuture(selectedProviderId)
+                : _chartPlaylistsFuture(selectedProviderId),
+        onTabSelected: (id) => setState(() => _selectedProvider = id),
+        onShelfSelected: (tab) => setState(() => _selectedShelfTab = tab),
+        onMorePressed: () {
+          MeloSnackbar.show(
+            context: context,
+            message: '后续接入的推荐来源会显示在这里。',
+          );
+        },
+        onPlaylistSelected: (playlist) => _showPlaylistSheet(
+          context,
+          ref,
+          playlist.providerId,
+          playlist,
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
@@ -197,8 +233,8 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                         future: _recommendationsFuture(selectedProviderId),
                         builder: (context, snapshot) {
                           final cached = selectedEntry != null
-                              ? repository
-                                  .cachedRecommendations(selectedEntry.descriptor.id)
+                              ? repository.cachedRecommendations(
+                                  selectedEntry.descriptor.id)
                               : null;
                           if (snapshot.connectionState !=
                               ConnectionState.done) {
@@ -322,55 +358,59 @@ class _ShelfTabSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double totalWidth = 260;
     const double padding = 4;
     final int selectedIndex = tabs.indexOf(selected);
-    final double tabWidth = (totalWidth - 2 - (padding * 2)) / tabs.length;
-
-    return Container(
-      width: totalWidth,
-      height: 44,
-      decoration: BoxDecoration(
-        color: MeloColors.surfaceMuted,
-        borderRadius: MeloRadii.pill,
-        border: Border.all(color: MeloColors.border),
-      ),
-      padding: const EdgeInsets.all(padding),
-      child: Stack(
-        children: [
-          // Sliding Background Indicator
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOutCubic,
-            left: selectedIndex * tabWidth,
-            top: 0,
-            bottom: 0,
-            width: tabWidth,
-            child: Container(
-              decoration: BoxDecoration(
-                color: MeloColors.primary600,
-                borderRadius: MeloRadii.pill,
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x1F0AA69A),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  )
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.hasBoundedWidth && constraints.maxWidth < 960
+            ? constraints.maxWidth
+            : 260.0;
+        final safeTabs = tabs.isEmpty ? 1 : tabs.length;
+        final tabWidth = (width - 2 - (padding * 2)) / safeTabs;
+        return Container(
+          width: width,
+          height: 44,
+          decoration: BoxDecoration(
+            color: MeloColors.surfaceMuted,
+            borderRadius: MeloRadii.pill,
+            border: Border.all(color: MeloColors.border),
+          ),
+          padding: const EdgeInsets.all(padding),
+          child: Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                left: selectedIndex.clamp(0, safeTabs - 1) * tabWidth,
+                top: 0,
+                bottom: 0,
+                width: tabWidth,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: MeloColors.primary600,
+                    borderRadius: MeloRadii.pill,
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x1F0AA69A),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      )
+                    ],
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  for (int i = 0; i < tabs.length; i++)
+                    Expanded(
+                      child: _buildTab(context, tabs[i], selectedIndex == i),
+                    ),
                 ],
               ),
-            ),
-          ),
-          // Interactive Tabs Row
-          Row(
-            children: [
-              for (int i = 0; i < tabs.length; i++)
-                Expanded(
-                  child: _buildTab(context, tabs[i], selectedIndex == i),
-                ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -412,6 +452,277 @@ class _ShelfTabSelector extends StatelessWidget {
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileRecommendationsView extends StatelessWidget {
+  const _MobileRecommendationsView({
+    required this.tabs,
+    required this.selected,
+    required this.selectedProviderId,
+    required this.selectedShelfTab,
+    required this.shelfTabs,
+    required this.canShowPlaylists,
+    required this.selectedEntry,
+    required this.currentRef,
+    required this.repository,
+    required this.recommendationsFuture,
+    required this.playlistsFuture,
+    required this.onTabSelected,
+    required this.onShelfSelected,
+    required this.onMorePressed,
+    required this.onPlaylistSelected,
+  });
+
+  final List<ProviderTabItem> tabs;
+  final String selected;
+  final ProviderId selectedProviderId;
+  final _ShelfTab? selectedShelfTab;
+  final List<_ShelfTab> shelfTabs;
+  final bool canShowPlaylists;
+  final ProviderRegistryEntry? selectedEntry;
+  final ProviderTrackRef? currentRef;
+  final DemoRepository repository;
+  final Future<List<SourceTrack>>? recommendationsFuture;
+  final Future<List<ProviderPlaylist>>? playlistsFuture;
+  final ValueChanged<String> onTabSelected;
+  final ValueChanged<_ShelfTab> onShelfSelected;
+  final VoidCallback onMorePressed;
+  final ValueChanged<ProviderPlaylist> onPlaylistSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      children: [
+        ProviderTabs(
+          items: tabs,
+          selectedId: selected,
+          onSelected: onTabSelected,
+          onMorePressed: onMorePressed,
+        ),
+        if (selected != 'more' && selectedShelfTab != null) ...[
+          const SizedBox(height: 18),
+          _ShelfTabSelector(
+            tabs: shelfTabs,
+            selected: selectedShelfTab!,
+            onSelected: onShelfSelected,
+          ),
+          const SizedBox(height: 14),
+          _MobilePlaylistShelf(
+            playlistsFuture: playlistsFuture,
+            onPlaylistSelected: onPlaylistSelected,
+          ),
+        ],
+        const SizedBox(height: 22),
+        Row(
+          children: [
+            Text(
+              '推荐歌曲',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: recommendationsFuture == null
+                  ? null
+                  : () async {
+                      final tracks = await recommendationsFuture!;
+                      if (tracks.isNotEmpty) {
+                        await repository.playTracks(tracks);
+                      }
+                    },
+              icon: const Icon(Icons.play_arrow_rounded, size: 18),
+              label: const Text('播放全部'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (selected == 'more')
+          const _MobileRecommendationMessage(message: '当前来源暂未提供推荐内容。')
+        else if (!canShowPlaylists)
+          const _MobileRecommendationMessage(message: '当前来源暂未提供每日推荐。')
+        else
+          _MobileRecommendationTracks(
+            future: recommendationsFuture!,
+            cached: selectedEntry == null
+                ? null
+                : repository
+                    .cachedRecommendations(selectedEntry!.descriptor.id),
+            currentRef: currentRef,
+            repository: repository,
+          ),
+      ],
+    );
+  }
+}
+
+class _MobilePlaylistShelf extends StatelessWidget {
+  const _MobilePlaylistShelf({
+    required this.playlistsFuture,
+    required this.onPlaylistSelected,
+  });
+
+  final Future<List<ProviderPlaylist>>? playlistsFuture;
+  final ValueChanged<ProviderPlaylist> onPlaylistSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final future = playlistsFuture;
+    if (future == null) return const SizedBox.shrink();
+    return FutureBuilder<List<ProviderPlaylist>>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox(
+            height: 174,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final playlists = snapshot.data ?? const <ProviderPlaylist>[];
+        if (snapshot.hasError || playlists.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return SizedBox(
+          height: 174,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: playlists.length.clamp(0, 8),
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final playlist = playlists[index];
+              return MeloPlaylistCard(
+                width: 138,
+                compact: true,
+                title: playlist.name,
+                subtitle: _playlistMeta(playlist),
+                cover: playlist.cover,
+                onTap: () => onPlaylistSelected(playlist),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MobileRecommendationTracks extends StatelessWidget {
+  const _MobileRecommendationTracks({
+    required this.future,
+    required this.cached,
+    required this.currentRef,
+    required this.repository,
+  });
+
+  final Future<List<SourceTrack>> future;
+  final List<SourceTrack>? cached;
+  final ProviderTrackRef? currentRef;
+  final DemoRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<SourceTrack>>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          final cachedTracks = cached;
+          if (cachedTracks != null && cachedTracks.isNotEmpty) {
+            return _buildList(context, cachedTracks);
+          }
+          return const SizedBox(
+            height: 180,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return MeloErrorState(message: '推荐加载失败：${snapshot.error}');
+        }
+        final tracks = snapshot.data ?? const <SourceTrack>[];
+        if (tracks.isEmpty) {
+          return const _MobileRecommendationMessage(message: '当前来源暂无推荐歌曲。');
+        }
+        return _buildList(context, tracks);
+      },
+    );
+  }
+
+  Widget _buildList(BuildContext context, List<SourceTrack> tracks) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: MeloColors.surface,
+        borderRadius: MeloRadii.lg,
+        border: Border.all(color: MeloColors.border),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: tracks.length,
+        separatorBuilder: (_, __) =>
+            const Divider(height: 1, color: MeloColors.border),
+        itemBuilder: (context, index) {
+          final track = tracks[index];
+          final selected = currentRef == track.ref;
+          return InkWell(
+            onTap: track.isPlayable
+                ? () => repository.playOrToggleTrack(track)
+                : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  MeloTrackCover(
+                    seed: track.title,
+                    artwork: track.artwork,
+                    isActive: selected,
+                    size: 44,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _RecommendationTrackTitleBlock(
+                      title: track.title,
+                      artists: track.artists,
+                      active: selected,
+                    ),
+                  ),
+                  Text(
+                    _formatRecommendationDuration(track.duration),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textSecondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(width: 6),
+                  MeloFavoriteButton(track: track),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MobileRecommendationMessage extends StatelessWidget {
+  const _MobileRecommendationMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 36),
+      child: Center(
+        child: Text(
+          message,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: MeloColors.textSecondary,
+              ),
         ),
       ),
     );
@@ -725,9 +1036,7 @@ class _CachedRecommendationList extends ConsumerWidget {
         return MeloInteractiveRow(
           selected: selected,
           onDoubleTap: track.isPlayable
-              ? () => ref
-                  .read(demoRepositoryProvider)
-                  .playOrToggleTrack(track)
+              ? () => ref.read(demoRepositoryProvider).playOrToggleTrack(track)
               : null,
           builder: (context, hovered) => Row(
             children: [
@@ -814,4 +1123,10 @@ String _compactCount(int value) {
     return '${(value / 10000).toStringAsFixed(1)}万';
   }
   return value.toString();
+}
+
+String _formatRecommendationDuration(Duration duration) {
+  final minutes = duration.inMinutes;
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
 }

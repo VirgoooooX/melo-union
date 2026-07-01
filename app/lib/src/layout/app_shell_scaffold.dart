@@ -6,6 +6,7 @@ import '../design/melo_tokens.dart';
 import '../presentation/app_destination.dart';
 import '../widgets/desktop_player_bar.dart';
 import '../widgets/full_screen_player.dart';
+import '../widgets/melo_logo_mark.dart';
 import '../widgets/right_sidebar.dart';
 import '../widgets/melo_title_bar.dart';
 import 'sidebar_widths_provider.dart';

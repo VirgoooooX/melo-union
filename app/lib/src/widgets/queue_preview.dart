@@ -22,6 +22,7 @@ class _QueuePreview extends ConsumerWidget {
               borderRadius: MeloRadii.sm,
               onDoubleTap: () =>
                   repository.playOrToggleQueueTrack(entry.track.ref),
+              onSecondaryTap: () => repository.removeQueueEntry(index),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                 child: Row(
@@ -62,6 +63,12 @@ class _QueuePreview extends ConsumerWidget {
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      tooltip: '移出队列',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => repository.removeQueueEntry(index),
+                      icon: const Icon(Icons.close_rounded, size: 18),
                     ),
                   ],
                 ),

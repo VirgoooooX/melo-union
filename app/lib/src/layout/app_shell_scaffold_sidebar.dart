@@ -12,7 +12,6 @@ class _DesktopSidebar extends StatelessWidget {
     AppDestination.recommendations,
   ];
   static const _utility = [
-    AppDestination.downloads,
     AppDestination.settings,
   ];
 
@@ -28,6 +27,8 @@ class _DesktopSidebar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const _SidebarBrand(),
+          const SizedBox(height: 28),
           for (final item in _main) ...[
             _SidebarItem(destination: item, selected: item == current),
             const SizedBox(height: 16),
@@ -42,6 +43,32 @@ class _DesktopSidebar extends StatelessWidget {
           const Spacer(),
         ],
       ),
+    );
+  }
+}
+
+class _SidebarBrand extends StatelessWidget {
+  const _SidebarBrand();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const MeloLogoMark(size: 42),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'MeloUnion',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: MeloColors.textPrimary,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
+          ),
+        ),
+      ],
     );
   }
 }

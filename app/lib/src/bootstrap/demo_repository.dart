@@ -21,8 +21,7 @@ class _CacheEntry<T> {
 
   final T data;
   final DateTime _fetchedAt;
-  bool isFresh(Duration ttl) =>
-      DateTime.now().difference(_fetchedAt) < ttl;
+  bool isFresh(Duration ttl) => DateTime.now().difference(_fetchedAt) < ttl;
 }
 
 final demoRepositoryProvider = ChangeNotifierProvider<DemoRepository>(
@@ -37,6 +36,20 @@ final allFavoritesProvider = FutureProvider<List<UnifiedFavoriteTrack>>((ref) {
 enum PlaybackRepeatMode { off, all, one }
 
 enum ProviderSessionActionKind { cookieImport, qrLogin }
+
+final class PlaybackIssue {
+  const PlaybackIssue({
+    required this.title,
+    required this.message,
+    required this.occurredAt,
+    this.trackRef,
+  });
+
+  final ProviderTrackRef? trackRef;
+  final String title;
+  final String message;
+  final DateTime occurredAt;
+}
 
 final class ProviderSessionAction {
   const ProviderSessionAction({
@@ -264,7 +277,9 @@ class DemoRepository extends ChangeNotifier {
   String? _selectedPlaylistId;
   final AudioPlayer _audioPlayer = AudioPlayer();
   final Random _random = Random();
+  final Map<ProviderTrackRef, SourceTrack> _trackCache = {};
   String? _playingTrackId;
+  PlaybackIssue? _playbackIssue;
   double _volume;
   bool _playbackRequested = false;
   bool _shuffleEnabled = false;
@@ -285,6 +300,10 @@ class DemoRepository extends ChangeNotifier {
   bool get isPlaybackStarting => _playbackRequested && !_audioPlayer.playing;
 
   AudioPlayer get audioPlayer => _audioPlayer;
+
+  PlaybackIssue? get playbackIssue => _playbackIssue;
+
+  bool get hasPlaybackIssue => _playbackIssue != null;
 
   Stream<PlayerState> get playerStateStream => _audioPlayer.playerStateStream;
 
@@ -354,11 +373,14 @@ class DemoRepository extends ChangeNotifier {
   Future<List<UnifiedFavoriteTrack>> loadAllFavorites() {
     return favoritesService
         .buildAllFavoritesWithResult(
-          registry,
-          overrides: favoritesOverrideRegistry,
-        )
+      registry,
+      overrides: favoritesOverrideRegistry,
+    )
         .then((r) {
       _lastFavoritesData = r.tracks;
+      for (final track in r.tracks) {
+        _rememberTracks(track.variants);
+      }
       return r.tracks;
     });
   }
@@ -376,6 +398,16 @@ class DemoRepository extends ChangeNotifier {
   final Map<String, _CacheEntry<List<ProviderPlaylist>>> _playlistCache = {};
   final Map<String, _CacheEntry<List<SourceTrack>>> _playlistTrackCache = {};
 
+  void _rememberTrack(SourceTrack track) {
+    _trackCache[track.ref] = track;
+  }
+
+  void _rememberTracks(Iterable<SourceTrack> tracks) {
+    for (final track in tracks) {
+      _rememberTrack(track);
+    }
+  }
+
   List<SourceTrack>? cachedRecommendations(ProviderId pid) =>
       _recCache[pid.value]?.data;
   bool get hasFreshRecommendations =>
@@ -389,8 +421,8 @@ class DemoRepository extends ChangeNotifier {
   List<SourceTrack>? cachedPlaylistTracks(ProviderId pid, String playlistId) =>
       _playlistTrackCache['${pid.value}/$playlistId']?.data;
   bool hasFreshPlaylistTracks(ProviderId pid, String playlistId) =>
-      _playlistTrackCache['${pid.value}/$playlistId']
-          ?.isFresh(_playlistsTtl) ?? false;
+      _playlistTrackCache['${pid.value}/$playlistId']?.isFresh(_playlistsTtl) ??
+      false;
 
   Future<List<SourceTrack>> loadRecommendations(ProviderId providerId) async {
     final entry = registry.entryOf(providerId);
@@ -398,6 +430,7 @@ class DemoRepository extends ChangeNotifier {
       return const [];
     }
     final result = await entry.provider.getDailyRecommendations();
+    _rememberTracks(result);
     _recCache[providerId.value] = _CacheEntry(result);
     return result;
   }
@@ -449,6 +482,7 @@ class DemoRepository extends ChangeNotifier {
       return const [];
     }
     final result = await entry.provider.getPlaylistTracks(playlistId);
+    _rememberTracks(result);
     _playlistTrackCache['${providerId.value}/$playlistId'] =
         _CacheEntry(result);
     return result;
@@ -477,6 +511,8 @@ class DemoRepository extends ChangeNotifier {
   }
 
   SourceTrack? sourceTrackByRef(ProviderTrackRef ref) {
+    final cached = _trackCache[ref];
+    if (cached != null) return cached;
     final provider = providers[ref.providerId];
     return provider?.trackByRef(ref);
   }
@@ -521,6 +557,7 @@ class DemoRepository extends ChangeNotifier {
     required String playlistId,
     required SourceTrack track,
   }) {
+    _rememberTrack(track);
     playlists.addTrack(playlistId: playlistId, track: track);
     _persistSoon();
     notifyListeners();
@@ -714,6 +751,7 @@ class DemoRepository extends ChangeNotifier {
   Future<void> playTrack(SourceTrack track) async {
     if (!track.isPlayable) return;
 
+    _rememberTrack(track);
     playbackCoordinator.setQueue([track]);
     await playbackCoordinator.selectTrack(track.ref);
     _playingTrackId = null; // Force new playback
@@ -734,6 +772,7 @@ class DemoRepository extends ChangeNotifier {
         tracks.where((track) => track.isPlayable).toList(growable: false);
     if (playableTracks.isEmpty) return;
 
+    _rememberTracks(playableTracks);
     playbackCoordinator.setQueue(playableTracks);
     await playbackCoordinator.selectTrack(playableTracks.first.ref);
     _playingTrackId = null; // Force new playback
@@ -747,6 +786,7 @@ class DemoRepository extends ChangeNotifier {
         .toList(growable: false);
     if (playableVariants.isEmpty) return;
 
+    _rememberTracks(playableVariants);
     playbackCoordinator.setQueue(playableVariants);
     if (playableVariants.isNotEmpty) {
       await playbackCoordinator.selectTrack(playableVariants.first.ref);
@@ -767,7 +807,37 @@ class DemoRepository extends ChangeNotifier {
   }
 
   void enqueueTrack(SourceTrack track) {
+    _rememberTrack(track);
     playbackCoordinator.enqueue(track);
+    notifyListeners();
+  }
+
+  Future<void> removeQueueEntry(int index) async {
+    final queueState = queue;
+    if (index < 0 || index >= queueState.entries.length) return;
+
+    final wasCurrent = index == queueState.currentIndex;
+    final wasPlaying = _audioPlayer.playing || _playbackRequested;
+    playbackCoordinator.removeAt(index);
+
+    if (!wasCurrent) {
+      notifyListeners();
+      return;
+    }
+
+    _playingTrackId = null;
+    if (queue.current == null) {
+      _playbackRequested = false;
+      await _audioPlayer.stop();
+      notifyListeners();
+      return;
+    }
+
+    if (wasPlaying) {
+      await _syncNativePlayback(playWhenReady: true);
+    } else {
+      await _audioPlayer.stop();
+    }
     notifyListeners();
   }
 
@@ -905,6 +975,20 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> retryCurrentPlayback() async {
+    _playbackIssue = null;
+    _playingTrackId = null;
+    await playbackCoordinator.refreshCurrentTicketIfNeeded(force: true);
+    await _syncNativePlayback(playWhenReady: true);
+    notifyListeners();
+  }
+
+  void dismissPlaybackIssue() {
+    if (_playbackIssue == null) return;
+    _playbackIssue = null;
+    notifyListeners();
+  }
+
   Future<void> seek(Duration position) => _audioPlayer.seek(position);
 
   Future<void> setVolume(double value) async {
@@ -949,6 +1033,15 @@ class DemoRepository extends ChangeNotifier {
     final current = queue.current?.track;
     final currentTicket = playbackCoordinator.currentTicket;
     if (current == null || currentTicket == null) {
+      final error = playbackCoordinator.currentError;
+      if (current != null && error != null) {
+        _setPlaybackIssue(
+          track: current,
+          title: '播放链接解析失败',
+          message: _playbackErrorMessage(error),
+        );
+        _playbackRequested = false;
+      }
       return;
     }
 
@@ -963,17 +1056,29 @@ class DemoRepository extends ChangeNotifier {
       _playbackRequested = true;
       try {
         final url = currentTicket.mediaUri.toString();
+        if (!_isSupportedPlaybackUri(currentTicket.mediaUri)) {
+          throw FormatException(
+            'Unsupported playback URI scheme: ${currentTicket.mediaUri.scheme}',
+            url,
+          );
+        }
         debugPrint('AUDIO: playing "${current.title}"');
         await _audioPlayer.stop();
         await _audioPlayer.setUrl(
           url,
           headers: currentTicket.headers.isEmpty ? null : currentTicket.headers,
         );
+        _playbackIssue = null;
         _startAudioPlayer();
       } catch (e) {
         debugPrint('Audio Error: $e');
         _playingTrackId = null;
         _playbackRequested = false;
+        _setPlaybackIssue(
+          track: current,
+          title: '播放启动失败',
+          message: _playbackErrorMessage(e),
+        );
       }
     }
   }
@@ -1009,14 +1114,53 @@ class DemoRepository extends ChangeNotifier {
   }
 
   void _startAudioPlayer() {
+    final current = queue.current?.track;
     unawaited(
       _audioPlayer.play().catchError((Object error, StackTrace stackTrace) {
         debugPrint('Audio Error: $error');
         _playingTrackId = null;
         _playbackRequested = false;
+        if (current != null) {
+          _setPlaybackIssue(
+            track: current,
+            title: '播放失败',
+            message: _playbackErrorMessage(error),
+          );
+        }
         notifyListeners();
       }),
     );
+  }
+
+  void _setPlaybackIssue({
+    required SourceTrack track,
+    required String title,
+    required String message,
+  }) {
+    _playbackIssue = PlaybackIssue(
+      trackRef: track.ref,
+      title: title,
+      message: message,
+      occurredAt: DateTime.now().toUtc(),
+    );
+  }
+
+  bool _isSupportedPlaybackUri(Uri uri) {
+    return uri.isScheme('http') ||
+        uri.isScheme('https') ||
+        uri.isScheme('file') ||
+        uri.isScheme('content');
+  }
+
+  String _playbackErrorMessage(Object error) {
+    final text = error.toString().trim();
+    if (text.isEmpty) {
+      return '请检查网络或稍后重试。';
+    }
+    if (text.length > 140) {
+      return '${text.substring(0, 140)}...';
+    }
+    return text;
   }
 
   Future<void> _handlePlaybackCompleted() async {

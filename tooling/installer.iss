@@ -17,6 +17,8 @@ DisableProgramGroupPage=yes
 ; OutputDir is relative to the directory of this script, so ".." resolves to the repository root.
 OutputDir=..
 OutputBaseFilename=MeloUnion-Windows-Setup
+SetupIconFile=..\app\windows\runner\resources\app_icon.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

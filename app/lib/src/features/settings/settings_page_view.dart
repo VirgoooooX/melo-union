@@ -113,7 +113,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 }
 
-class _MobileMineView extends StatelessWidget {
+class _MobileMineView extends ConsumerWidget {
   const _MobileMineView({
     required this.playbackQuality,
     required this.onPlaybackQualityChanged,
@@ -123,57 +123,46 @@ class _MobileMineView extends StatelessWidget {
   final Future<void> Function(AudioQuality quality) onPlaybackQualityChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.watch(demoRepositoryProvider);
+    final sources = repository.providerEntries
+        .where((entry) =>
+            entry.descriptor.supports(ProviderCapability.authenticate) ||
+            repository.sessionActionFor(entry.descriptor.id) != null)
+        .toList(growable: false);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
       children: [
-        Text(
-          '我的',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w900,
+        Row(
+          children: [
+            const MeloLogoMark(size: 40),
+            const SizedBox(width: MeloSpacing.sm),
+            Expanded(
+              child: Text(
+                '我的',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
               ),
+            ),
+          ],
         ),
         const SizedBox(height: 4),
         Text(
-          '账号来源、本地内容和播放偏好。',
+          '账号来源、播放偏好和应用信息。',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: MeloColors.textSecondary,
               ),
         ),
         const SizedBox(height: 18),
-        Text(
-          '账号与来源',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
-        ),
+        const _MineSectionTitle('账号与来源'),
         const SizedBox(height: 10),
-        const _MusicSourcesSettings(
-          shrinkWrap: true,
-          physics: NeverScrollableScrollPhysics(),
-        ),
+        for (final entry in sources) ...[
+          _MobileSourceSummaryCard(entry: entry),
+          const SizedBox(height: 10),
+        ],
         const SizedBox(height: 18),
-        Text(
-          '本地与下载',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
-        ),
-        const SizedBox(height: 10),
-        _SettingsCard(
-          title: '下载管理',
-          subtitle: '查看进行中、已完成与失败任务。',
-          leading: Icons.download_done_rounded,
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.go(AppDestination.downloads.path),
-        ),
-        const SizedBox(height: 18),
-        Text(
-          '应用设置',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
-        ),
+        const _MineSectionTitle('播放偏好'),
         const SizedBox(height: 10),
         _SettingsCard(
           title: '默认音质',
@@ -184,13 +173,104 @@ class _MobileMineView extends StatelessWidget {
             onChanged: onPlaybackQualityChanged,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         const _SettingsCard(
-          title: '关于 MeloUnion',
-          subtitle: 'Flutter MVP · Provider 可扩展音乐库。',
-          leading: Icons.info_outline_rounded,
+          title: '下载功能',
+          subtitle: '当前版本暂不提供下载，相关入口已先收起。',
+          leading: Icons.download_done_outlined,
         ),
+        const SizedBox(height: 18),
+        const _MineSectionTitle('应用信息'),
+        const SizedBox(height: 10),
+        const SizedBox(height: 12),
+        const _AboutLogoCard(),
       ],
+    );
+  }
+}
+
+class _MineSectionTitle extends StatelessWidget {
+  const _MineSectionTitle(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w900,
+          ),
+    );
+  }
+}
+
+class _MobileSourceSummaryCard extends ConsumerWidget {
+  const _MobileSourceSummaryCard({required this.entry});
+
+  final ProviderRegistryEntry entry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.watch(demoRepositoryProvider);
+    final descriptor = entry.descriptor;
+    final presentation = meloProviderPresentation(
+      descriptor.id,
+      displayName: descriptor.displayName,
+    );
+    final signedIn = entry.provider.isAuthenticated;
+    final canSyncFavorites =
+        descriptor.supports(ProviderCapability.readFavorites);
+    return _SettingsSurface(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          _SourceIcon(presentation: presentation),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        presentation.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                    ),
+                    _StatusChip(
+                      label: signedIn ? '已登录' : '未登录',
+                      positive: signedIn,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  signedIn
+                      ? (canSyncFavorites ? '喜欢和歌单可同步' : '已连接，提供部分内容')
+                      : '前往桌面设置可导入或清除账号凭证',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: MeloColors.textSecondary,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Switch.adaptive(
+            value: entry.isEnabled,
+            onChanged: (value) =>
+                repository.setProviderEnabled(descriptor.id, value),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -226,7 +306,7 @@ class _SettingsHeader extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '管理音乐来源、播放行为、下载与应用偏好。',
+                '管理音乐来源、播放行为与应用偏好。',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: MeloColors.textSecondary,
                     ),
@@ -253,7 +333,8 @@ class _SettingsNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      for (final section in _SettingsSection.values)
+      for (final section in _SettingsSection.values
+          .where((s) => s != _SettingsSection.downloads))
         _SettingsNavItem(
           section: section,
           selected: section == selected,
@@ -397,26 +478,12 @@ class _SettingsContent extends StatelessWidget {
         ),
       _SettingsSection.downloads => _SettingsPanel(
           title: '下载设置',
-          subtitle: '下载只在来源和账号明确支持时可用。',
+          subtitle: '当前版本暂不提供下载功能。',
           children: [
-            _SettingsCard(
-              title: '下载管理',
-              subtitle: '查看进行中、已完成与失败任务。',
-              leading: Icons.download_done_rounded,
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.go(AppDestination.downloads.path),
-            ),
-            const SizedBox(height: MeloSpacing.md),
-            _SettingsCard(
-              title: '网络策略',
-              subtitle: '控制下载任务启动条件。',
-              leading: Icons.wifi_rounded,
-              child: _SettingsSwitchRow(
-                title: '仅 Wi-Fi 下载',
-                subtitle: '移动网络下等待手动确认。',
-                value: wifiOnly,
-                onChanged: onWifiOnlyChanged,
-              ),
+            const _SettingsCard(
+              title: '下载暂未开放',
+              subtitle: '离线下载和本地媒体管理会在后续版本重新接入。',
+              leading: Icons.download_done_outlined,
             ),
           ],
         ),
@@ -441,6 +508,8 @@ class _SettingsContent extends StatelessWidget {
           title: '关于 MeloUnion',
           subtitle: '一个可扩展 Provider 的统一音乐库与播放客户端。',
           children: const [
+            _AboutLogoCard(),
+            SizedBox(height: MeloSpacing.md),
             _SettingsCard(
               title: '版本',
               subtitle: 'v$appVersion',
@@ -455,6 +524,42 @@ class _SettingsContent extends StatelessWidget {
           ],
         ),
     };
+  }
+}
+
+class _AboutLogoCard extends StatelessWidget {
+  const _AboutLogoCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsSurface(
+      child: Row(
+        children: [
+          const MeloLogoMark(size: 54),
+          const SizedBox(width: MeloSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'MeloUnion',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '麦乐聚合音乐客户端',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: MeloColors.textSecondary,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -525,16 +630,12 @@ class _SettingsCard extends StatelessWidget {
     required this.subtitle,
     required this.leading,
     this.child,
-    this.trailing,
-    this.onTap,
   });
 
   final String title;
   final String subtitle;
   final IconData leading;
   final Widget? child;
-  final Widget? trailing;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -575,10 +676,6 @@ class _SettingsCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: MeloSpacing.sm),
-                trailing!,
-              ],
             ],
           ),
           if (child != null) ...[
@@ -589,12 +686,7 @@ class _SettingsCard extends StatelessWidget {
       ),
     );
 
-    if (onTap == null) return content;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: MeloRadii.lg,
-      child: content,
-    );
+    return content;
   }
 }
 

@@ -49,6 +49,24 @@ final class PlaybackQueueState {
     );
   }
 
+  PlaybackQueueState removeAt(int index) {
+    if (index < 0 || index >= entries.length) return this;
+    final nextEntries = [...entries]..removeAt(index);
+    if (nextEntries.isEmpty) return PlaybackQueueState.empty();
+
+    final nextIndex = switch (currentIndex) {
+      -1 => 0,
+      final current when index < current => current - 1,
+      final current when index == current && current >= nextEntries.length =>
+        nextEntries.length - 1,
+      final current => current,
+    };
+    return PlaybackQueueState(
+      entries: List.unmodifiable(nextEntries),
+      currentIndex: nextIndex,
+    );
+  }
+
   PlaybackQueueState moveNext() {
     if (currentIndex == -1 || currentIndex + 1 >= entries.length) {
       return this;
