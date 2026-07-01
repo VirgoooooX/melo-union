@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:provider_contract/provider_contract.dart';
 
+import 'qq_music_signing.dart';
+
 final qqMusicProviderId = ProviderId('qq_music');
 
 const _qqWechatAppId = 'wx48db31d50e334801';
@@ -438,10 +440,46 @@ final class QqMusicProvider implements MusicProvider {
       );
     }
     final songMid = track.extraIds['song_mid'] ?? track.trackId;
+    if (songMid.isEmpty && (track.extraIds['song_id'] ?? '').isEmpty) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ Music song id or mid is required to write favorites.',
+      );
+    }
+
+    final songInfo = await _favoriteSongInfoForWrite(
+      uin: uin,
+      songMid: songMid,
+      songId: track.extraIds['song_id'],
+      songType: track.extraIds['song_type'],
+    );
+
+    await _setFavoriteViaMusicu(
+      uin: uin,
+      songInfo: songInfo,
+      liked: liked,
+    );
+  }
+
+  Future<_QqFavoriteSongInfo> _favoriteSongInfoForWrite({
+    required String uin,
+    required String songMid,
+    required String? songId,
+    required String? songType,
+  }) async {
+    final parsedSongId = int.tryParse(songId ?? '');
+    final parsedSongType = int.tryParse(songType ?? '') ?? 0;
+    if (parsedSongId != null && parsedSongId > 0) {
+      return _QqFavoriteSongInfo(
+        songId: parsedSongId,
+        songType: parsedSongType,
+      );
+    }
+
     if (songMid.isEmpty) {
       throw ProviderException(
         providerId: descriptor.id,
-        message: 'QQ Music song mid is required to write favorites.',
+        message: 'QQ Music song id is required to write favorites.',
       );
     }
 
@@ -456,13 +494,12 @@ final class QqMusicProvider implements MusicProvider {
         'loginUin': int.tryParse(uin) ?? 0,
         'hostUin': 0,
       },
-      'fav': {
-        'module': 'music.songFav.SongFavServer',
-        'method': 'SetSongFav',
+      'detail': {
+        'module': 'music.pf_song_detail_svr',
+        'method': 'get_song_detail_yqq',
         'param': {
-          'songmid': songMid,
-          'fav': liked ? 1 : 0,
-          'time': 3,
+          'song_mid': songMid,
+          if (parsedSongType != 0) 'song_type': parsedSongType,
         },
       },
     });
@@ -471,14 +508,66 @@ final class QqMusicProvider implements MusicProvider {
     if (rootCode is num && rootCode != 0) {
       throw ProviderException(
         providerId: descriptor.id,
-        message: 'QQ Music favorite request failed with code $rootCode.',
+        message: 'QQ Music song detail request failed with code $rootCode.',
       );
     }
-    final favCode = _jsonMap(result['fav'])['code'];
-    if (favCode is num && favCode != 0) {
+    final detail = _jsonMap(result['detail']);
+    final detailCode = detail['code'];
+    if (detailCode is num && detailCode != 0) {
       throw ProviderException(
         providerId: descriptor.id,
-        message: 'QQ Music favorite request failed with code $favCode.',
+        message: 'QQ Music song detail request failed with code $detailCode.',
+      );
+    }
+    final data = _jsonMap(detail['data']);
+    final trackInfo = _jsonMap(data['track_info']);
+    final resolvedSongId = _intValue(trackInfo['id']);
+    if (resolvedSongId == null || resolvedSongId <= 0) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ Music song detail response did not include song id.',
+      );
+    }
+    return _QqFavoriteSongInfo(
+      songId: resolvedSongId,
+      songType: _intValue(trackInfo['type']) ?? parsedSongType,
+    );
+  }
+
+  Future<void> _setFavoriteViaMusicu({
+    required String uin,
+    required _QqFavoriteSongInfo songInfo,
+    required bool liked,
+  }) async {
+    final fav = await _signedMusicuRequest({
+      'module': 'music.musicasset.PlaylistDetailWrite',
+      'method': liked ? 'AddSonglist' : 'DelSonglist',
+      'param': {
+        'dirId': 201,
+        'v_songInfo': [
+          {
+            'songType': songInfo.songType,
+            'songId': songInfo.songId,
+          },
+        ],
+      },
+    });
+
+    final favCode = fav['code'];
+    if (favCode is num && favCode != 0) {
+      final message = fav['msg'] ?? fav['message'] ?? fav['retmsg'];
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ Music favorite request failed with code $favCode'
+            '${message == null ? '' : ': $message'}.',
+      );
+    }
+    final data = _jsonMap(fav['data']);
+    final resultCode = data['result'];
+    if (resultCode is num && resultCode != 0) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ Music favorite request failed with result $resultCode.',
       );
     }
   }
@@ -734,7 +823,10 @@ final class QqMusicProvider implements MusicProvider {
         },
       });
       final detail = _jsonMap(result['detail']);
-      final songInfoList = detail['songInfoList'] as List<Object?>? ?? const [];
+      final detailData = _jsonMap(detail['data']);
+      final songInfoList = detail['songInfoList'] as List<Object?>? ??
+          detailData['songInfoList'] as List<Object?>? ??
+          const [];
       if (songInfoList.isNotEmpty) {
         return songInfoList
             .whereType<Map<Object?, Object?>>()
@@ -742,7 +834,7 @@ final class QqMusicProvider implements MusicProvider {
             .where((track) => track.ref.trackId.isNotEmpty)
             .toList(growable: false);
       }
-      final data = _jsonMap(detail['data']);
+      final data = _jsonMap(detailData['data'] ?? detail['data']);
       final songs = data['song'] as List<Object?>? ?? const [];
       return songs
           .whereType<Map<Object?, Object?>>()
@@ -905,6 +997,11 @@ final class QqMusicProvider implements MusicProvider {
   SourceTrack _trackFromSearch(Map<String, Object?> item) {
     final songMid =
         item['songmid']?.toString() ?? item['mid']?.toString() ?? '';
+    final songId = _firstNonEmpty([
+      item['songid']?.toString(),
+      item['id']?.toString(),
+    ]);
+    final songType = _songTypeFromSong(item);
     final mediaMid = _mediaMidFromSong(item, songMid);
     final albumMid = item['albummid']?.toString() ?? '';
     final artists = item['singer'] as List<Object?>? ?? const [];
@@ -913,6 +1010,8 @@ final class QqMusicProvider implements MusicProvider {
         providerId: descriptor.id,
         trackId: songMid,
         extraIds: {
+          if (songId.isNotEmpty) 'song_id': songId,
+          if (songType.isNotEmpty) 'song_type': songType,
           if (songMid.isNotEmpty) 'song_mid': songMid,
           if (mediaMid.isNotEmpty) 'media_mid': mediaMid,
           if (albumMid.isNotEmpty) 'album_mid': albumMid,
@@ -1458,6 +1557,12 @@ final class QqMusicProvider implements MusicProvider {
     return '';
   }
 
+  int? _intValue(Object? value) {
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
   void _requireCapability(ProviderCapability capability) {
     if (!descriptor.supports(capability)) {
       _unsupported(capability);
@@ -1591,6 +1696,62 @@ final class QqMusicProvider implements MusicProvider {
     return _stringMap(decoded);
   }
 
+  /// POST a signed AG1 request to the web music gateway.
+  Future<Map<String, Object?>> _signedMusicuRequest(
+    Map<String, Object?> request,
+  ) async {
+    final body = {'req_1': request};
+    final payload = jsonEncode(body);
+    final response = await _client
+        .post(
+          _signedMusicuUri(qqMusicZzcSign(payload)),
+          headers: {
+            ..._headers(),
+            'Accept': 'application/octet-stream, */*',
+            'Content-Type': 'text/plain',
+          },
+          body: await encodeQqMusicAg1Request(payload),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message:
+            'QQ signed Musicu request failed with HTTP ${response.statusCode}.',
+      );
+    }
+    final raw = decodeQqMusicAg1Response(response.bodyBytes);
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map<Object?, Object?>) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ signed Musicu response was not a JSON object.',
+      );
+    }
+    final root = _stringMap(decoded);
+    final code = root['code'];
+    if (code is num && code != 0) {
+      throw ProviderException(
+        providerId: descriptor.id,
+        message: 'QQ signed Musicu response code ${code.toInt()}.',
+      );
+    }
+    return _jsonMap(root['req_1']);
+  }
+
+  Uri _signedMusicuUri(String sign) {
+    final path = _musicuUri.path.replaceFirst(
+      RegExp(r'musicu\.fcg$'),
+      'musics.fcg',
+    );
+    return _musicuUri.replace(queryParameters: {
+      ..._musicuUri.queryParameters,
+      '_': _now().millisecondsSinceEpoch.toString(),
+      'encoding': 'ag-1',
+      'sign': sign,
+    }, path: path);
+  }
+
   /// Builds query parameters for fcg_get_profile_order_asset.fcg.
   Map<String, String> _profileOrderAssetParams(
     String uin,
@@ -1641,6 +1802,8 @@ final class QqMusicProvider implements MusicProvider {
       isFavorited: true,
       mediaMid: mediaMid,
       albumMid: albumMid,
+      songId: songData['songid']?.toString() ?? songData['id']?.toString(),
+      songType: _songTypeFromSong(songData),
       likedAt: likedAt,
       likedAtSource: 'qq_import',
       likedAtPrecision: likedAt != null ? 'exact' : 'unknown',
@@ -1677,6 +1840,8 @@ final class QqMusicProvider implements MusicProvider {
       isFavorited: false,
       mediaMid: mediaMid,
       albumMid: albumMid,
+      songId: song['songid']?.toString() ?? song['id']?.toString(),
+      songType: _songTypeFromSong(song),
     );
   }
 
@@ -1702,6 +1867,17 @@ final class QqMusicProvider implements MusicProvider {
     ]);
   }
 
+  String _songTypeFromSong(Map<String, Object?> song) {
+    return _firstNonEmpty([
+      song['songtype']?.toString(),
+      song['songType']?.toString(),
+      song['type']?.toString(),
+      _nestedString(song['file'], 'songtype'),
+      _nestedString(song['file'], 'songType'),
+      _nestedString(song['file'], 'type'),
+    ]);
+  }
+
   /// Shared SourceTrack builder for QQ Music songs.
   SourceTrack _buildQqTrack({
     required String songmid,
@@ -1712,6 +1888,8 @@ final class QqMusicProvider implements MusicProvider {
     required bool isFavorited,
     String? mediaMid,
     String? albumMid,
+    String? songId,
+    String? songType,
     DateTime? likedAt,
     String? likedAtSource,
     String? likedAtPrecision,
@@ -1721,6 +1899,8 @@ final class QqMusicProvider implements MusicProvider {
         providerId: descriptor.id,
         trackId: songmid,
         extraIds: {
+          if (songId != null && songId.isNotEmpty) 'song_id': songId,
+          if (songType != null && songType.isNotEmpty) 'song_type': songType,
           if (songmid.isNotEmpty) 'song_mid': songmid,
           if (mediaMid != null && mediaMid.isNotEmpty) 'media_mid': mediaMid,
           if (albumMid != null && albumMid.isNotEmpty) 'album_mid': albumMid,
@@ -1818,6 +1998,8 @@ final class QqMusicProvider implements MusicProvider {
       isFavorited: false,
       mediaMid: song['mid']?.toString(),
       albumMid: albumMid,
+      songId: song['songId']?.toString(),
+      songType: _songTypeFromSong(song),
     );
   }
 
@@ -1840,6 +2022,7 @@ final class QqMusicProvider implements MusicProvider {
         isFavorited: false,
         mediaMid: value(0).isNotEmpty ? value(0) : null,
         albumMid: value(4).isNotEmpty ? value(4) : null,
+        songType: songType.toString(),
       );
     }
     // Fallback to field-based parsing.
@@ -1862,6 +2045,16 @@ final class _ResolvedQqMedia {
 
   final Uri uri;
   final String fileExtension;
+}
+
+final class _QqFavoriteSongInfo {
+  const _QqFavoriteSongInfo({
+    required this.songId,
+    required this.songType,
+  });
+
+  final int songId;
+  final int songType;
 }
 
 final class _ParsedQqQrCheck {

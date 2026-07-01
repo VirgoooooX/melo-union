@@ -101,45 +101,65 @@ class _CurrentTrackSummary extends StatelessWidget {
     final track = current;
     return Row(
       children: [
-        _PlayerArtwork(
-          seed: track?.title ?? 'melo',
-          artwork: track?.artwork,
-          size: 52,
-        ),
-        const SizedBox(width: MeloSpacing.sm),
         Expanded(
-          child: track == null
-              ? Text(
-                  '从喜欢、歌单或推荐中选择歌曲',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: MeloColors.textSecondary,
-                      ),
-                )
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      track.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => showMeloFullScreenPlayer(context),
+              child: Row(
+                children: [
+                  _PlayerArtwork(
+                    seed: track?.title ?? 'melo',
+                    artwork: track?.artwork,
+                    size: 52,
+                  ),
+                  const SizedBox(width: MeloSpacing.sm),
+                  Expanded(
+                    child: track == null
+                        ? Text(
+                            '从喜欢、歌单或推荐中选择歌曲',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: MeloColors.textSecondary,
+                                    ),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                track.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                track.artists.join(' / '),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: MeloColors.textSecondary,
+                                    ),
+                              ),
+                            ],
                           ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      track.artists.join(' / '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: MeloColors.textSecondary,
-                          ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
         const SizedBox(width: MeloSpacing.xs),
         _FavoriteButton(track: track, repository: repository),
@@ -193,8 +213,8 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
           ? null
           : () async {
               final current = widget.track!;
-              final availability =
-                  widget.repository.favoriteWriteAvailability(current.ref.providerId);
+              final availability = widget.repository
+                  .favoriteWriteAvailability(current.ref.providerId);
               if (!availability.isEnabled) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(availability.reason ?? '此来源无法写回收藏。')),
@@ -222,7 +242,7 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton> {
               } on ProviderException catch (error) {
                 if (context.mounted) {
                   // Revert optimistic update on failure.
-                  setState(() => _liked = newLiked);
+                  setState(() => _liked = !newLiked);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(error.message)),
                   );

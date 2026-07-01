@@ -6,6 +6,8 @@ environment:
   sdk: ">=3.4.0 <4.0.0"
 
 dependencies:
+  crypto: ^3.0.6
+  cryptography: ^2.7.0
   http: ^1.6.0
   provider_contract:
     path: ../provider_contract

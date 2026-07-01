@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:provider_contract/provider_contract.dart';
+import 'package:provider_qq/src/qq_music_signing.dart';
 import 'package:provider_qq/provider_qq.dart';
 import 'package:test/test.dart';
 
@@ -18,6 +19,8 @@ void main() {
                 'list': [
                   {
                     'songmid': 'song_mid_1',
+                    'songid': 10001,
+                    'type': 0,
                     'media_mid': 'media_mid_1',
                     'songname': '<em>晴天</em>',
                     'albumname': '叶惠美',
@@ -41,6 +44,8 @@ void main() {
     expect(provider.descriptor.supports(ProviderCapability.search), isTrue);
     expect(
         provider.descriptor.supports(ProviderCapability.readFavorites), isTrue);
+    expect(provider.descriptor.supports(ProviderCapability.writeFavorites),
+        isTrue);
     expect(provider.descriptor.supports(ProviderCapability.readCharts), isTrue);
 
     final results = await provider.search('晴天');
@@ -48,8 +53,24 @@ void main() {
     expect(results.single.title, '晴天');
     expect(results.single.artists, ['周杰伦']);
     expect(results.single.album, '叶惠美');
+    expect(results.single.ref.extraIds['song_id'], '10001');
+    expect(results.single.ref.extraIds['song_type'], '0');
     expect(results.single.ref.extraIds['media_mid'], 'media_mid_1');
     expect(results.single.artwork.toString(), contains('album_mid_1'));
+  });
+
+  test('QQ Music web signing matches known zzc fixture', () {
+    expect(
+      qqMusicZzcSign('123'),
+      'zzcec1b555gzqzg7laztguyjl2bu20r6x1w50c55f60',
+    );
+    final fixture = base64Decode(
+      'AR3vcjr+DTBcYVz/bBhmrSIJHD7gCEvTaS25FTtcfVKpa0g9/mtCC2i7WFnqezj9SWwKKxjteVw6+2gJEg==',
+    );
+    expect(
+      decodeQqMusicAg1Response(fixture),
+      '{"code":0,"ts":0,"start_ts":100,"traceid":"ffffffffffffffff"}',
+    );
   });
 
   test('creates playback and download tickets from vkey response', () async {
@@ -301,6 +322,7 @@ void main() {
               'songlist': [
                 {
                   'data': {
+                    'songid': 20002,
                     'songmid': 'mid_002',
                     'songname': '七里香',
                     'albumname': '七里香',
@@ -337,6 +359,7 @@ void main() {
     expect(snapshot.tracks[0].title, '七里香');
     expect(snapshot.tracks[0].isFavorited, isTrue);
     expect(snapshot.tracks[0].ref.extraIds['song_mic'], isNull);
+    expect(snapshot.tracks[0].ref.extraIds['song_id'], '20002');
     expect(snapshot.tracks[0].ref.extraIds['song_mid'], 'mid_002');
     expect(snapshot.tracks[0].artwork.toString(), contains('alb_002'));
     expect(snapshot.tracks[0].artists, ['周杰伦']);
@@ -453,6 +476,7 @@ void main() {
                       'songlist': [
                         {
                           'songmid': 's1',
+                          'songid': 30001,
                           'media_mid': 'm1',
                           'songname': 'Song One',
                           'albummid': 'a1',
@@ -484,6 +508,7 @@ void main() {
     expect(tracks, hasLength(2));
     expect(tracks[0].title, 'Song One');
     expect(tracks[0].artists, ['Artist A']);
+    expect(tracks[0].ref.extraIds['song_id'], '30001');
     expect(tracks[0].ref.extraIds['media_mid'], 'm1');
     expect(tracks[1].title, 'Song Two');
   });
@@ -618,19 +643,22 @@ void main() {
             'code': 0,
             'detail': {
               'code': 0,
-              'data': {'title': '热歌榜'},
-              'songInfoList': [
-                {
-                  'mid': 'top_song_001',
-                  'name': '榜单歌曲',
-                  'album': {'mid': 'top_album', 'name': '榜单专辑'},
-                  'file': {'media_mid': 'top_media_001'},
-                  'interval': 218,
-                  'singer': [
-                    {'name': '榜单歌手'},
-                  ],
-                },
-              ],
+              'data': {
+                'data': {'title': '热歌榜'},
+                'songInfoList': [
+                  {
+                    'mid': 'top_song_001',
+                    'id': 40001,
+                    'name': '榜单歌曲',
+                    'album': {'mid': 'top_album', 'name': '榜单专辑'},
+                    'file': {'media_mid': 'top_media_001'},
+                    'interval': 218,
+                    'singer': [
+                      {'name': '榜单歌手'},
+                    ],
+                  },
+                ],
+              },
             },
           })),
           200,
@@ -652,6 +680,7 @@ void main() {
     expect(tracks, hasLength(1));
     expect(tracks.single.title, '榜单歌曲');
     expect(tracks.single.artists, ['榜单歌手']);
+    expect(tracks.single.ref.extraIds['song_id'], '40001');
     expect(tracks.single.ref.trackId, 'top_song_001');
     expect(tracks.single.ref.extraIds['media_mid'], 'top_media_001');
   });
@@ -742,32 +771,32 @@ void main() {
     expect(tracks[0].title, '热门歌曲');
   });
 
-  test('authenticated setFavorite calls SetSongFav via musicu.fcg', () async {
+  test('authenticated setFavorite adds song via PlaylistDetailWrite', () async {
     final trackRef = ProviderTrackRef(
       providerId: qqMusicProviderId,
       trackId: 'mid_002',
-      extraIds: const {'song_mid': 'mid_002'},
+      extraIds: const {
+        'song_mid': 'mid_002',
+        'song_id': '20002',
+        'song_type': '0',
+      },
     );
     final provider = QqMusicProvider(
       client: _FakeClient((request) {
-        expect(request.url.path, contains('musicu.fcg'));
+        expect(request.url.path, contains('musics.fcg'));
+        expect(request.url.queryParameters['encoding'], 'ag-1');
+        expect(request.url.queryParameters['sign'], startsWith('zzc'));
+        expect(request.headers['content-type'], contains('text/plain'));
         final body =
             request is http.Request ? utf8.decode(request.bodyBytes) : '';
-        final decoded = jsonDecode(body) as Map<String, Object?>;
-        final comm = decoded['comm'] as Map<String, Object?>?;
-        expect(comm?['ct'], 24);
-        expect(comm?['platform'], 'yqq.json');
-        expect(comm?['loginUin'], 12345);
-        final fav = decoded['fav'];
-        expect(fav, isNotNull);
-        final params =
-            (fav as Map<String, Object?>)['param'] as Map<String, Object?>?;
-        expect(params?['songmid'], 'mid_002');
-        expect(params?['fav'], 1);
+        expect(body, isNot(contains('PlaylistDetailWrite')));
         return http.Response.bytes(
-          utf8.encode(jsonEncode({
+          encodeQqMusicAg1Response(jsonEncode({
             'code': 0,
-            'fav': {'code': 0},
+            'req_1': {
+              'code': 0,
+              'data': {'result': 0},
+            },
           })),
           200,
         );
@@ -779,6 +808,107 @@ void main() {
       provider.setFavorite(track: trackRef, liked: true),
       completes,
     );
+  });
+
+  test('authenticated setFavorite removes song via PlaylistDetailWrite',
+      () async {
+    final trackRef = ProviderTrackRef(
+      providerId: qqMusicProviderId,
+      trackId: 'mid_002',
+      extraIds: const {
+        'song_mid': 'mid_002',
+        'song_id': '20002',
+        'song_type': '0',
+      },
+    );
+    final provider = QqMusicProvider(
+      client: _FakeClient((request) {
+        expect(request.url.path, contains('musics.fcg'));
+        expect(request.url.queryParameters['encoding'], 'ag-1');
+        expect(request.url.queryParameters['sign'], startsWith('zzc'));
+        final body =
+            request is http.Request ? utf8.decode(request.bodyBytes) : '';
+        expect(body, isNot(contains('PlaylistDetailWrite')));
+        return http.Response.bytes(
+          encodeQqMusicAg1Response(jsonEncode({
+            'code': 0,
+            'req_1': {
+              'code': 0,
+              'data': {'result': 0},
+            },
+          })),
+          200,
+        );
+      }),
+      credentials: QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+    );
+
+    await expectLater(
+      provider.setFavorite(track: trackRef, liked: false),
+      completes,
+    );
+  });
+
+  test('setFavorite resolves song id from detail before PlaylistDetailWrite',
+      () async {
+    final trackRef = ProviderTrackRef(
+      providerId: qqMusicProviderId,
+      trackId: 'mid_002',
+      extraIds: const {'song_mid': 'mid_002'},
+    );
+    var requestCount = 0;
+    final provider = QqMusicProvider(
+      client: _FakeClient((request) {
+        requestCount++;
+        if (requestCount == 1) {
+          expect(request.url.path, contains('musicu.fcg'));
+          final body =
+              request is http.Request ? utf8.decode(request.bodyBytes) : '';
+          final decoded = jsonDecode(body) as Map<String, Object?>;
+          final detail = decoded['detail'] as Map<String, Object?>;
+          expect(detail['module'], 'music.pf_song_detail_svr');
+          expect(detail['method'], 'get_song_detail_yqq');
+          final params = detail['param'] as Map<String, Object?>;
+          expect(params['song_mid'], 'mid_002');
+          return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'code': 0,
+              'detail': {
+                'code': 0,
+                'data': {
+                  'track_info': {'id': 20002, 'type': 0},
+                },
+              },
+            })),
+            200,
+          );
+        }
+
+        expect(request.url.path, contains('musics.fcg'));
+        expect(request.url.queryParameters['encoding'], 'ag-1');
+        expect(request.url.queryParameters['sign'], startsWith('zzc'));
+        final body =
+            request is http.Request ? utf8.decode(request.bodyBytes) : '';
+        expect(body, isNot(contains('PlaylistDetailWrite')));
+        return http.Response.bytes(
+          encodeQqMusicAg1Response(jsonEncode({
+            'code': 0,
+            'req_1': {
+              'code': 0,
+              'data': {'result': 0},
+            },
+          })),
+          200,
+        );
+      }),
+      credentials: QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+    );
+
+    await expectLater(
+      provider.setFavorite(track: trackRef, liked: true),
+      completes,
+    );
+    expect(requestCount, 2);
   });
 
   test('unauthenticated setFavorite throws AuthenticationRequiredException',

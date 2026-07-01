@@ -16,4 +16,4 @@ enum RightSidebarMode {
 }
 
 final rightSidebarModeProvider =
-    StateProvider<RightSidebarMode>((ref) => RightSidebarMode.queue);
+    StateProvider<RightSidebarMode>((ref) => RightSidebarMode.lyrics);

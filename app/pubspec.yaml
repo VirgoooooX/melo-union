@@ -34,5 +34,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+dependency_overrides:
+  just_audio_windows:
+    path: ../packages/just_audio_windows_patched
+
 flutter:
   uses-material-design: true

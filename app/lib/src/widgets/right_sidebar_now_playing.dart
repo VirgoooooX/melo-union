@@ -56,7 +56,9 @@ class RightSidebar extends ConsumerWidget {
                         ),
                         const Spacer(),
                         TextButton(
-                          onPressed: null,
+                          onPressed: repository.queue.entries.isEmpty
+                              ? null
+                              : repository.clearQueue,
                           style: TextButton.styleFrom(
                             minimumSize: Size.zero,
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

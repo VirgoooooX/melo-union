@@ -174,16 +174,23 @@ class _MobileShell extends StatelessWidget {
         ],
       ),
       body: child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selected < 0 ? 0 : selected,
-        onDestinationSelected: (index) => context.go(destinations[index].path),
-        destinations: [
-          for (final item in destinations)
-            NavigationDestination(
-              icon: Icon(AppShellScaffold.iconFor(item, false)),
-              selectedIcon: Icon(AppShellScaffold.iconFor(item, true)),
-              label: AppShellScaffold.titleFor(item),
-            ),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const MeloMobileMiniPlayer(),
+          NavigationBar(
+            selectedIndex: selected < 0 ? 0 : selected,
+            onDestinationSelected: (index) =>
+                context.go(destinations[index].path),
+            destinations: [
+              for (final item in destinations)
+                NavigationDestination(
+                  icon: Icon(AppShellScaffold.iconFor(item, false)),
+                  selectedIcon: Icon(AppShellScaffold.iconFor(item, true)),
+                  label: AppShellScaffold.titleFor(item),
+                ),
+            ],
+          ),
         ],
       ),
     );

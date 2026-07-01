@@ -28,8 +28,6 @@ enum PlaybackRepeatMode { off, all, one }
 
 enum ProviderSessionActionKind { cookieImport, qrLogin }
 
-const _windowsAudioLoadTimeout = Duration(seconds: 2);
-
 final class ProviderSessionAction {
   const ProviderSessionAction({
     required this.kind,
@@ -713,6 +711,14 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearQueue() {
+    playbackCoordinator.setQueue([]);
+    _playingTrackId = null;
+    _playbackRequested = false;
+    unawaited(_audioPlayer.stop());
+    notifyListeners();
+  }
+
   Future<void> selectTrackInQueue(ProviderTrackRef ref) async {
     await playbackCoordinator.selectTrack(ref);
     _playingTrackId = null; // Force new playback
@@ -899,43 +905,17 @@ class DemoRepository extends ChangeNotifier {
         final url = currentTicket.mediaUri.toString();
         debugPrint('AUDIO: playing "${current.title}"');
         await _audioPlayer.stop();
-        await _loadAudioUrlForPlayback(
+        await _audioPlayer.setUrl(
           url,
           headers: currentTicket.headers.isEmpty ? null : currentTicket.headers,
         );
-        if (_playingTrackId == trackId) {
-          _startAudioPlayer();
-        }
+        _startAudioPlayer();
       } catch (e) {
         debugPrint('Audio Error: $e');
         _playingTrackId = null;
         _playbackRequested = false;
       }
     }
-  }
-
-  Future<void> _loadAudioUrlForPlayback(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    final loadFuture = _audioPlayer.setUrl(url, headers: headers);
-    if (defaultTargetPlatform != TargetPlatform.windows) {
-      await loadFuture;
-      return;
-    }
-
-    // just_audio_windows can miss the first ready event on Windows by sending
-    // native events from a non-platform thread. Continue to play so the first
-    // click behaves like the second manual click.
-    await loadFuture.timeout(
-      _windowsAudioLoadTimeout,
-      onTimeout: () {
-        debugPrint(
-          'AUDIO: Windows load timed out; continuing with play request.',
-        );
-        return null;
-      },
-    );
   }
 
   ProviderTrackRef? _nextTrackRef(PlaybackQueueState queueState) {

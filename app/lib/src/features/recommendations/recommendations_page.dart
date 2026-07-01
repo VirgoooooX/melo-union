@@ -214,6 +214,10 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                               itemBuilder: (context, index) {
                                 final track = tracks[index];
                                 final selected = currentRef == track.ref;
+                                final favoriteAvailability =
+                                    repository.favoriteWriteAvailability(
+                                  track.ref.providerId,
+                                );
                                 return MeloInteractiveRow(
                                   selected: selected,
                                   onDoubleTap: track.isPlayable
@@ -273,14 +277,18 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                                         ),
                                       ),
                                       IconButton(
-                                        tooltip: '喜欢',
+                                        tooltip: favoriteAvailability.reason ??
+                                            (track.isFavorited ? '取消喜欢' : '喜欢'),
                                         visualDensity: VisualDensity.compact,
-                                        onPressed: () => ref
-                                            .read(demoRepositoryProvider)
-                                            .toggleFavorite(
-                                              track: track,
-                                              liked: !track.isFavorited,
-                                            ),
+                                        onPressed: favoriteAvailability
+                                                .isEnabled
+                                            ? () => ref
+                                                .read(demoRepositoryProvider)
+                                                .toggleFavorite(
+                                                  track: track,
+                                                  liked: !track.isFavorited,
+                                                )
+                                            : null,
                                         icon: Icon(
                                           track.isFavorited
                                               ? Icons.favorite_rounded
@@ -372,7 +380,8 @@ class _ShelfTabSelector extends StatelessWidget {
 
   Widget _buildTab(BuildContext context, _ShelfTab tab, bool isSelected) {
     final color = isSelected ? MeloColors.surface : MeloColors.textSecondary;
-    final beginColor = isSelected ? MeloColors.textSecondary : MeloColors.surface;
+    final beginColor =
+        isSelected ? MeloColors.textSecondary : MeloColors.surface;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -395,10 +404,13 @@ class _ShelfTabSelector extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     _shelfTabLabel(tab),
-                    style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle()).copyWith(
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                          color: animatedColor,
-                        ),
+                    style: (Theme.of(context).textTheme.bodyMedium ??
+                            const TextStyle())
+                        .copyWith(
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w600,
+                      color: animatedColor,
+                    ),
                   ),
                 ],
               );
@@ -433,7 +445,7 @@ class _PlaylistShelf extends StatelessWidget {
         if (snapshot.hasError) {
           return const SizedBox.shrink();
         }
-        
+
         Widget child;
         if (!isLoading && playlists.isEmpty) {
           child = SizedBox(
