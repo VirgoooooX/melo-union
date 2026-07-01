@@ -1,12 +1,20 @@
 <p align="center">
-  <img src="docs/logo.svg" alt="MeloUnion logo" width="132">
+  <img src="docs/logo.svg" alt="MeloUnion logo" width="128">
 </p>
 
-# 🎵 MeloUnion 麦乐聚合音乐客户端
+<h1 align="center">MeloUnion 麦乐聚合音乐客户端</h1>
 
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-Teal?style=for-the-badge&logo=flutter)](https://flutter.dev)
-[![Architecture](https://img.shields.io/badge/Architecture-Clean%20%26%20Extensible-blue?style=for-the-badge)](docs/architecture.md)
-[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+<p align="center">
+  <a href="https://flutter.dev">
+    <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Android-Teal?style=for-the-badge&logo=flutter" alt="Platform" />
+  </a>
+  <a href="docs/architecture.md">
+    <img src="https://img.shields.io/badge/Architecture-Clean%20%26%20Extensible-blue?style=for-the-badge" alt="Architecture" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License" />
+  </a>
+</p>
 
 > **MeloUnion (麦乐联合)** 是一款专为 **Windows + Android** 设计的**可扩展、多平台统一音乐客户端**。
 >
