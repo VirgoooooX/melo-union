@@ -42,6 +42,16 @@ if (Test-Path $pubspecPath) {
     throw "Could not find $pubspecPath"
 }
 
+# Update app/lib/src/bootstrap/app_version.dart
+$versionPath = "app/lib/src/bootstrap/app_version.dart"
+if (Test-Path $versionPath) {
+    $versionContent = "const String appVersion = '$Version';`n"
+    Set-Content $versionPath $versionContent -NoNewline
+    Write-Host "Updated $versionPath to version: $Version"
+} else {
+    throw "Could not find $versionPath"
+}
+
 # Normalize and validate Platform
 $Platform = $Platform.ToLower()
 if ($Platform -notmatch '^(all|windows|android)$') {
@@ -74,7 +84,7 @@ $tagBase = "v$($Version.Split('+')[0])"
 $tag = $tagBase
 Write-Host "Creating Git Commit and Tag: $tag (platform=$Platform)"
 
-git add $pubspecPath
+git add $pubspecPath $versionPath
 $staged = git diff --cached --name-only
 if ($staged) {
     git commit -m "chore: bump version to $Version"

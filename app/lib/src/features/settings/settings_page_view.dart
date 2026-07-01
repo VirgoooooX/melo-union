@@ -29,7 +29,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 1120;
+    final mobile = MediaQuery.sizeOf(context).width < 960;
     final repository = ref.watch(demoRepositoryProvider);
+    if (mobile) {
+      return _MobileMineView(
+        playbackQuality: repository.playbackQuality,
+        onPlaybackQualityChanged: repository.setPlaybackQuality,
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(28, 22, 28, 18),
@@ -102,6 +109,88 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MobileMineView extends StatelessWidget {
+  const _MobileMineView({
+    required this.playbackQuality,
+    required this.onPlaybackQualityChanged,
+  });
+
+  final AudioQuality playbackQuality;
+  final Future<void> Function(AudioQuality quality) onPlaybackQualityChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+      children: [
+        Text(
+          '我的',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '账号来源、本地内容和播放偏好。',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: MeloColors.textSecondary,
+              ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          '账号与来源',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        const SizedBox(height: 10),
+        const _MusicSourcesSettings(
+          shrinkWrap: true,
+          physics: NeverScrollableScrollPhysics(),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          '本地与下载',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        const SizedBox(height: 10),
+        _SettingsCard(
+          title: '下载管理',
+          subtitle: '查看进行中、已完成与失败任务。',
+          leading: Icons.download_done_rounded,
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.go(AppDestination.downloads.path),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          '应用设置',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        const SizedBox(height: 10),
+        _SettingsCard(
+          title: '默认音质',
+          subtitle: '新解析的播放链接会优先使用此音质。',
+          leading: Icons.high_quality_rounded,
+          child: _QualitySelector(
+            value: playbackQuality,
+            onChanged: onPlaybackQualityChanged,
+          ),
+        ),
+        const SizedBox(height: 12),
+        const _SettingsCard(
+          title: '关于 MeloUnion',
+          subtitle: 'Flutter MVP · Provider 可扩展音乐库。',
+          leading: Icons.info_outline_rounded,
+        ),
+      ],
     );
   }
 }
@@ -348,13 +437,13 @@ class _SettingsContent extends StatelessWidget {
             ),
           ],
         ),
-      _SettingsSection.about => const _SettingsPanel(
+      _SettingsSection.about => _SettingsPanel(
           title: '关于 MeloUnion',
           subtitle: '一个可扩展 Provider 的统一音乐库与播放客户端。',
-          children: [
+          children: const [
             _SettingsCard(
               title: '版本',
-              subtitle: 'Flutter MVP · Phase 1-5',
+              subtitle: 'v$appVersion',
               leading: Icons.info_outline_rounded,
             ),
             SizedBox(height: MeloSpacing.md),
@@ -415,15 +504,17 @@ class _SettingsSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: MeloColors.surface,
+    return Material(
+      color: MeloColors.surface,
+      elevation: 0,
+      shape: const RoundedRectangleBorder(
         borderRadius: MeloRadii.lg,
-        border: Border.all(color: MeloColors.border),
-        boxShadow: MeloShadows.card,
+        side: BorderSide(color: MeloColors.border),
       ),
-      child: child,
+      child: Padding(
+        padding: padding,
+        child: child,
+      ),
     );
   }
 }

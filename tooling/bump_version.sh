@@ -51,6 +51,16 @@ else
     exit 1
 fi
 
+# Update app/lib/src/bootstrap/app_version.dart
+version_path="app/lib/src/bootstrap/app_version.dart"
+if [ -f "$version_path" ]; then
+    echo "const String appVersion = '$VERSION';" > "$version_path"
+    echo "Updated $version_path to version: $VERSION"
+else
+    echo "Error: Could not find $version_path"
+    exit 1
+fi
+
 # Validate and normalize PLATFORM
 PLATFORM=$(echo "$PLATFORM" | tr '[:upper:]' '[:lower:]')
 if [[ "$PLATFORM" != "all" && "$PLATFORM" != "windows" && "$PLATFORM" != "android" ]]; then
@@ -84,7 +94,7 @@ tag_version=$(echo "$VERSION" | cut -d'+' -f1)
 tag="v$tag_version"
 
 echo "Creating Git Commit and Tag: $tag (platform=$PLATFORM)"
-git add "$pubspec_path"
+git add "$pubspec_path" "$version_path"
 
 if [ -n "$(git diff --cached --name-only)" ]; then
     git commit -m "chore: bump version to $VERSION"

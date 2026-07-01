@@ -9,6 +9,7 @@ import 'package:provider_qq/provider_qq.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../bootstrap/demo_repository.dart';
+import '../../bootstrap/app_version.dart';
 import '../../design/melo_tokens.dart';
 import '../../presentation/app_destination.dart';
 import '../../presentation/provider_presentation.dart';
