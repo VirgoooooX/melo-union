@@ -131,7 +131,7 @@ class _MobileMineView extends ConsumerWidget {
             repository.sessionActionFor(entry.descriptor.id) != null)
         .toList(growable: false);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
       children: [
         Row(
           children: [
@@ -174,10 +174,12 @@ class _MobileMineView extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 10),
-        const _SettingsCard(
+        _SettingsCard(
           title: '下载功能',
-          subtitle: '当前版本暂不提供下载，相关入口已先收起。',
+          subtitle: '当前版本暂未实现下载功能，点这里查看后续占位页。',
           leading: Icons.download_done_outlined,
+          trailing: Icons.chevron_right_rounded,
+          onTap: () => context.go(AppDestination.downloads.path),
         ),
         const SizedBox(height: 18),
         const _MineSectionTitle('应用信息'),
@@ -630,12 +632,16 @@ class _SettingsCard extends StatelessWidget {
     required this.subtitle,
     required this.leading,
     this.child,
+    this.trailing,
+    this.onTap,
   });
 
   final String title;
   final String subtitle;
   final IconData leading;
   final Widget? child;
+  final IconData? trailing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -676,6 +682,10 @@ class _SettingsCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (trailing != null) ...[
+                const SizedBox(width: MeloSpacing.sm),
+                Icon(trailing, color: MeloColors.textTertiary, size: 20),
+              ],
             ],
           ),
           if (child != null) ...[
@@ -686,7 +696,15 @@ class _SettingsCard extends StatelessWidget {
       ),
     );
 
-    return content;
+    if (onTap == null) return content;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: content,
+      ),
+    );
   }
 }
 

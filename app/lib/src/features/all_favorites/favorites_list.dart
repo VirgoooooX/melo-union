@@ -335,7 +335,6 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 156),
       physics: const AlwaysScrollableScrollPhysics(),
-      scrollCacheExtent: 640,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       itemCount: tracks.length,
       separatorBuilder: (_, __) =>

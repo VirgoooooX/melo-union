@@ -161,11 +161,13 @@ class _MobileShell extends StatelessWidget {
       AppDestination.favorites,
       AppDestination.search,
       AppDestination.playlists,
-      AppDestination.downloads,
       AppDestination.settings,
     ];
-    final mobileCurrent = current;
+    final mobileCurrent =
+        current == AppDestination.downloads ? AppDestination.settings : current;
     final selected = destinations.indexOf(mobileCurrent);
+    final showMiniPlayer = current != AppDestination.settings &&
+        current != AppDestination.downloads;
     return Scaffold(
       extendBody: true,
       backgroundColor: MeloColors.canvas,
@@ -185,12 +187,13 @@ class _MobileShell extends StatelessWidget {
                 child: child,
               ),
             ),
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: MediaQuery.paddingOf(context).bottom + 76,
-              child: const MeloMobileMiniPlayer(),
-            ),
+            if (showMiniPlayer)
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: MediaQuery.paddingOf(context).bottom + 76,
+                child: const MeloMobileMiniPlayer(),
+              ),
           ],
         ),
       ),
@@ -213,7 +216,7 @@ class _MobileShell extends StatelessWidget {
 
   static String _mobileLabelFor(AppDestination destination) =>
       switch (destination) {
-        AppDestination.recommendations => '首页',
+        AppDestination.recommendations => '推荐',
         AppDestination.favorites => '喜欢',
         AppDestination.search => '搜索',
         AppDestination.playlists => '歌单',

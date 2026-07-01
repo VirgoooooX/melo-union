@@ -330,7 +330,6 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                     : ListView.separated(
                         itemCount: tracks.length,
                         padding: EdgeInsets.only(bottom: isMobile ? 156 : 4),
-                        scrollCacheExtent: isMobile ? 640 : null,
                         separatorBuilder: (_, __) => const Divider(
                           height: 1,
                           color: MeloColors.border,
@@ -519,71 +518,6 @@ class _LocalPlaylistTracks extends StatelessWidget {
           const Divider(height: 1, color: MeloColors.border),
           Expanded(
             child: playlist.items.isEmpty
-      for (final item in playlist.items)
-        if (repository.sourceTrackByRef(item.trackRef) case final track?)
-          if (track.isPlayable) track,
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: MeloColors.surface,
-        borderRadius: MeloRadii.lg,
-        border: Border.all(color: MeloColors.border),
-        boxShadow: MeloShadows.card,
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: '返回歌单',
-                  onPressed: onBack,
-                  icon: const Icon(Icons.arrow_back_rounded),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 46,
-                  height: 46,
-                  child: MeloPlaylistCover(title: playlist.name),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        playlist.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                      ),
-                      Text(
-                        '${playlist.items.length} 首 · 本地歌单',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: MeloColors.textSecondary,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton.icon(
-                  onPressed: playableTracks.isEmpty
-                      ? null
-                      : () => repository.playTracks(playableTracks),
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Text('播放全部'),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: MeloColors.border),
-          Expanded(
-            child: playlist.items.isEmpty
                 ? const MeloEmptyState(
                     icon: Icons.playlist_add_rounded,
                     title: '这个歌单还没有歌曲',
@@ -592,9 +526,12 @@ class _LocalPlaylistTracks extends StatelessWidget {
                 : ListView.separated(
                     itemCount: playlist.items.length,
                     padding: EdgeInsets.only(bottom: isMobile ? 156 : 4),
-                    scrollCacheExtent: isMobile ? 640 : null,
                     separatorBuilder: (_, __) => const Divider(
                       height: 1,
+                      color: MeloColors.border,
+                    ),
+                    itemBuilder: (context, index) {
+                      final item = playlist.items[index];
                       final track = repository.sourceTrackByRef(item.trackRef);
                       final selected = currentRef == item.trackRef;
                       final title = track?.title ?? item.cachedTitle;

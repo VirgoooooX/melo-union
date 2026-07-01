@@ -79,7 +79,6 @@ class MeloFullScreenPlayer extends ConsumerWidget {
                         ? _MobileFullScreenLayout(
                             track: track,
                             repository: repository,
-                            mode: mode,
                           )
                         : _DesktopFullScreenLayout(
                             track: track,
@@ -121,14 +120,25 @@ class MeloMobileMiniPlayer extends ConsumerWidget {
         child: Container(
           height: 66,
           decoration: BoxDecoration(
-            color: MeloColors.surface.withValues(alpha: .82),
+            color: MeloColors.surface.withValues(alpha: .68),
             borderRadius: MeloRadii.lg,
             border: Border.all(
               color: hasIssue
                   ? MeloColors.favorite.withValues(alpha: .28)
-                  : Colors.white.withValues(alpha: .62),
+                  : Colors.white.withValues(alpha: .54),
             ),
-            boxShadow: MeloShadows.floating,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x241C2736),
+                blurRadius: 34,
+                offset: Offset(0, 16),
+              ),
+              BoxShadow(
+                color: Color(0x0F087C76),
+                blurRadius: 18,
+                offset: Offset(0, 6),
+              ),
+            ],
           ),
           child: Column(
             children: [
@@ -385,25 +395,28 @@ class _FullScreenHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentTrack = track;
+    final compact = MediaQuery.sizeOf(context).width < 780;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        MeloSpacing.xl,
-        MeloSpacing.md,
-        MeloSpacing.xl,
-        MeloSpacing.xs,
+      padding: EdgeInsets.fromLTRB(
+        compact ? MeloSpacing.md : MeloSpacing.xl,
+        compact ? 4 : MeloSpacing.md,
+        compact ? MeloSpacing.md : MeloSpacing.xl,
+        compact ? 0 : MeloSpacing.xs,
       ),
       child: Row(
         children: [
           _GlassIconButton(
             tooltip: '收起',
             icon: Icons.keyboard_arrow_down_rounded,
+            buttonSize: compact ? 36 : null,
+            iconSize: compact ? 22 : null,
             onPressed: () => Navigator.of(context).maybePop(),
           ),
-          const SizedBox(width: MeloSpacing.md),
+          SizedBox(width: compact ? MeloSpacing.xs : MeloSpacing.md),
           Expanded(
             child: DragToMoveArea(
               child: SizedBox(
-                height: 44,
+                height: compact ? 36 : 44,
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -414,6 +427,7 @@ class _FullScreenHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.white.withValues(alpha: .78),
+                          fontSize: compact ? 12 : null,
                           fontWeight: FontWeight.w700,
                         ),
                   ),
@@ -646,44 +660,53 @@ class _DesktopLyricsStage extends StatelessWidget {
   }
 }
 
-class _MobileFullScreenLayout extends StatelessWidget {
+class _MobileFullScreenLayout extends StatefulWidget {
   const _MobileFullScreenLayout({
     required this.track,
     required this.repository,
-    required this.mode,
   });
 
   final SourceTrack? track;
   final DemoRepository repository;
-  final RightSidebarMode mode;
+
+  @override
+  State<_MobileFullScreenLayout> createState() =>
+      _MobileFullScreenLayoutState();
+}
+
+class _MobileFullScreenLayoutState extends State<_MobileFullScreenLayout> {
+  bool _showLyrics = false;
+
+  void _showQueue() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: .28),
+      builder: (context) => _MobileQueueSheet(repository: widget.repository),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(
-        MeloSpacing.lg,
+        MeloSpacing.md,
+        0,
+        MeloSpacing.md,
         MeloSpacing.sm,
-        MeloSpacing.lg,
-        MeloSpacing.lg,
       ),
       children: [
         _PrimaryPlayerPanel(
-          track: track,
-          repository: repository,
-          coverSize: 300,
+          track: widget.track,
+          repository: widget.repository,
+          coverSize: 192,
           compact: true,
-        ),
-        const SizedBox(height: MeloSpacing.lg),
-        SizedBox(
-          height: 420,
-          child: _GlassPanel(
-            padding: const EdgeInsets.all(MeloSpacing.md),
-            child: _InteractivePanel(
-              track: track,
-              repository: repository,
-              mode: mode,
-            ),
-          ),
+          showLyrics: _showLyrics,
+          onLyricsToggle: widget.track == null
+              ? null
+              : () => setState(() => _showLyrics = !_showLyrics),
+          onQueuePressed: widget.track == null ? null : _showQueue,
         ),
       ],
     );
@@ -696,12 +719,18 @@ class _PrimaryPlayerPanel extends StatelessWidget {
     required this.repository,
     required this.coverSize,
     this.compact = false,
+    this.showLyrics = false,
+    this.onLyricsToggle,
+    this.onQueuePressed,
   });
 
   final SourceTrack? track;
   final DemoRepository repository;
   final double coverSize;
   final bool compact;
+  final bool showLyrics;
+  final VoidCallback? onLyricsToggle;
+  final VoidCallback? onQueuePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -719,28 +748,50 @@ class _PrimaryPlayerPanel extends StatelessWidget {
     }
 
     final presentation = meloProviderPresentation(track!.ref.providerId);
+    final artworkSize =
+        compact ? coverSize.clamp(168, 238).toDouble() : coverSize;
+    final artworkHeight = compact ? artworkSize + 60 : artworkSize + 116;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _RotatingArtwork(
-          track: track!,
-          repository: repository,
-          size: compact ? coverSize.clamp(220, 300).toDouble() : coverSize,
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 240),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: showLyrics
+              ? SizedBox(
+                  key: const ValueKey('mobile-lyrics-stage'),
+                  width: double.infinity,
+                  height: artworkHeight,
+                  child: _FullscreenLyrics(
+                    track: track,
+                    repository: repository,
+                    compact: true,
+                  ),
+                )
+              : _RotatingArtwork(
+                  key: const ValueKey('mobile-artwork-stage'),
+                  track: track!,
+                  repository: repository,
+                  size: artworkSize,
+                  compact: compact,
+                ),
         ),
-        const SizedBox(height: MeloSpacing.xl),
+        SizedBox(height: compact ? 10 : MeloSpacing.xl),
         Text(
           track!.title,
-          maxLines: 2,
+          maxLines: compact ? 1 : 2,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 color: Colors.white,
+                fontSize: compact ? 22 : null,
                 fontWeight: FontWeight.w900,
-                height: 1.12,
+                height: compact ? 1.08 : 1.12,
                 letterSpacing: 0,
               ),
         ),
-        const SizedBox(height: MeloSpacing.xs),
+        SizedBox(height: compact ? 2 : MeloSpacing.xs),
         Text(
           track!.artists.join(' / '),
           maxLines: 1,
@@ -748,31 +799,45 @@ class _PrimaryPlayerPanel extends StatelessWidget {
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Colors.white.withValues(alpha: .68),
+                fontSize: compact ? 13 : null,
                 fontWeight: FontWeight.w600,
               ),
         ),
-        const SizedBox(height: MeloSpacing.md),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: MeloSpacing.xs,
-          runSpacing: MeloSpacing.xs,
-          children: [
-            _GlassPill(label: presentation.shortName),
-            _GlassPill(label: _qualityLabel(repository.playbackQuality)),
-            if (track!.isFavorited)
-              const _GlassPill(
-                label: '已收藏',
-                icon: Icons.favorite_rounded,
-                accent: MeloColors.favorite,
-              ),
-          ],
-        ),
-        const SizedBox(height: MeloSpacing.lg),
+        if (!compact) ...[
+          const SizedBox(height: MeloSpacing.md),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: MeloSpacing.xs,
+            runSpacing: MeloSpacing.xs,
+            children: [
+              _GlassPill(label: presentation.shortName),
+              _GlassPill(label: _qualityLabel(repository.playbackQuality)),
+              if (track!.isFavorited)
+                const _GlassPill(
+                  label: '已收藏',
+                  icon: Icons.favorite_rounded,
+                  accent: MeloColors.favorite,
+                ),
+            ],
+          ),
+        ],
+        SizedBox(height: compact ? 8 : MeloSpacing.lg),
         _FullscreenProgress(repository: repository),
-        const SizedBox(height: MeloSpacing.md),
-        _FullscreenTransport(repository: repository, track: track!),
-        const SizedBox(height: MeloSpacing.sm),
-        _SecondaryControls(repository: repository, track: track!),
+        SizedBox(height: compact ? 6 : MeloSpacing.md),
+        _FullscreenTransport(
+          repository: repository,
+          track: track!,
+          compact: compact,
+        ),
+        SizedBox(height: compact ? 6 : MeloSpacing.sm),
+        _SecondaryControls(
+          repository: repository,
+          track: track!,
+          compact: compact,
+          showLyrics: showLyrics,
+          onLyricsToggle: onLyricsToggle,
+          onQueuePressed: onQueuePressed,
+        ),
       ],
     );
   }
@@ -783,11 +848,14 @@ class _RotatingArtwork extends StatefulWidget {
     required this.track,
     required this.repository,
     required this.size,
+    this.compact = false,
+    super.key,
   });
 
   final SourceTrack track;
   final DemoRepository repository;
   final double size;
+  final bool compact;
 
   @override
   State<_RotatingArtwork> createState() => _RotatingArtworkState();
@@ -840,8 +908,10 @@ class _RotatingArtworkState extends State<_RotatingArtwork>
   @override
   Widget build(BuildContext context) {
     final diameter = widget.size;
-    final frameWidth = diameter + 92;
-    final frameHeight = diameter + 116;
+    final frameWidth = widget.compact ? diameter + 54 : diameter + 92;
+    final frameHeight = widget.compact ? diameter + 60 : diameter + 116;
+    final tonearmWidth = widget.compact ? diameter * .34 : diameter * .42;
+    final tonearmHeight = widget.compact ? diameter * .42 : diameter * .56;
     return RepaintBoundary(
       child: SizedBox(
         width: frameWidth,
@@ -910,9 +980,9 @@ class _RotatingArtworkState extends State<_RotatingArtwork>
             ),
             Positioned(
               top: 0,
-              left: frameWidth * .45,
+              left: frameWidth * (widget.compact ? .52 : .45),
               child: CustomPaint(
-                size: Size(diameter * .42, diameter * .56),
+                size: Size(tonearmWidth, tonearmHeight),
                 painter: _TonearmPainter(),
               ),
             ),
@@ -1082,44 +1152,16 @@ class _ArtworkPlaceholder extends StatelessWidget {
   }
 }
 
-class _InteractivePanel extends ConsumerWidget {
-  const _InteractivePanel({
-    required this.track,
-    required this.repository,
-    required this.mode,
-  });
-
-  final SourceTrack? track;
-  final DemoRepository repository;
-  final RightSidebarMode mode;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 220),
-      child: mode == RightSidebarMode.lyrics
-          ? _FullscreenLyrics(
-              key: const ValueKey('lyrics'),
-              track: track,
-              repository: repository,
-            )
-          : _FullscreenQueue(
-              key: const ValueKey('queue'),
-              repository: repository,
-            ),
-    );
-  }
-}
-
 class _FullscreenLyrics extends ConsumerStatefulWidget {
   const _FullscreenLyrics({
     required this.track,
     required this.repository,
-    super.key,
+    this.compact = false,
   });
 
   final SourceTrack? track;
   final DemoRepository repository;
+  final bool compact;
 
   @override
   ConsumerState<_FullscreenLyrics> createState() => _FullscreenLyricsState();
@@ -1229,7 +1271,9 @@ class _FullscreenLyricsState extends ConsumerState<_FullscreenLyrics> {
                 ),
                 child: ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(vertical: 128),
+                  padding: EdgeInsets.symmetric(
+                    vertical: widget.compact ? 44 : 128,
+                  ),
                   itemCount: lines.length,
                   itemBuilder: (context, index) {
                     final line = lines[index];
@@ -1238,6 +1282,7 @@ class _FullscreenLyricsState extends ConsumerState<_FullscreenLyrics> {
                       key: _itemKeys[index],
                       line: line,
                       active: active,
+                      compact: widget.compact,
                       onTap: line.seekable
                           ? () {
                               widget.repository.seek(line.time);
@@ -1262,12 +1307,14 @@ class _LyricRow extends StatelessWidget {
     required this.line,
     required this.active,
     required this.onTap,
+    this.compact = false,
     super.key,
   });
 
   final _LyricLine line;
   final bool active;
   final VoidCallback? onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1281,8 +1328,8 @@ class _LyricRow extends StatelessWidget {
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
           padding: EdgeInsets.symmetric(
-            horizontal: MeloSpacing.lg,
-            vertical: active ? 16 : 10,
+            horizontal: compact ? MeloSpacing.sm : MeloSpacing.lg,
+            vertical: compact ? (active ? 10 : 6) : (active ? 16 : 10),
           ),
           alignment: Alignment.center,
           child: Text(
@@ -1292,41 +1339,14 @@ class _LyricRow extends StatelessWidget {
                   color: active
                       ? Colors.white
                       : Colors.white.withValues(alpha: .46),
-                  fontSize: active ? 24 : 16,
-                  height: 1.35,
+                  fontSize: compact ? (active ? 21 : 15) : (active ? 24 : 16),
+                  height: compact ? 1.28 : 1.35,
                   fontWeight: active ? FontWeight.w900 : FontWeight.w600,
                   letterSpacing: 0,
                 ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _FullscreenQueue extends ConsumerWidget {
-  const _FullscreenQueue({required this.repository, super.key});
-
-  final DemoRepository repository;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final queue = repository.queue;
-    if (queue.entries.isEmpty) return const _EmptyGlassMessage(message: '队列为空');
-
-    return ListView.builder(
-      padding: EdgeInsets.zero,
-      itemCount: queue.entries.length,
-      itemBuilder: (context, index) {
-        final entry = queue.entries[index];
-        return _QueueRow(
-          track: entry.track,
-          selected: index == queue.currentIndex,
-          index: index,
-          onPlay: () => repository.playOrToggleQueueTrack(entry.track.ref),
-          onRemove: () => repository.removeQueueEntry(index),
-        );
-      },
     );
   }
 }
@@ -1426,6 +1446,107 @@ class _QueueDrawer extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MobileQueueSheet extends ConsumerWidget {
+  const _MobileQueueSheet({required this.repository});
+
+  final DemoRepository repository;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.watch(demoRepositoryProvider);
+    final queue = repo.queue;
+    return DraggableScrollableSheet(
+      initialChildSize: .68,
+      minChildSize: .36,
+      maxChildSize: .88,
+      builder: (context, scrollController) {
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Material(
+              color: Colors.white.withValues(alpha: .95),
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: MeloColors.borderStrong,
+                      borderRadius: MeloRadii.pill,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                    child: Row(
+                      children: [
+                        Text(
+                          '当前播放列表',
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: MeloColors.textPrimary,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${queue.entries.length}',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: MeloColors.textTertiary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: '关闭',
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (queue.entries.isEmpty)
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          '队列为空',
+                          style: TextStyle(
+                            color: MeloColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                        itemCount: queue.entries.length,
+                        itemBuilder: (context, index) {
+                          final entry = queue.entries[index];
+                          return _QueueDrawerRow(
+                            track: entry.track,
+                            selected: index == queue.currentIndex,
+                            onPlay: () =>
+                                repo.playOrToggleQueueTrack(entry.track.ref),
+                            onRemove: () => repo.removeQueueEntry(index),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1560,131 +1681,6 @@ class _QueueDrawerRowState extends State<_QueueDrawerRow> {
   }
 }
 
-class _QueueRow extends StatefulWidget {
-  const _QueueRow({
-    required this.track,
-    required this.selected,
-    required this.index,
-    required this.onPlay,
-    required this.onRemove,
-  });
-
-  final SourceTrack track;
-  final bool selected;
-  final int index;
-  final VoidCallback onPlay;
-  final VoidCallback onRemove;
-
-  @override
-  State<_QueueRow> createState() => _QueueRowState();
-}
-
-class _QueueRowState extends State<_QueueRow> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onDoubleTap: widget.onPlay,
-        onSecondaryTap: widget.onRemove,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: widget.selected
-                ? Colors.white.withValues(alpha: .16)
-                : _hovered
-                    ? Colors.white.withValues(alpha: .09)
-                    : Colors.transparent,
-            borderRadius: MeloRadii.md,
-            border: Border.all(
-              color: widget.selected
-                  ? Colors.white.withValues(alpha: .22)
-                  : Colors.transparent,
-            ),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 28,
-                child: Text(
-                  '${widget.index + 1}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: .42),
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-              MeloTrackCover(
-                seed: widget.track.title,
-                artwork: widget.track.artwork,
-                isActive: widget.selected,
-                size: 46,
-              ),
-              const SizedBox(width: MeloSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.track.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: widget.selected
-                                ? FontWeight.w900
-                                : FontWeight.w700,
-                          ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      widget.track.artists.join(' / '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withValues(alpha: .52),
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 120),
-                opacity: _hovered || widget.selected ? 1 : 0,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _GlassIconButton(
-                      tooltip: widget.selected ? '暂停/播放' : '播放这首',
-                      icon: widget.selected
-                          ? Icons.equalizer_rounded
-                          : Icons.play_arrow_rounded,
-                      onPressed: widget.onPlay,
-                    ),
-                    const SizedBox(width: 6),
-                    _GlassIconButton(
-                      tooltip: '移出队列',
-                      icon: Icons.close_rounded,
-                      onPressed: widget.onRemove,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _FullscreenProgress extends StatelessWidget {
   const _FullscreenProgress({required this.repository});
 
@@ -1749,13 +1745,61 @@ class _FullscreenTransport extends StatelessWidget {
   const _FullscreenTransport({
     required this.repository,
     required this.track,
+    this.compact = false,
   });
 
   final DemoRepository repository;
   final SourceTrack track;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    if (compact) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _GlassIconButton(
+            tooltip: '上一首',
+            icon: Icons.skip_previous_rounded,
+            buttonSize: 48,
+            iconSize: 30,
+            onPressed: repository.queuePrevious,
+          ),
+          const SizedBox(width: 14),
+          StreamBuilder<PlayerState>(
+            stream: repository.playerStateStream,
+            initialData: repository.audioPlayer.playerState,
+            builder: (context, snapshot) {
+              final state = snapshot.data;
+              final playing = state?.playing ?? repository.isPlaying;
+              final completed =
+                  state?.processingState == ProcessingState.completed;
+              final starting = repository.isPlaybackStarting && !completed;
+              return MeloPlayButton(
+                isPlaying: playing,
+                isStarting: starting,
+                isCompleted: completed,
+                size: 58,
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF0A0E14),
+                onPressed: repository.togglePlayPause,
+                onCompletedTap: () => repository.seek(Duration.zero).then(
+                      (_) => repository.togglePlayPause(),
+                    ),
+              );
+            },
+          ),
+          const SizedBox(width: 14),
+          _GlassIconButton(
+            tooltip: '下一首',
+            icon: Icons.skip_next_rounded,
+            buttonSize: 48,
+            iconSize: 30,
+            onPressed: repository.queueNext,
+          ),
+        ],
+      );
+    }
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -1821,10 +1865,18 @@ class _SecondaryControls extends ConsumerWidget {
   const _SecondaryControls({
     required this.repository,
     required this.track,
+    this.compact = false,
+    this.showLyrics = false,
+    this.onLyricsToggle,
+    this.onQueuePressed,
   });
 
   final DemoRepository repository;
   final SourceTrack track;
+  final bool compact;
+  final bool showLyrics;
+  final VoidCallback? onLyricsToggle;
+  final VoidCallback? onQueuePressed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1835,39 +1887,60 @@ class _SecondaryControls extends ConsumerWidget {
       runSpacing: MeloSpacing.xs,
       children: [
         _FullscreenFavoriteButton(track: track, repository: repository),
-        _GlassIconButton(
-          tooltip: mode == RightSidebarMode.queue ? '关闭播放队列' : '播放队列',
-          icon: Icons.queue_music_rounded,
-          active: mode == RightSidebarMode.queue,
-          onPressed: () {
-            ref.read(rightSidebarModeProvider.notifier).state =
-                mode == RightSidebarMode.queue
-                    ? RightSidebarMode.lyrics
-                    : RightSidebarMode.queue;
-          },
-        ),
-        SizedBox(
-          width: 178,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.volume_up_rounded,
-                color: Colors.white.withValues(alpha: .62),
-                size: 20,
-              ),
-              Expanded(
-                child: SliderTheme(
-                  data: _darkSliderTheme(context),
-                  child: Slider(
-                    value: repository.volume,
-                    onChanged: repository.setVolume,
+        if (onLyricsToggle != null)
+          _GlassIconButton(
+            tooltip: showLyrics ? '返回唱片' : '显示歌词',
+            icon: showLyrics
+                ? Icons.album_rounded
+                : Icons.subtitles_rounded,
+            buttonSize: compact ? 40 : null,
+            iconSize: compact ? 22 : null,
+            active: showLyrics,
+            onPressed: onLyricsToggle,
+          ),
+        if (onQueuePressed != null)
+          _GlassIconButton(
+            tooltip: '当前播放列表',
+            icon: Icons.queue_music_rounded,
+            buttonSize: compact ? 40 : null,
+            iconSize: compact ? 22 : null,
+            onPressed: onQueuePressed,
+          )
+        else if (onLyricsToggle == null)
+          _GlassIconButton(
+            tooltip: mode == RightSidebarMode.queue ? '关闭播放队列' : '播放队列',
+            icon: Icons.queue_music_rounded,
+            active: mode == RightSidebarMode.queue,
+            onPressed: () {
+              ref.read(rightSidebarModeProvider.notifier).state =
+                  mode == RightSidebarMode.queue
+                      ? RightSidebarMode.lyrics
+                      : RightSidebarMode.queue;
+            },
+          ),
+        if (!compact)
+          SizedBox(
+            width: 178,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.volume_up_rounded,
+                  color: Colors.white.withValues(alpha: .62),
+                  size: 20,
+                ),
+                Expanded(
+                  child: SliderTheme(
+                    data: _darkSliderTheme(context),
+                    child: Slider(
+                      value: repository.volume,
+                      onChanged: repository.setVolume,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -2012,6 +2085,8 @@ class _GlassIconButton extends StatelessWidget {
     this.active = false,
     this.large = false,
     this.activeColor,
+    this.buttonSize,
+    this.iconSize,
   });
 
   final String tooltip;
@@ -2020,19 +2095,22 @@ class _GlassIconButton extends StatelessWidget {
   final bool active;
   final bool large;
   final Color? activeColor;
+  final double? buttonSize;
+  final double? iconSize;
 
   @override
   Widget build(BuildContext context) {
     final color = active
         ? (activeColor ?? Colors.white)
         : Colors.white.withValues(alpha: .72);
+    final size = buttonSize ?? (large ? 54.0 : 44.0);
     return Tooltip(
       message: tooltip,
       child: IconButton(
         onPressed: onPressed,
-        iconSize: large ? 34 : 24,
+        iconSize: iconSize ?? (large ? 34 : 24),
         style: IconButton.styleFrom(
-          fixedSize: Size.square(large ? 54 : 44),
+          fixedSize: Size.square(size),
           backgroundColor: active
               ? (activeColor ?? Colors.white).withValues(alpha: .18)
               : Colors.white.withValues(alpha: .09),
