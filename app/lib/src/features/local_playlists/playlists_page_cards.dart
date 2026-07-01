@@ -256,6 +256,7 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 960;
     final repository = ref.read(demoRepositoryProvider);
     final currentRef = ref.watch(
       demoRepositoryProvider.select((r) => r.queue.current?.track.ref),
@@ -328,6 +329,8 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                     ? const Center(child: Text('这个歌单暂时没有可显示曲目。'))
                     : ListView.separated(
                         itemCount: tracks.length,
+                        padding: EdgeInsets.only(bottom: isMobile ? 156 : 4),
+                        cacheExtent: isMobile ? 640 : null,
                         separatorBuilder: (_, __) => const Divider(
                           height: 1,
                           color: MeloColors.border,
@@ -448,6 +451,7 @@ class _LocalPlaylistTracks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 960;
     final currentRef = repository.queue.current?.track.ref;
     final playableTracks = [
       for (final item in playlist.items)
@@ -522,6 +526,8 @@ class _LocalPlaylistTracks extends StatelessWidget {
                   )
                 : ListView.separated(
                     itemCount: playlist.items.length,
+                    padding: EdgeInsets.only(bottom: isMobile ? 156 : 4),
+                    cacheExtent: isMobile ? 640 : null,
                     separatorBuilder: (_, __) => const Divider(
                       height: 1,
                       color: MeloColors.border,

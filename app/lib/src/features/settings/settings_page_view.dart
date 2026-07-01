@@ -512,7 +512,7 @@ class _SettingsContent extends StatelessWidget {
             SizedBox(height: MeloSpacing.md),
             _SettingsCard(
               title: '版本',
-              subtitle: 'v$appVersion',
+              subtitle: 'v$appDisplayVersion',
               leading: Icons.info_outline_rounded,
             ),
             SizedBox(height: MeloSpacing.md),

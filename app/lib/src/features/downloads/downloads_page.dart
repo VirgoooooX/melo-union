@@ -12,7 +12,7 @@ class DownloadsPage extends StatelessWidget {
       child: MeloEmptyState(
         icon: Icons.download_done_outlined,
         title: '暂不提供下载功能',
-        subtitle: '当前版本先专注在线播放、歌单和收藏；离线下载入口已暂时收起。',
+        subtitle: '下载入口先保留在导航栏里，离线下载和本地媒体管理会在后续版本实现。',
       ),
     );
   }

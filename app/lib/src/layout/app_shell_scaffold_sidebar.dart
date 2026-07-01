@@ -12,6 +12,7 @@ class _DesktopSidebar extends StatelessWidget {
     AppDestination.recommendations,
   ];
   static const _utility = [
+    AppDestination.downloads,
     AppDestination.settings,
   ];
 
@@ -52,23 +53,8 @@ class _SidebarBrand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const MeloLogoMark(size: 42),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            'MeloUnion',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: MeloColors.textPrimary,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
-          ),
-        ),
-      ],
+    return const Center(
+      child: MeloLogoMark(size: 76),
     );
   }
 }

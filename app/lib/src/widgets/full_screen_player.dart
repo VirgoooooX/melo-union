@@ -114,20 +114,19 @@ class MeloMobileMiniPlayer extends ConsumerWidget {
     final issue = repository.playbackIssue;
     final hasIssue = issue?.trackRef == track.ref;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-      child: SafeArea(
-        top: false,
-        bottom: false,
+    return ClipRRect(
+      borderRadius: MeloRadii.lg,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
-          height: 64,
+          height: 66,
           decoration: BoxDecoration(
-            color: MeloColors.surface,
+            color: MeloColors.surface.withValues(alpha: .82),
             borderRadius: MeloRadii.lg,
             border: Border.all(
               color: hasIssue
                   ? MeloColors.favorite.withValues(alpha: .28)
-                  : MeloColors.border,
+                  : Colors.white.withValues(alpha: .62),
             ),
             boxShadow: MeloShadows.floating,
           ),
@@ -248,9 +247,14 @@ class _MiniPlayerProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (repository.hasPlaybackIssue) {
-      return const SizedBox(
+      return SizedBox(
         height: 3,
-        child: ColoredBox(color: MeloColors.favorite),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(16),
+          ),
+          child: const ColoredBox(color: MeloColors.favorite),
+        ),
       );
     }
     return StreamBuilder<Duration?>(
@@ -272,10 +276,10 @@ class _MiniPlayerProgress extends StatelessWidget {
                 bottom: Radius.circular(16),
               ),
               child: LinearProgressIndicator(
-                minHeight: 3,
+                minHeight: 4,
                 value: value,
                 color: MeloColors.primary600,
-                backgroundColor: MeloColors.border,
+                backgroundColor: MeloColors.primary100.withValues(alpha: .56),
               ),
             );
           },
@@ -1949,6 +1953,12 @@ class _MiniPlayButton extends StatelessWidget {
         final completed = state?.processingState == ProcessingState.completed;
         return IconButton.filled(
           tooltip: playing && !completed ? '暂停' : '播放',
+          style: IconButton.styleFrom(
+            backgroundColor: MeloColors.primary600,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: MeloColors.primary100,
+            disabledForegroundColor: MeloColors.primary700,
+          ),
           onPressed: completed
               ? () => repository.seek(Duration.zero).then(
                     (_) => repository.togglePlayPause(),

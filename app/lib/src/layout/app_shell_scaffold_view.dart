@@ -161,44 +161,51 @@ class _MobileShell extends StatelessWidget {
       AppDestination.favorites,
       AppDestination.search,
       AppDestination.playlists,
+      AppDestination.downloads,
       AppDestination.settings,
     ];
-    final mobileCurrent =
-        current == AppDestination.downloads ? AppDestination.settings : current;
+    final mobileCurrent = current;
     final selected = destinations.indexOf(mobileCurrent);
     return Scaffold(
+      extendBody: true,
       backgroundColor: MeloColors.canvas,
       body: SafeArea(
         bottom: false,
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [MeloColors.canvasSoft, MeloColors.canvas],
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [MeloColors.canvasSoft, MeloColors.canvas],
+                  ),
+                ),
+                child: child,
+              ),
             ),
-          ),
-          child: child,
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: MediaQuery.paddingOf(context).bottom + 76,
+              child: const MeloMobileMiniPlayer(),
+            ),
+          ],
         ),
       ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const MeloMobileMiniPlayer(),
-          NavigationBar(
-            height: 64,
-            selectedIndex: selected < 0 ? 0 : selected,
-            onDestinationSelected: (index) =>
-                context.go(destinations[index].path),
-            destinations: [
-              for (final item in destinations)
-                NavigationDestination(
-                  icon: Icon(_mobileIconFor(item, false)),
-                  selectedIcon: Icon(_mobileIconFor(item, true)),
-                  label: _mobileLabelFor(item),
-                ),
-            ],
-          ),
+      bottomNavigationBar: NavigationBar(
+        height: 64,
+        selectedIndex: selected < 0 ? 0 : selected,
+        onDestinationSelected: (index) =>
+            context.go(destinations[index].path),
+        destinations: [
+          for (final item in destinations)
+            NavigationDestination(
+              icon: Icon(_mobileIconFor(item, false)),
+              selectedIcon: Icon(_mobileIconFor(item, true)),
+              label: _mobileLabelFor(item),
+            ),
         ],
       ),
     );

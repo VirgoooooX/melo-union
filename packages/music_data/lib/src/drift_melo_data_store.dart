@@ -46,6 +46,9 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
           .where((row) => row.key == 'playbackQuality')
           .firstOrNull
           ?.value,
+      'volume': double.tryParse(
+        metaRows.where((row) => row.key == 'volume').firstOrNull?.value ?? '',
+      ),
       'playlists': [
         for (final row in playlistRows) _jsonMap(row.payloadJson),
       ],
@@ -86,6 +89,12 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
             MeloMetaRowsCompanion.insert(
               key: 'playbackQuality',
               value: snapshot.playbackQuality.name,
+            ),
+          );
+      await database.into(database.meloMetaRows).insert(
+            MeloMetaRowsCompanion.insert(
+              key: 'volume',
+              value: snapshot.volume.toStringAsFixed(4),
             ),
           );
 

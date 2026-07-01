@@ -333,14 +333,19 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 156),
+      physics: const AlwaysScrollableScrollPhysics(),
+      cacheExtent: 640,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       itemCount: tracks.length,
       separatorBuilder: (_, __) =>
           const Divider(height: 1, color: MeloColors.border),
-      itemBuilder: (context, index) => _MobileFavoriteRow(
-        index: index + 1,
-        track: tracks[index],
-        providerId: selectedProviderId,
+      itemBuilder: (context, index) => RepaintBoundary(
+        child: _MobileFavoriteRow(
+          index: index + 1,
+          track: tracks[index],
+          providerId: selectedProviderId,
+        ),
       ),
     );
   }

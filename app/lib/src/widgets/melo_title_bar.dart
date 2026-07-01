@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:window_manager/window_manager.dart';
 import '../design/melo_tokens.dart';
-import 'melo_logo_mark.dart';
 
 class MeloTitleBar extends StatefulWidget {
   const MeloTitleBar({super.key});
@@ -61,14 +60,12 @@ class _MeloTitleBarState extends State<MeloTitleBar> with WindowListener {
       ),
       child: Row(
         children: [
-          const SizedBox(width: 18),
-          const MeloLogoMark(size: 28),
-          const SizedBox(width: 10),
+          const SizedBox(width: 22),
           Text(
             'MeloUnion',
             style: GoogleFonts.montserrat(
               color: const Color(0xFF0F172A),
-              fontSize: 19,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               letterSpacing: 0,
             ),

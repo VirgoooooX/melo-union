@@ -105,6 +105,7 @@ class MeloTrackCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (artwork != null && artwork!.toString().isNotEmpty) {
+      final cacheSize = (size * MediaQuery.devicePixelRatioOf(context)).round();
       return Container(
         width: size,
         height: size,
@@ -120,6 +121,9 @@ class MeloTrackCover extends StatelessWidget {
             height: size,
             fit: BoxFit.cover,
             headers: meloArtworkHeaders,
+            cacheWidth: cacheSize,
+            cacheHeight: cacheSize,
+            filterQuality: FilterQuality.medium,
             errorBuilder: (_, __, ___) => _placeholder(),
           ),
         ),
@@ -492,20 +496,30 @@ class MeloPlaylistCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (cover != null && cover!.toString().isNotEmpty) {
-      return ClipRRect(
-        borderRadius: MeloRadii.md,
-        child: Image.network(
-          cover!.toString(),
-          width: double.infinity,
-          height: double.infinity,
-          fit: BoxFit.cover,
-          headers: const {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://music.163.com',
-          },
-          errorBuilder: (_, __, ___) => _placeholder(),
-        ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+          final cacheWidth = constraints.maxWidth.isFinite
+              ? (constraints.maxWidth * pixelRatio).round()
+              : null;
+          final cacheHeight = constraints.maxHeight.isFinite
+              ? (constraints.maxHeight * pixelRatio).round()
+              : cacheWidth;
+          return ClipRRect(
+            borderRadius: MeloRadii.md,
+            child: Image.network(
+              cover!.toString(),
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.cover,
+              headers: meloArtworkHeaders,
+              cacheWidth: cacheWidth,
+              cacheHeight: cacheHeight,
+              filterQuality: FilterQuality.medium,
+              errorBuilder: (_, __, ___) => _placeholder(),
+            ),
+          );
+        },
       );
     }
     return _placeholder();

@@ -155,11 +155,26 @@ abstract final class MeloTheme {
         unselectedIconTheme: IconThemeData(color: MeloColors.textSecondary),
         unselectedLabelTextStyle: TextStyle(color: MeloColors.textPrimary),
       ),
-      navigationBarTheme: const NavigationBarThemeData(
+      navigationBarTheme: NavigationBarThemeData(
         backgroundColor: MeloColors.surface,
-        indicatorColor: MeloColors.primary100,
-        labelTextStyle: WidgetStatePropertyAll(
-          TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        indicatorColor: MeloColors.primary300,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const IconThemeData(color: MeloColors.primary700);
+          }
+          return const IconThemeData(color: MeloColors.textSecondary);
+        }),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            color: states.contains(WidgetState.selected)
+                ? MeloColors.primary700
+                : MeloColors.textSecondary,
+            fontSize: 12,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w800
+                : FontWeight.w700,
+          ),
         ),
       ),
       tabBarTheme: const TabBarThemeData(

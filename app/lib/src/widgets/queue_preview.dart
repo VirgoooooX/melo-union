@@ -13,70 +13,110 @@ class _QueuePreview extends ConsumerWidget {
       itemBuilder: (context, index) {
         final entry = queue.entries[index];
         final selected = index == queue.currentIndex;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Material(
-            color: selected ? MeloColors.surfaceMuted : Colors.transparent,
+        return _QueuePreviewRow(
+          entry: entry,
+          selected: selected,
+          onPlay: () => repository.playOrToggleQueueTrack(entry.track.ref),
+          onRemove: () => repository.removeQueueEntry(index),
+        );
+      },
+    );
+  }
+}
+
+class _QueuePreviewRow extends StatefulWidget {
+  const _QueuePreviewRow({
+    required this.entry,
+    required this.selected,
+    required this.onPlay,
+    required this.onRemove,
+  });
+
+  final PlaybackQueueEntry entry;
+  final bool selected;
+  final VoidCallback onPlay;
+  final VoidCallback onRemove;
+
+  @override
+  State<_QueuePreviewRow> createState() => _QueuePreviewRowState();
+}
+
+class _QueuePreviewRowState extends State<_QueuePreviewRow> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final showRemove = _hovered || widget.selected;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: Material(
+          color: widget.selected ? MeloColors.surfaceMuted : Colors.transparent,
+          borderRadius: MeloRadii.sm,
+          child: InkWell(
             borderRadius: MeloRadii.sm,
-            child: InkWell(
-              borderRadius: MeloRadii.sm,
-              onDoubleTap: () =>
-                  repository.playOrToggleQueueTrack(entry.track.ref),
-              onSecondaryTap: () => repository.removeQueueEntry(index),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                child: Row(
-                  children: [
-                    QueueTrackCover(
-                      seed: entry.track.title,
-                      artwork: entry.track.artwork,
-                      isPlaying: selected,
+            onDoubleTap: widget.onPlay,
+            onSecondaryTap: widget.onRemove,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+              child: Row(
+                children: [
+                  QueueTrackCover(
+                    seed: widget.entry.track.title,
+                    artwork: widget.entry.track.artwork,
+                    isPlaying: widget.selected,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.entry.track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: widget.selected
+                                        ? MeloColors.primary700
+                                        : MeloColors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.entry.track.artists.join(' / '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: MeloColors.textSecondary,
+                                  ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            entry.track.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: selected
-                                      ? MeloColors.primary700
-                                      : MeloColors.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            entry.track.artists.join(' / '),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: MeloColors.textSecondary,
-                                    ),
-                          ),
-                        ],
+                  ),
+                  AnimatedOpacity(
+                    duration: const Duration(milliseconds: 120),
+                    opacity: showRemove ? 1 : 0,
+                    child: IgnorePointer(
+                      ignoring: !showRemove,
+                      child: IconButton(
+                        tooltip: '移出队列',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: widget.onRemove,
+                        icon: const Icon(Icons.close_rounded, size: 18),
                       ),
                     ),
-                    IconButton(
-                      tooltip: '移出队列',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => repository.removeQueueEntry(index),
-                      icon: const Icon(Icons.close_rounded, size: 18),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

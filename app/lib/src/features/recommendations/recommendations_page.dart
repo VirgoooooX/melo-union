@@ -495,67 +495,81 @@ class _MobileRecommendationsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    return Column(
       children: [
-        ProviderTabs(
-          items: tabs,
-          selectedId: selected,
-          onSelected: onTabSelected,
-          onMorePressed: onMorePressed,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+          child: ProviderTabs(
+            items: tabs,
+            selectedId: selected,
+            onSelected: onTabSelected,
+            onMorePressed: onMorePressed,
+          ),
         ),
-        if (selected != 'more' && selectedShelfTab != null) ...[
-          const SizedBox(height: 18),
-          _ShelfTabSelector(
-            tabs: shelfTabs,
-            selected: selectedShelfTab!,
-            onSelected: onShelfSelected,
-          ),
-          const SizedBox(height: 14),
-          _MobilePlaylistShelf(
-            playlistsFuture: playlistsFuture,
-            onPlaylistSelected: onPlaylistSelected,
-          ),
-        ],
-        const SizedBox(height: 22),
-        Row(
-          children: [
-            Text(
-              '推荐歌曲',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 156),
+            children: [
+              if (selected != 'more' && selectedShelfTab != null) ...[
+                const SizedBox(height: 6),
+                _ShelfTabSelector(
+                  tabs: shelfTabs,
+                  selected: selectedShelfTab!,
+                  onSelected: onShelfSelected,
+                ),
+                const SizedBox(height: 14),
+                _MobilePlaylistShelf(
+                  playlistsFuture: playlistsFuture,
+                  onPlaylistSelected: onPlaylistSelected,
+                ),
+              ],
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Text(
+                    '推荐歌曲',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                   ),
-            ),
-            const Spacer(),
-            TextButton.icon(
-              onPressed: recommendationsFuture == null
-                  ? null
-                  : () async {
-                      final tracks = await recommendationsFuture!;
-                      if (tracks.isNotEmpty) {
-                        await repository.playTracks(tracks);
-                      }
-                    },
-              icon: const Icon(Icons.play_arrow_rounded, size: 18),
-              label: const Text('播放全部'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (selected == 'more')
-          const _MobileRecommendationMessage(message: '当前来源暂未提供推荐内容。')
-        else if (!canShowPlaylists)
-          const _MobileRecommendationMessage(message: '当前来源暂未提供每日推荐。')
-        else
-          _MobileRecommendationTracks(
-            future: recommendationsFuture!,
-            cached: selectedEntry == null
-                ? null
-                : repository
-                    .cachedRecommendations(selectedEntry!.descriptor.id),
-            currentRef: currentRef,
-            repository: repository,
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: recommendationsFuture == null
+                        ? null
+                        : () async {
+                            final tracks = await recommendationsFuture!;
+                            if (tracks.isNotEmpty) {
+                              await repository.playTracks(tracks);
+                            }
+                          },
+                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                    label: const Text('播放全部'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (selected == 'more')
+                const _MobileRecommendationMessage(
+                  message: '当前来源暂未提供推荐内容。',
+                )
+              else if (!canShowPlaylists)
+                const _MobileRecommendationMessage(
+                  message: '当前来源暂未提供每日推荐。',
+                )
+              else
+                _MobileRecommendationTracks(
+                  future: recommendationsFuture!,
+                  cached: selectedEntry == null
+                      ? null
+                      : repository.cachedRecommendations(
+                          selectedEntry!.descriptor.id,
+                        ),
+                  currentRef: currentRef,
+                  repository: repository,
+                ),
+            ],
           ),
+        ),
       ],
     );
   }
@@ -579,7 +593,7 @@ class _MobilePlaylistShelf extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const SizedBox(
-            height: 174,
+            height: 226,
             child: Center(child: CircularProgressIndicator()),
           );
         }
@@ -588,7 +602,7 @@ class _MobilePlaylistShelf extends StatelessWidget {
           return const SizedBox.shrink();
         }
         return SizedBox(
-          height: 174,
+          height: 226,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: playlists.length.clamp(0, 8),
@@ -596,7 +610,7 @@ class _MobilePlaylistShelf extends StatelessWidget {
             itemBuilder: (context, index) {
               final playlist = playlists[index];
               return MeloPlaylistCard(
-                width: 138,
+                width: 154,
                 compact: true,
                 title: playlist.name,
                 subtitle: _playlistMeta(playlist),

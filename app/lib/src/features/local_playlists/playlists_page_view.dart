@@ -249,7 +249,7 @@ class _MobilePlaylistsView extends StatelessWidget {
           child: selected == 'local'
               ? (showLocalPlaylistDetails && repository.selectedPlaylist != null
                   ? Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                       child: _LocalPlaylistTracks(
                         playlist: repository.selectedPlaylist!,
                         repository: repository,
@@ -261,7 +261,7 @@ class _MobilePlaylistsView extends StatelessWidget {
                       onSelected: onLocalSelected,
                     ))
               : Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                   child: _RemotePlaylistsPanel(
                     providerId: ProviderId(selected),
                     selectedPlaylistId: selectedRemotePlaylistId,
@@ -295,7 +295,8 @@ class _MobileLocalPlaylistList extends StatelessWidget {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 156),
+      cacheExtent: 640,
       itemCount: playlists.length,
       separatorBuilder: (_, __) =>
           const Divider(height: 1, color: MeloColors.border),

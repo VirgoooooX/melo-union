@@ -91,6 +91,7 @@ void main() {
           ),
         ],
         playbackQuality: AudioQuality.lossless,
+        volume: 0.42,
         favoritesOverrides: overrides,
       ),
     );
@@ -106,6 +107,7 @@ void main() {
     expect(restored.downloadTasks.single.status, DownloadStatus.paused);
     expect(restored.downloadTasks.single.ticket, isNull);
     expect(restored.playbackQuality, AudioQuality.lossless);
+    expect(restored.volume, closeTo(0.42, 0.0001));
     expect(restored.localMediaItems.single.sourceRef, sourceRef);
     expect(restored.favoritesOverrides.shouldMerge(sourceRef, alternateRef),
         isTrue);
@@ -133,6 +135,7 @@ void main() {
     expect(restored.playlists.single.id, 'playlist_b');
     expect(restored.downloadTasks, isEmpty);
     expect(restored.playbackQuality, AudioQuality.high);
+    expect(restored.volume, 1.0);
 
     await store.clear();
 
