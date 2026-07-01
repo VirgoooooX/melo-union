@@ -159,6 +159,11 @@ jobs:
           mv build/windows/x64/runner/Release/*.msix ../MeloUnion-Windows-Installer.msix
         shell: bash
 
+      - name: Compile .exe Installer (Inno Setup)
+        run: |
+          iscc /dAppVersion="${{ needs.release-config.outputs.tag }}" tooling/installer.iss
+        shell: cmd
+
       - name: Upload Windows Zip Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -171,6 +176,13 @@ jobs:
         with:
           name: windows-msix
           path: MeloUnion-Windows-Installer.msix
+          if-no-files-found: error
+
+      - name: Upload Windows Exe Setup Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: MeloUnion-Windows-Setup.exe
           if-no-files-found: error
 
   create-release:
@@ -206,6 +218,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: windows-msix
+          path: ./dist
+
+      - name: Download Windows Exe Setup Artifact
+        if: needs.build-windows.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
           path: ./dist
 
       - name: Verify Artifacts
