@@ -34,7 +34,19 @@ windows/flutter/ephemeral/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*credentials.json
+*session.json
+*raw_details.json
+*.local.json
 secrets/
+*.properties
+*.pem
+*.p12
+*.cer
+*.crt
+*.pfx
+*.p7b
+*.p7c
 
 # Downloads and local media
 /downloads/

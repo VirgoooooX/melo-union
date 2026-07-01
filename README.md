@@ -1,123 +1,159 @@
-# MeloUnion
+# 🎵 MeloUnion 麦乐聚合音乐客户端
 
-> Windows + Android 的**可扩展多平台**统一音乐客户端。
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Android-Teal?style=for-the-badge&logo=flutter)](https://flutter.dev)
+[![Architecture](https://img.shields.io/badge/Architecture-Clean%20%26%20Extensible-blue?style=for-the-badge)](docs/architecture.md)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-MeloUnion 首发目标是接入网易云音乐与 QQ 音乐；架构不把任何平台写死。每个音乐来源都是一个可注册的 Provider，后续可按平台能力逐步接入更多服务。
+> **MeloUnion (麦乐联合)** 是一款专为 **Windows + Android** 设计的**可扩展、多平台统一音乐客户端**。
+>
+> 核心设计理念是：将您在各大音乐平台（如网易云音乐、QQ 音乐等）的账号数据和喜欢列表，无缝聚合进一个**统一的虚拟歌单**，打破多客户端来回切换的壁垒，同时保留每首歌曲原始的平台归属与收藏状态。
 
-当前核心体验是：将所有已启用、已登录且支持读取收藏的平台，聚合成一个**虚拟歌单**；同时保留每首歌的原始平台身份。收藏/取消收藏永远写回对应平台。本地自定义歌单可混放任意 Provider 的歌曲引用，下载、播放队列和本地媒体管理独立于收藏逻辑。
+---
 
-## Phase 1-5 MVP 运行说明
+## 📸 应用预览
 
-当前仓库已包含 `app/`、`packages/provider_contract/`、`packages/music_domain/`、`packages/music_data/` 与 experimental `packages/provider_netease/` 的 Phase 1-5 MVP 源码骨架。网易云已作为真实搜索 Provider 注册进系统；设置页可导入/清除本机 Cookie 会话以读取账号资料和喜欢列表。播放 / 下载仍使用 fake provider；Android 已接入 Media3 `MediaSessionService` 桥接骨架，下载/本地歌单/覆盖规则已有 JSON 快照与 Drift/SQLite 仓储边界，但 fake provider 只返回 `provider://...` 票据 URI，真实音频播放仍依赖后续正式 Provider 解析。具备 Flutter / Dart SDK 后可按下列顺序验证：
+### 1. 主控台与全部喜欢聚合视图
+![MeloUnion 主界面](docs/images/preview_main.png)
 
-- `cd packages/provider_contract && dart test`
-- `cd packages/music_domain && dart test`
-- `cd packages/music_data && dart test`
-- `cd packages/provider_netease && dart test`
-- `cd app && flutter pub get && flutter test`
+### 2. 沉浸式毛玻璃全屏播放器
+![MeloUnion 沉浸式播放页](docs/images/preview_now_playing.png)
 
-## 核心体验
+---
 
-```text
-网易云「我喜欢的音乐」 ─┐
-QQ 音乐「我喜欢」      ├─→ 「全部喜欢」虚拟歌单 → 统一浏览 / 搜索 / 随机播放
-未来其他支持收藏的平台 ─┘
+## 🌟 核心特性
 
-本地自定义歌单
-├─ 通勤
-├─ 睡前
-└─ 精选
+- 🔗 **多账号聚合「全部喜欢」**
+  将网易云「我喜欢的音乐」与 QQ 音乐「我喜欢」以及未来接入的其他平台，在本地合并成一个**虚拟聚合歌单**，支持一键统一搜索、浏览与随机播放，且不生成多余的云端备份。
+- 🎯 **收藏状态双向写回**
+  统一的点赞（♥）交互：在本地歌单点赞将智能识别音轨原始平台，并实时**双向同步写回**对应的云端官方账号。
+- 🌌 **沉浸式毛玻璃全屏播放**
+  智能抓取当前歌曲的高清封面，利用 `BackdropFilter` 实现极高画质的**动态毛玻璃背景**。配合 `RepaintBoundary` 进行视图渲染隔离，在提供高端视觉冲击的同时，保持极低的 CPU 占用。
+- 🎙️ **智能歌词滚动与防冲突避让**
+  实时高亮并动态自适应滚动居中歌词。当检测到用户手动拖拽或滑动歌词时，播放器会自动**避让静默 4 秒钟**，给用户留足阅读时间，之后再丝滑滑回当前进度。
+- 🖥️📱 **桌面端 / 移动端自适应布局**
+  宽屏状态下呈现高级的左右分栏面板（左侧大图控制、右侧歌词队列胶囊选项卡），窄屏/移动端下自适应堆叠并收起辅面板，提供一致的多端体验。
+- 🛡️ **严格的数据隐私边界**
+  所有账号的 Cookie 和 Token 凭证**仅保存在系统安全存储中**（如 Windows 凭据管理器 / Android KeyStore），不写入数据库、不进行明文传输、不随本地同步同步至公网，防止凭证泄露。
+
+---
+
+## 🏗️ 架构与可扩展性设计
+
+MeloUnion 基于 **Clean Architecture (清洁架构)** 构建。每个音乐源均作为一个独立的 **Provider** 注册并由系统动态调度。
+
+### 1. 系统数据流向
+
+```mermaid
+graph TD
+    App[Flutter UI 主应用] -->|交互逻辑 / 状态响应| Repo[DemoRepository 业务仓储]
+    Repo -->|加密存储敏感凭据| Secure[系统安全存储 Keystore / Credential Manager]
+    Repo -->|存储元数据 / 本地歌单| Drift[Drift / SQLite 数据库]
+    Repo -->|加载/调用| Registry[ProviderRegistry 注册表]
+    
+    Registry -->|网易云适配器| Netease[netease_provider]
+    Registry -->|QQ音乐适配器| QQMusic[qq_music_provider]
+    
+    Netease -->|API 调用| NetEaseCloud[网易云服务端]
+    QQMusic -->|API 调用| QQMusicCloud[QQ音乐服务端]
 ```
 
-- 在网易云每日推荐中点 ♥：写回网易云「我喜欢的音乐」。
-- 在 QQ 音乐搜索结果中点 ♥：写回 QQ 音乐「我喜欢」。
-- 在未来接入的平台中点 ♥：仅在该平台声明支持写收藏时写回该平台。
-- 在本地歌单中点 ♥：按歌曲保存的原始来源写回对应平台。
-- 「全部喜欢」是一个聚合视图，不会创建第三份云端歌单。
-- 同一首歌多平台都喜欢时，界面可合并展示；底层仍保留每个来源的独立记录与收藏状态。
-- 下载与收藏无绑定：下载不等于喜欢，喜欢不等于下载。
+### 2. 核心包依赖结构
+- **`app/`**：Flutter 应用壳，负责 UI 呈现、全局状态（Riverpod）及多端生命周期。
+- **`packages/provider_contract/`**：核心抽象契约，定义了 `MusicProvider`、数据模型以及能力矩阵（Capabilities）。
+- **`packages/music_domain/`**：核心业务模型，包含播放队列状态机、下载控制器及底层服务接口。
+- **`packages/music_data/`**：本地数据存储与缓存层，基于 Drift 实现 SQLite 高性能访问。
+- **`packages/provider_netease/`** 与 **`packages/provider_qq/`**：针对各大平台的具体网络协议和接口实现适配包。
 
-## 平台扩展模型
+---
 
-每个平台实现同一份 `MusicProvider` 契约，并由 `ProviderRegistry` 注册。上层只面向统一模型与能力矩阵工作：
-
-```text
-UI / 本地歌单 / 全部喜欢 / 播放队列
-                    ↓
-          ProviderRegistry + Capabilities
-                    ↓
-网易云 Provider / QQ Provider / 酷狗 Provider / 酷我 Provider / …
-```
-
-平台按能力分级：
-
-- **完整账号型**：登录、读/写喜欢、我的歌单、搜索、播放、下载。
-- **只读账号型**：可读取喜欢或歌单，但不能写回收藏。
-- **目录/补充型**：搜索、歌词、封面或备用元数据，不参与「全部喜欢」。
-
-「全部喜欢」的定义是：
-
-```text
-所有已启用 + 已登录 + canReadFavorites = true 的 Provider 的喜欢歌曲并集
-```
-
-新 Provider 需要随 App 版本编译发布；首版不允许从网络动态下载可执行 Provider 插件，以避免供应链、会话凭证与审核风险。
-
-详细设计见 [docs/architecture.md](docs/architecture.md) 与 [Provider 可扩展性设计](docs/provider-extensibility.md)。
-
-## 技术路线
-
-- **主应用**：Flutter / Dart
-- **目标平台**：Windows、Android
-- **状态与导航**：Riverpod、go_router
-- **本地数据**：Drift + SQLite
-- **敏感登录态**：系统安全存储（不进 SQLite、不进同步）
-- **网络与平台适配**：Dio + 可替换的 Provider Adapter
-- **Android 播放**：Kotlin、Android Media3、`MediaSessionService`
-- **Windows 播放与系统媒体控制**：先做 Dart 音频引擎验证；SMTC 以 Windows 原生插件接入
-
-## 当前状态
-
-`mvp-skeleton` — Phase 1-5 的可运行骨架已通过本机构建/测试；尚未接入任何真实平台账号或协议实现。
-
-第一条工程原则：先完成 Provider Spike，再实现正式 UI。
-
-```text
-登录 → 读取我喜欢 → 点 ♥ 写回 → 官方客户端验证 → 解析可播放资源
-```
-
-若其中任一项不能通过平台允许、稳定且可维护的方式实现，必须在进入正式功能开发前降级或调整范围。
-
-## 文档索引
-
-- [架构与技术设计](docs/architecture.md)
-- [Provider 可扩展性设计](docs/provider-extensibility.md)
-- [开发路线图与验收门槛](docs/roadmap.md)
-- [Phase 1-5 MVP 当前状态](docs/mvp-phase1-5-status.md)
-- [Provider Spike 验证清单](docs/provider-spike.md)
-- [安全、隐私与数据边界](docs/security.md)
-- [架构决策：为何选 Flutter](docs/adr/0001-flutter-first.md)
-
-## 目录规划
+## 📂 项目结构规划
 
 ```text
 melo-union/
-├─ app/                         # Flutter 主应用（含 Android / Windows / Web runner）
-├─ packages/
-│  ├─ music_domain/             # 实体、值对象、用例与仓储接口
-│  ├─ music_data/               # Drift、缓存、安全存储、仓储实现
-│  ├─ provider_contract/        # 平台无关的契约、ID、能力模型、Registry
-│  ├─ provider_netease/         # 网易云适配器（experimental，真实搜索已接入）
-│  ├─ provider_qq/              # QQ 音乐适配器
-│  ├─ provider_<platform>/      # 后续平台适配器（随版本编译）
-│  ├─ playback_bridge/          # 播放器跨层桥接契约
-│  └─ download_bridge/          # 下载跨层桥接契约
-├─ docs/
-└─ tooling/
+├── app/                        # Flutter 主应用壳 (含 Windows/Android Runner)
+│   └── lib/src/
+│       ├── bootstrap/          # 应用初始化与依赖注入
+│       ├── design/             # UI 设计系统 Token 与全局主题
+│       ├── features/           # 页面功能模块 (全部喜欢/搜索/推荐/播放页等)
+│       └── widgets/            # 可复用组件 (歌词面板/音轨卡片/提示条等)
+├── packages/
+│   ├── music_domain/           # 实体、值对象、用例与仓储契约
+│   ├── music_data/             # Drift/SQLite 实现、安全存储适配、下载缓存
+│   ├── provider_contract/      # 音乐提供者契约与 Registry 注册表
+│   ├── provider_netease/       # 网易云适配层 (真实搜索与喜欢列表已打通)
+│   ├── provider_qq/            # QQ 音乐适配层 (真实喜欢列表已打通)
+│   └── playback_bridge/        # 音频播放核心适配桥接
+├── docs/                       # 系统详细架构设计及技术决策文档
+└── README.md                   # 本说明文件
 ```
 
-## 非目标
+---
 
-第一版不做评论、社交、MV、播客、电台、音效、自动换源、跨设备同步本地歌单、歌词逐字动效、云端代理服务或在线下载 Provider 插件。
+## 🛠️ 构建与运行说明
 
-不设计 DRM 绕过、会员权益绕过、地区限制绕过，也不将账号 Cookie 或临时播放链接上传到 NAS、WebDAV 或第三方服务。
+### 1. 依赖工具准备
+- **Flutter SDK**：`>= 3.19.0` (Dart `>= 3.3.0`)
+- **C++ 编译环境** (仅 Windows 编译需要)：确保安装了 Visual Studio 的 "C++ 桌面开发" 工作负载。
+
+### 2. 多 package 初始化
+本仓库使用 Melos 对多包进行统一管理，在根目录下依次执行：
+```bash
+# 激活 Melos
+dart pub global activate melos
+
+# 统一拉取所有包的依赖并关联本地引用
+melos bootstrap
+```
+
+### 3. 运行与验证
+您可以根据需求在不同平台上启动应用调试：
+
+#### 💻 运行 Windows 桌面端
+```bash
+cd app
+flutter run -d windows
+```
+
+#### 📱 运行 Android 移动端
+确保你的安卓真机已开启 USB 调试并连接电脑，或者已启动安卓模拟器：
+```bash
+# 检查设备连接
+flutter devices
+
+# 指定在安卓端启动
+cd app
+flutter run -d android
+```
+
+#### 🧪 运行单元测试
+```bash
+# 验证核心协议包与数据层的正确性
+melos run test
+```
+
+---
+
+## 🛡️ 数据隐私与安全政策
+
+MeloUnion 极力保障您的账号凭据与会话安全，在开发和运行中严格执行以下三条安全防范守则：
+
+> [!IMPORTANT]
+> **敏感凭据本地零明文**
+>
+> 用户的 Cookie、Token 等登录凭据**仅存储于本地系统级别的安全加密存储区**，绝不以明文形式写入 SQLite 数据库、开发日志，亦不跟随本地歌单同步至任何第三方云盘服务（如 WebDAV）。
+
+> [!TIP]
+> **网络日志脱敏保护**
+>
+> 系统在调试输出（Console Log）中对所有请求的 `Cookie`、`Authorization` 头部以及扫码登录的临时 `Session ID` 进行了全局掩码处理，防止开发测试期间发生会话泄漏。
+
+> [!WARNING]
+> **开发环境防意外泄露**
+>
+> 本地开发期产生的临时 Cookie 缓存文件 (`*.cookie` / `*.session`)、本地数据库快照 (`*.sqlite*`) 及敏感配置文件 (`.env*`) 已在 [`.gitignore`](.gitignore) 中进行了全局忽略，切勿强制提交。
+
+---
+
+## 📋 非目标 (Non-Goals)
+- 本项目不提供绕过会员付费限制、绕过数字版权管理 (DRM) 及绕过地区版权限制等功能。
+- 首个稳定版暂不提供社交、MV、播客等附加模块，以确保客户端的纯粹与轻量。
