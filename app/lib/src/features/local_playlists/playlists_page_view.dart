@@ -296,7 +296,7 @@ class _MobileLocalPlaylistList extends StatelessWidget {
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 156),
-      cacheExtent: 640,
+      scrollCacheExtent: 640,
       itemCount: playlists.length,
       separatorBuilder: (_, __) =>
           const Divider(height: 1, color: MeloColors.border),
