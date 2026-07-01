@@ -692,7 +692,7 @@ class _MobileFullScreenLayoutState extends State<_MobileFullScreenLayout> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         MeloSpacing.md,
-        0,
+        MeloSpacing.xs,
         MeloSpacing.md,
         MeloSpacing.sm,
       ),
@@ -700,7 +700,7 @@ class _MobileFullScreenLayoutState extends State<_MobileFullScreenLayout> {
         _PrimaryPlayerPanel(
           track: widget.track,
           repository: widget.repository,
-          coverSize: 192,
+          coverSize: 238,
           compact: true,
           showLyrics: _showLyrics,
           onLyricsToggle: widget.track == null
@@ -749,8 +749,8 @@ class _PrimaryPlayerPanel extends StatelessWidget {
 
     final presentation = meloProviderPresentation(track!.ref.providerId);
     final artworkSize =
-        compact ? coverSize.clamp(168, 238).toDouble() : coverSize;
-    final artworkHeight = compact ? artworkSize + 60 : artworkSize + 116;
+        compact ? coverSize.clamp(210, 264).toDouble() : coverSize;
+    final artworkHeight = compact ? artworkSize + 78 : artworkSize + 116;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -777,7 +777,7 @@ class _PrimaryPlayerPanel extends StatelessWidget {
                   compact: compact,
                 ),
         ),
-        SizedBox(height: compact ? 10 : MeloSpacing.xl),
+        SizedBox(height: compact ? 16 : MeloSpacing.xl),
         Text(
           track!.title,
           maxLines: compact ? 1 : 2,
@@ -785,13 +785,13 @@ class _PrimaryPlayerPanel extends StatelessWidget {
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 color: Colors.white,
-                fontSize: compact ? 22 : null,
+                fontSize: compact ? 26 : null,
                 fontWeight: FontWeight.w900,
                 height: compact ? 1.08 : 1.12,
                 letterSpacing: 0,
               ),
         ),
-        SizedBox(height: compact ? 2 : MeloSpacing.xs),
+        SizedBox(height: compact ? 5 : MeloSpacing.xs),
         Text(
           track!.artists.join(' / '),
           maxLines: 1,
@@ -799,7 +799,7 @@ class _PrimaryPlayerPanel extends StatelessWidget {
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Colors.white.withValues(alpha: .68),
-                fontSize: compact ? 13 : null,
+                fontSize: compact ? 15 : null,
                 fontWeight: FontWeight.w600,
               ),
         ),
@@ -821,15 +821,15 @@ class _PrimaryPlayerPanel extends StatelessWidget {
             ],
           ),
         ],
-        SizedBox(height: compact ? 8 : MeloSpacing.lg),
+        SizedBox(height: compact ? 16 : MeloSpacing.lg),
         _FullscreenProgress(repository: repository),
-        SizedBox(height: compact ? 6 : MeloSpacing.md),
+        SizedBox(height: compact ? 12 : MeloSpacing.md),
         _FullscreenTransport(
           repository: repository,
           track: track!,
           compact: compact,
         ),
-        SizedBox(height: compact ? 6 : MeloSpacing.sm),
+        SizedBox(height: compact ? 14 : MeloSpacing.sm),
         _SecondaryControls(
           repository: repository,
           track: track!,
@@ -908,10 +908,10 @@ class _RotatingArtworkState extends State<_RotatingArtwork>
   @override
   Widget build(BuildContext context) {
     final diameter = widget.size;
-    final frameWidth = widget.compact ? diameter + 54 : diameter + 92;
-    final frameHeight = widget.compact ? diameter + 60 : diameter + 116;
-    final tonearmWidth = widget.compact ? diameter * .34 : diameter * .42;
-    final tonearmHeight = widget.compact ? diameter * .42 : diameter * .56;
+    final frameWidth = widget.compact ? diameter + 68 : diameter + 92;
+    final frameHeight = widget.compact ? diameter + 78 : diameter + 116;
+    final tonearmWidth = widget.compact ? diameter * .38 : diameter * .42;
+    final tonearmHeight = widget.compact ? diameter * .48 : diameter * .56;
     return RepaintBoundary(
       child: SizedBox(
         width: frameWidth,
@@ -980,7 +980,7 @@ class _RotatingArtworkState extends State<_RotatingArtwork>
             ),
             Positioned(
               top: 0,
-              left: frameWidth * (widget.compact ? .52 : .45),
+              left: frameWidth * (widget.compact ? .48 : .45),
               child: CustomPaint(
                 size: Size(tonearmWidth, tonearmHeight),
                 painter: _TonearmPainter(),
@@ -1272,7 +1272,7 @@ class _FullscreenLyricsState extends ConsumerState<_FullscreenLyrics> {
                 child: ListView.builder(
                   controller: _scrollController,
                   padding: EdgeInsets.symmetric(
-                    vertical: widget.compact ? 44 : 128,
+                    vertical: widget.compact ? 62 : 128,
                   ),
                   itemCount: lines.length,
                   itemBuilder: (context, index) {
@@ -1329,7 +1329,7 @@ class _LyricRow extends StatelessWidget {
           curve: Curves.easeOutCubic,
           padding: EdgeInsets.symmetric(
             horizontal: compact ? MeloSpacing.sm : MeloSpacing.lg,
-            vertical: compact ? (active ? 10 : 6) : (active ? 16 : 10),
+            vertical: compact ? (active ? 12 : 8) : (active ? 16 : 10),
           ),
           alignment: Alignment.center,
           child: Text(
@@ -1339,7 +1339,7 @@ class _LyricRow extends StatelessWidget {
                   color: active
                       ? Colors.white
                       : Colors.white.withValues(alpha: .46),
-                  fontSize: compact ? (active ? 21 : 15) : (active ? 24 : 16),
+                  fontSize: compact ? (active ? 22 : 16) : (active ? 24 : 16),
                   height: compact ? 1.28 : 1.35,
                   fontWeight: active ? FontWeight.w900 : FontWeight.w600,
                   letterSpacing: 0,
@@ -1761,11 +1761,11 @@ class _FullscreenTransport extends StatelessWidget {
           _GlassIconButton(
             tooltip: '上一首',
             icon: Icons.skip_previous_rounded,
-            buttonSize: 48,
-            iconSize: 30,
+            buttonSize: 52,
+            iconSize: 32,
             onPressed: repository.queuePrevious,
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 18),
           StreamBuilder<PlayerState>(
             stream: repository.playerStateStream,
             initialData: repository.audioPlayer.playerState,
@@ -1779,7 +1779,7 @@ class _FullscreenTransport extends StatelessWidget {
                 isPlaying: playing,
                 isStarting: starting,
                 isCompleted: completed,
-                size: 58,
+                size: 64,
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xFF0A0E14),
                 onPressed: repository.togglePlayPause,
@@ -1789,12 +1789,12 @@ class _FullscreenTransport extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 18),
           _GlassIconButton(
             tooltip: '下一首',
             icon: Icons.skip_next_rounded,
-            buttonSize: 48,
-            iconSize: 30,
+            buttonSize: 52,
+            iconSize: 32,
             onPressed: repository.queueNext,
           ),
         ],
@@ -1893,8 +1893,8 @@ class _SecondaryControls extends ConsumerWidget {
             icon: showLyrics
                 ? Icons.album_rounded
                 : Icons.subtitles_rounded,
-            buttonSize: compact ? 40 : null,
-            iconSize: compact ? 22 : null,
+            buttonSize: compact ? 44 : null,
+            iconSize: compact ? 24 : null,
             active: showLyrics,
             onPressed: onLyricsToggle,
           ),
@@ -1902,8 +1902,8 @@ class _SecondaryControls extends ConsumerWidget {
           _GlassIconButton(
             tooltip: '当前播放列表',
             icon: Icons.queue_music_rounded,
-            buttonSize: compact ? 40 : null,
-            iconSize: compact ? 22 : null,
+            buttonSize: compact ? 44 : null,
+            iconSize: compact ? 24 : null,
             onPressed: onQueuePressed,
           )
         else if (onLyricsToggle == null)
