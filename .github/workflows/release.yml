@@ -1,0 +1,179 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      build_android:
+        description: '是否编译安卓端 (Build Android APK)'
+        type: boolean
+        required: true
+        default: true
+      build_windows:
+        description: '是否编译Windows端 (Build Windows App & Installer)'
+        type: boolean
+        required: true
+        default: true
+      release_tag:
+        description: '发布标签名称 (Release Tag, e.g. v1.0.2 - 仅手动触发时有效)'
+        required: false
+        default: 'v-draft'
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APK
+    if: (github.event_name == 'push' && !endsWith(github.ref_name, '-windows')) || (github.event_name == 'workflow_dispatch' && inputs.build_android)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Melos & Bootstrap
+        run: |
+          dart pub global activate melos
+          echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
+          export PATH="$PATH:$HOME/.pub-cache/bin"
+          melos bootstrap
+
+      - name: Build Release APK
+        run: |
+          cd app
+          flutter build apk --release
+
+      - name: Prepare Artifact
+        run: |
+          mv app/build/app/outputs/flutter-apk/app-release.apk MeloUnion-Android.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: MeloUnion-Android.apk
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows App
+    if: (github.event_name == 'push' && !endsWith(github.ref_name, '-android')) || (github.event_name == 'workflow_dispatch' && inputs.build_windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Melos & Bootstrap
+        run: |
+          dart pub global activate melos
+          echo "${Env:USERPROFILE}\.pub-cache\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          melos bootstrap
+        shell: pwsh
+
+      - name: Build Release Windows
+        run: |
+          cd app
+          flutter build windows --release
+        shell: bash
+
+      - name: Compress Windows Build Folder
+        run: |
+          Compress-Archive -Path app/build/windows/x64/runner/Release/* -DestinationPath MeloUnion-Windows-x64.zip
+        shell: pwsh
+
+      - name: Build MSIX Installer
+        run: |
+          cd app
+          flutter pub run msix:create
+          mv build/windows/x64/runner/Release/*.msix ../MeloUnion-Windows-Installer.msix
+        shell: bash
+
+      - name: Upload Windows Zip Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: MeloUnion-Windows-x64.zip
+          if-no-files-found: error
+
+      - name: Upload Windows Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-msix
+          path: MeloUnion-Windows-Installer.msix
+          if-no-files-found: error
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-android, build-windows]
+    if: |
+      always() &&
+      (needs.build-android.result == 'success' || needs.build-android.result == 'skipped') &&
+      (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') &&
+      (needs.build-android.result == 'success' || needs.build-windows.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Android Artifact
+        if: needs.build-android.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: ./dist
+
+      - name: Download Windows Zip Artifact
+        if: needs.build-windows.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-zip
+          path: ./dist
+
+      - name: Download Windows Installer Artifact
+        if: needs.build-windows.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-msix
+          path: ./dist
+
+      - name: Verify Artifacts
+        run: ls -R ./dist
+
+      - name: Determine Release Tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.release_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          files: ./dist/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
