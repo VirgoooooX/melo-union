@@ -101,9 +101,7 @@ jobs:
       - name: Install Melos & Bootstrap
         run: |
           dart pub global activate melos
-          echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
-          export PATH="$PATH:$HOME/.pub-cache/bin"
-          melos bootstrap
+          dart pub global run melos bootstrap
 
       - name: Build Release APK
         run: |
@@ -139,9 +137,7 @@ jobs:
       - name: Install Melos & Bootstrap
         run: |
           dart pub global activate melos
-          echo "${Env:USERPROFILE}\.pub-cache\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          melos bootstrap
-        shell: pwsh
+          dart pub global run melos bootstrap
 
       - name: Build Release Windows
         run: |
