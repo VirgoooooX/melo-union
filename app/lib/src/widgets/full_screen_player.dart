@@ -1049,6 +1049,7 @@ class _FullscreenLyricsState extends ConsumerState<_FullscreenLyrics> {
   final _itemKeys = <GlobalKey>[];
   DateTime _autoScrollPausedUntil = DateTime.fromMillisecondsSinceEpoch(0);
   int _lastActiveIndex = -1;
+  bool _hasInitialScrolled = false;
 
   @override
   void dispose() {
@@ -1056,9 +1057,9 @@ class _FullscreenLyricsState extends ConsumerState<_FullscreenLyrics> {
     super.dispose();
   }
 
-  void _scrollToActive(int index) {
-    if (index == _lastActiveIndex ||
-        DateTime.now().isBefore(_autoScrollPausedUntil)) {
+  void _scrollToActive(int index, {bool force = false}) {
+    if (index == _lastActiveIndex && !force) return;
+    if (DateTime.now().isBefore(_autoScrollPausedUntil) && !force) {
       return;
     }
     _lastActiveIndex = index;
@@ -1071,6 +1072,14 @@ class _FullscreenLyricsState extends ConsumerState<_FullscreenLyrics> {
         duration: const Duration(milliseconds: 420),
         curve: Curves.easeOutCubic,
         alignment: .44,
+      );
+    } else if (_scrollController.hasClients) {
+      // Fallback: estimate scroll offset if itemContext is null (off-screen)
+      final targetOffset = (index * 50.0) - 140.0;
+      _scrollController.animateTo(
+        targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
       );
     }
   }
@@ -1112,7 +1121,17 @@ class _FullscreenLyricsState extends ConsumerState<_FullscreenLyrics> {
               snapshot.data ?? Duration.zero,
             );
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              _scrollToActive(activeIndex);
+              if (!_hasInitialScrolled) {
+                _hasInitialScrolled = true;
+                // Delay to allow full-screen slide-up transition (280ms) and list layout to settle
+                Future.delayed(const Duration(milliseconds: 350), () {
+                  if (mounted) {
+                    _scrollToActive(activeIndex, force: true);
+                  }
+                });
+              } else {
+                _scrollToActive(activeIndex);
+              }
             });
 
             return NotificationListener<UserScrollNotification>(
