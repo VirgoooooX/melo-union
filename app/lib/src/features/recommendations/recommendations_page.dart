@@ -134,6 +134,7 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
             ),
             const SizedBox(height: 14),
             _PlaylistShelf(
+              selectedTab: selectedShelfTab,
               emptyLabel: selectedShelfTab == _ShelfTab.playlists
                   ? '当前来源没有可展示的推荐歌单。'
                   : '当前来源没有可展示的榜单。',
@@ -317,64 +318,91 @@ class _ShelfTabSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const double totalWidth = 260;
+    const double padding = 4;
+    final int selectedIndex = tabs.indexOf(selected);
+    final double tabWidth = (totalWidth - 2 - (padding * 2)) / tabs.length;
+
     return Container(
+      width: totalWidth,
+      height: 44,
       decoration: BoxDecoration(
         color: MeloColors.surfaceMuted,
         borderRadius: MeloRadii.pill,
         border: Border.all(color: MeloColors.border),
       ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.all(padding),
+      child: Stack(
         children: [
-          for (final tab in tabs) ...[
-            _buildTab(context, tab),
-          ],
+          // Sliding Background Indicator
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOutCubic,
+            left: selectedIndex * tabWidth,
+            top: 0,
+            bottom: 0,
+            width: tabWidth,
+            child: Container(
+              decoration: BoxDecoration(
+                color: MeloColors.primary600,
+                borderRadius: MeloRadii.pill,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x1F0AA69A),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  )
+                ],
+              ),
+            ),
+          ),
+          // Interactive Tabs Row
+          Row(
+            children: [
+              for (int i = 0; i < tabs.length; i++)
+                Expanded(
+                  child: _buildTab(context, tabs[i], selectedIndex == i),
+                ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTab(BuildContext context, _ShelfTab tab) {
-    final isSelected = tab == selected;
+  Widget _buildTab(BuildContext context, _ShelfTab tab, bool isSelected) {
+    final color = isSelected ? MeloColors.surface : MeloColors.textSecondary;
+    final beginColor = isSelected ? MeloColors.textSecondary : MeloColors.surface;
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => onSelected(tab),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? MeloColors.primary600 : Colors.transparent,
-            borderRadius: MeloRadii.pill,
-            boxShadow: isSelected
-                ? const [
-                    BoxShadow(
-                      color: Color(0x1F0AA69A),
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    )
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _shelfTabIcon(tab),
-                size: 16,
-                color: isSelected ? MeloColors.surface : MeloColors.textSecondary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                _shelfTabLabel(tab),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                      color: isSelected ? MeloColors.surface : MeloColors.textSecondary,
-                    ),
-              ),
-            ],
+        child: Center(
+          child: TweenAnimationBuilder<Color?>(
+            duration: const Duration(milliseconds: 200),
+            tween: ColorTween(begin: beginColor, end: color),
+            builder: (context, animatedColor, child) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _shelfTabIcon(tab),
+                    size: 16,
+                    color: animatedColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _shelfTabLabel(tab),
+                    style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle()).copyWith(
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                          color: animatedColor,
+                        ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -384,11 +412,13 @@ class _ShelfTabSelector extends StatelessWidget {
 
 class _PlaylistShelf extends StatelessWidget {
   const _PlaylistShelf({
+    required this.selectedTab,
     required this.emptyLabel,
     required this.playlistsFuture,
     required this.onPlaylistSelected,
   });
 
+  final _ShelfTab selectedTab;
   final String emptyLabel;
   final Future<List<ProviderPlaylist>> playlistsFuture;
   final ValueChanged<ProviderPlaylist> onPlaylistSelected;
@@ -403,8 +433,11 @@ class _PlaylistShelf extends StatelessWidget {
         if (snapshot.hasError) {
           return const SizedBox.shrink();
         }
+        
+        Widget child;
         if (!isLoading && playlists.isEmpty) {
-          return SizedBox(
+          child = SizedBox(
+            key: ValueKey('empty_$selectedTab'),
             height: 48,
             child: Align(
               alignment: Alignment.centerLeft,
@@ -414,32 +447,46 @@ class _PlaylistShelf extends StatelessWidget {
               ),
             ),
           );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 204,
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: playlists.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 14),
-                      itemBuilder: (context, index) {
-                        final playlist = playlists[index];
-                        return MeloPlaylistCard(
-                          width: 136,
-                          compact: true,
-                          title: playlist.name,
-                          subtitle: _playlistMeta(playlist),
-                          cover: playlist.cover,
-                          onTap: () => onPlaylistSelected(playlist),
-                        );
-                      },
-                    ),
+        } else if (isLoading) {
+          child = SizedBox(
+            key: ValueKey('loading_$selectedTab'),
+            height: 204,
+            child: const Center(
+              child: CircularProgressIndicator(),
             ),
-          ],
+          );
+        } else {
+          child = SizedBox(
+            key: ValueKey('list_$selectedTab'),
+            height: 204,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: playlists.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 14),
+              itemBuilder: (context, index) {
+                final playlist = playlists[index];
+                return MeloPlaylistCard(
+                  width: 136,
+                  compact: true,
+                  title: playlist.name,
+                  subtitle: _playlistMeta(playlist),
+                  cover: playlist.cover,
+                  onTap: () => onPlaylistSelected(playlist),
+                );
+              },
+            ),
+          );
+        }
+
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          child: child,
         );
       },
     );
