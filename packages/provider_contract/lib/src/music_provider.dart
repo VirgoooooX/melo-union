@@ -21,6 +21,8 @@ abstract interface class MusicProvider {
 
   Future<List<ProviderPlaylist>> getRecommendedPlaylists({int limit = 12});
 
+  Future<List<ProviderPlaylist>> getChartPlaylists({int limit = 20});
+
   Future<List<ProviderPlaylist>> getUserPlaylists();
 
   Future<List<SourceTrack>> getPlaylistTracks(String playlistId);

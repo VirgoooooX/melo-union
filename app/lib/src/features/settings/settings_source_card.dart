@@ -212,9 +212,10 @@ class _SourceManagementDialog extends ConsumerWidget {
                         Navigator.pop(context);
                         showDialog<void>(
                           context: context,
-                          builder: (context) => entry.descriptor.id == qqMusicProviderId
-                              ? const _QqCookieDialog()
-                              : const _NeteaseCookieDialog(),
+                          builder: (context) =>
+                              entry.descriptor.id == qqMusicProviderId
+                                  ? const _QqCookieDialog()
+                                  : const _NeteaseCookieDialog(),
                         );
                       },
                 child: const Text('导入 Cookie'),
@@ -230,17 +231,10 @@ class _SourceManagementDialog extends ConsumerWidget {
                     return;
                   }
                   Navigator.pop(context);
-                  if (entry.descriptor.id == qqMusicProviderId) {
-                    await showDialog<void>(
-                      context: context,
-                      builder: (context) => const _QqQrLoginDialog(),
-                    );
-                  } else {
-                    await showDialog<void>(
-                      context: context,
-                      builder: (context) => const _NeteaseQrLoginDialog(),
-                    );
-                  }
+                  await showDialog<void>(
+                    context: context,
+                    builder: (context) => const _NeteaseQrLoginDialog(),
+                  );
                 },
                 icon: Icon(
                   signedIn ? Icons.logout_rounded : Icons.qr_code_2_rounded,
@@ -404,219 +398,6 @@ class _NeteaseQrLoginDialogState extends ConsumerState<_NeteaseQrLoginDialog> {
   }
 }
 
-class _QqQrLoginDialog extends ConsumerStatefulWidget {
-  const _QqQrLoginDialog();
-
-  @override
-  ConsumerState<_QqQrLoginDialog> createState() => _QqQrLoginDialogState();
-}
-
-class _QqQrLoginDialogState extends ConsumerState<_QqQrLoginDialog> {
-  QqMusicQrLoginMode _mode = QqMusicQrLoginMode.qq;
-  QqMusicQrLoginSession? _session;
-  QqMusicQrLoginStatus _status = QqMusicQrLoginStatus.waiting;
-  Timer? _timer;
-  Object? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_createSession(_mode));
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _createSession(QqMusicQrLoginMode mode) async {
-    _timer?.cancel();
-    setState(() {
-      _mode = mode;
-      _session = null;
-      _status = QqMusicQrLoginStatus.waiting;
-      _error = null;
-    });
-    try {
-      final session =
-          await ref.read(demoRepositoryProvider).createQqMusicQrLoginSession(
-                mode,
-              );
-      if (!mounted) return;
-      setState(() => _session = session);
-      _timer = Timer.periodic(
-        const Duration(seconds: 2),
-        (_) => unawaited(_checkSession()),
-      );
-      await _checkSession();
-    } catch (error) {
-      if (mounted) setState(() => _error = error);
-    }
-  }
-
-  Future<void> _checkSession() async {
-    final session = _session;
-    if (session == null) return;
-    try {
-      final result =
-          await ref.read(demoRepositoryProvider).checkQqMusicQrLoginSession(
-                session,
-              );
-      ref.invalidate(allFavoritesProvider);
-      if (!mounted) return;
-      setState(() => _status = result.status);
-      if (result.status == QqMusicQrLoginStatus.authorized) {
-        _timer?.cancel();
-        Navigator.pop(context);
-      } else if (result.status == QqMusicQrLoginStatus.expired ||
-          result.status == QqMusicQrLoginStatus.failed) {
-        _timer?.cancel();
-        if (result.message != null && result.message!.trim().isNotEmpty) {
-          setState(() => _error = result.message);
-        }
-      }
-    } catch (error) {
-      if (mounted) setState(() => _error = error);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final session = _session;
-    return AlertDialog(
-      title: const Text('QQ 音乐扫码登录'),
-      content: SizedBox(
-        width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SegmentedButton<QqMusicQrLoginMode>(
-              segments: const [
-                ButtonSegment(
-                  value: QqMusicQrLoginMode.qq,
-                  label: Text('QQ'),
-                  icon: Icon(Icons.account_circle_rounded),
-                ),
-                ButtonSegment(
-                  value: QqMusicQrLoginMode.wechat,
-                  label: Text('微信'),
-                  icon: Icon(Icons.chat_bubble_rounded),
-                ),
-              ],
-              selected: {_mode},
-              onSelectionChanged: (values) {
-                if (values.isNotEmpty) {
-                  unawaited(_createSession(values.first));
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            if (session == null && _error == null)
-              const SizedBox(
-                width: 192,
-                height: 192,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (session != null)
-              Container(
-                width: 208,
-                height: 208,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: MeloRadii.md,
-                  border: Border.all(color: MeloColors.border),
-                ),
-                child: _QqQrImage(session: session),
-              ),
-            const SizedBox(height: 14),
-            Text(
-              _qqQrStatusLabel(_status),
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: MeloColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                '扫码登录失败：$_error',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: MeloColors.error,
-                    ),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('关闭'),
-        ),
-        TextButton(
-          onPressed: _status == QqMusicQrLoginStatus.expired ||
-                  _status == QqMusicQrLoginStatus.failed
-              ? () => _createSession(_mode)
-              : null,
-          child: const Text('刷新二维码'),
-        ),
-      ],
-    );
-  }
-}
-
-class _QqQrImage extends StatelessWidget {
-  const _QqQrImage({required this.session});
-
-  final QqMusicQrLoginSession session;
-
-  @override
-  Widget build(BuildContext context) {
-    final imageDataUri = session.imageDataUri;
-    if (imageDataUri != null && imageDataUri.isNotEmpty) {
-      return Image.memory(
-        _decodeDataUri(imageDataUri),
-        fit: BoxFit.contain,
-        gaplessPlayback: true,
-      );
-    }
-    final imageUri = session.imageUri;
-    if (imageUri != null) {
-      return Image.network(
-        imageUri.toString(),
-        fit: BoxFit.contain,
-      );
-    }
-    final loginUri = session.loginUri;
-    if (loginUri != null) {
-      return QrImageView(
-        data: loginUri.toString(),
-        backgroundColor: Colors.white,
-        padding: EdgeInsets.zero,
-      );
-    }
-    return const Center(child: Icon(Icons.qr_code_2_rounded, size: 64));
-  }
-}
-
-Uint8List _decodeDataUri(String dataUri) {
-  final commaIndex = dataUri.indexOf(',');
-  final base64Text =
-      commaIndex == -1 ? dataUri : dataUri.substring(commaIndex + 1);
-  return base64Decode(base64Text);
-}
-
-String _qqQrStatusLabel(QqMusicQrLoginStatus status) => switch (status) {
-      QqMusicQrLoginStatus.waiting => '请扫码登录 QQ 音乐',
-      QqMusicQrLoginStatus.scanned => '已扫码，请在手机上确认登录',
-      QqMusicQrLoginStatus.authorized => '登录成功，正在保存会话',
-      QqMusicQrLoginStatus.expired => '二维码已过期，请刷新',
-      QqMusicQrLoginStatus.failed => '扫码登录失败，请刷新重试',
-    };
-
 String _neteaseQrStatusLabel(NeteaseQrLoginStatus status) => switch (status) {
       NeteaseQrLoginStatus.waiting => '请使用网易云音乐 App 扫描二维码',
       NeteaseQrLoginStatus.scanned => '已扫码，请在手机上确认登录',
@@ -675,7 +456,7 @@ class _NeteaseCookieDialogState extends ConsumerState<_NeteaseCookieDialog> {
             ),
             const SizedBox(height: 10),
             Text(
-              '仅用于本机账号读取测试；不要提交或分享 Cookie。写收藏、播放和下载仍需后续官方端验证。',
+              '请从浏览器已登录的 y.qq.com 请求中复制完整 Cookie，至少需要包含 uin 和 qqmusic_key/qm_keyst。不要提交或分享 Cookie。',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: MeloColors.textSecondary,
                     height: 1.45,
@@ -743,8 +524,7 @@ class _QqCookieDialog extends ConsumerStatefulWidget {
   const _QqCookieDialog();
 
   @override
-  ConsumerState<_QqCookieDialog> createState() =>
-      _QqCookieDialogState();
+  ConsumerState<_QqCookieDialog> createState() => _QqCookieDialogState();
 }
 
 class _QqCookieDialogState extends ConsumerState<_QqCookieDialog> {

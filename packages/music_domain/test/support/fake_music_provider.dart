@@ -112,6 +112,28 @@ final class FakeMusicProvider implements MusicProvider {
   }
 
   @override
+  Future<List<ProviderPlaylist>> getChartPlaylists({
+    int limit = 20,
+  }) async {
+    if (!descriptor.supports(ProviderCapability.readCharts)) {
+      throw CapabilityUnavailableException(
+        providerId: descriptor.id,
+        capability: ProviderCapability.readCharts,
+        message: 'charts unavailable',
+      );
+    }
+    return [
+      ProviderPlaylist(
+        providerId: descriptor.id,
+        playlistId: '${descriptor.id.value}_chart',
+        name: '${descriptor.displayName} Chart',
+        trackCount: _tracks.length,
+        playCount: _tracks.length * 20000,
+      ),
+    ].take(limit).toList(growable: false);
+  }
+
+  @override
   Future<List<ProviderPlaylist>> getUserPlaylists() async {
     if (!descriptor.supports(ProviderCapability.readUserPlaylists)) {
       throw CapabilityUnavailableException(

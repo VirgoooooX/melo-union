@@ -129,4 +129,16 @@ void main() {
     expect(store.writes.length, greaterThanOrEqualTo(2));
     expect(store.writes.last.localMediaItems, isEmpty);
   });
+
+  test('DemoRepository persists volume changes', () async {
+    final store = _RecordingSnapshotStore();
+    final repository = DemoRepository.seeded(snapshotStore: store);
+
+    await repository.setVolume(0.42);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(store.writes, isNotEmpty);
+    expect(store.writes.last.volume, closeTo(0.42, 0.001));
+    expect(repository.toSnapshot().volume, closeTo(0.42, 0.001));
+  });
 }

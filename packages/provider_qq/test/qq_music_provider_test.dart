@@ -41,6 +41,7 @@ void main() {
     expect(provider.descriptor.supports(ProviderCapability.search), isTrue);
     expect(
         provider.descriptor.supports(ProviderCapability.readFavorites), isTrue);
+    expect(provider.descriptor.supports(ProviderCapability.readCharts), isTrue);
 
     final results = await provider.search('晴天');
     expect(results, hasLength(1));
@@ -279,14 +280,11 @@ void main() {
     expect(result.credentials?.cookie, contains('openid=open-id'));
   });
 
-  test('exposes QQ and WeChat QR login options without auth capability', () {
+  test('temporarily hides QR login options', () {
     final provider = QqMusicProvider();
     final entries = provider.qrLoginOptions();
 
-    expect(entries.map((entry) => entry.mode), [
-      QqMusicQrLoginMode.qq,
-      QqMusicQrLoginMode.wechat,
-    ]);
+    expect(entries, isEmpty);
     expect(
         provider.descriptor.supports(ProviderCapability.authenticate), isTrue);
   });
@@ -569,6 +567,95 @@ void main() {
     expect(playlists[0].playCount, 99999);
   });
 
+  test('getChartPlaylists and chart tracks map QQ top list APIs', () async {
+    final provider = QqMusicProvider(
+      client: _FakeClient((request) {
+        expect(request.url.path, contains('musicu.fcg'));
+        final decoded = jsonDecode(
+          utf8.decode((request as http.Request).bodyBytes),
+        ) as Map<String, Object?>;
+        final toplist = decoded['toplist'] as Map<String, Object?>?;
+        if (toplist != null) {
+          expect(toplist['module'], 'musicToplist.ToplistInfoServer');
+          expect(toplist['method'], 'GetAll');
+          return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'code': 0,
+              'toplist': {
+                'code': 0,
+                'data': {
+                  'group': [
+                    {
+                      'groupName': '巅峰榜',
+                      'toplist': [
+                        {
+                          'topId': 26,
+                          'title': '热歌榜',
+                          'period': '2026-06-30',
+                          'intro': '站内播放热度前300首歌曲',
+                          'listenNum': 19600000,
+                          'totalNum': 300,
+                          'frontPicUrl': 'http://example.com/top.jpg',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            })),
+            200,
+          );
+        }
+
+        final detail = decoded['detail'] as Map<String, Object?>?;
+        expect(detail?['module'], 'musicToplist.ToplistInfoServer');
+        expect(detail?['method'], 'GetDetail');
+        final param = detail?['param'] as Map<String, Object?>?;
+        expect(param?['topId'], 26);
+        expect(param?['period'], '2026-06-30');
+        return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'code': 0,
+            'detail': {
+              'code': 0,
+              'data': {'title': '热歌榜'},
+              'songInfoList': [
+                {
+                  'mid': 'top_song_001',
+                  'name': '榜单歌曲',
+                  'album': {'mid': 'top_album', 'name': '榜单专辑'},
+                  'file': {'media_mid': 'top_media_001'},
+                  'interval': 218,
+                  'singer': [
+                    {'name': '榜单歌手'},
+                  ],
+                },
+              ],
+            },
+          })),
+          200,
+        );
+      }),
+      musicuUri: Uri.parse('https://qq.test/cgi-bin/musicu.fcg'),
+    );
+
+    final charts = await provider.getChartPlaylists(limit: 5);
+    expect(charts, hasLength(1));
+    expect(charts.single.name, '热歌榜');
+    expect(charts.single.playlistId, 'chart:26:2026-06-30');
+    expect(charts.single.creatorName, '巅峰榜');
+    expect(charts.single.cover.toString(), 'https://example.com/top.jpg');
+    expect(charts.single.trackCount, 300);
+    expect(charts.single.playCount, 19600000);
+
+    final tracks = await provider.getPlaylistTracks(charts.single.playlistId);
+    expect(tracks, hasLength(1));
+    expect(tracks.single.title, '榜单歌曲');
+    expect(tracks.single.artists, ['榜单歌手']);
+    expect(tracks.single.ref.trackId, 'top_song_001');
+    expect(tracks.single.ref.extraIds['media_mid'], 'top_media_001');
+  });
+
   test('getDailyRecommendations returns SmartRadio songs', () async {
     final provider = QqMusicProvider(
       client: _FakeClient((request) {
@@ -667,6 +754,10 @@ void main() {
         final body =
             request is http.Request ? utf8.decode(request.bodyBytes) : '';
         final decoded = jsonDecode(body) as Map<String, Object?>;
+        final comm = decoded['comm'] as Map<String, Object?>?;
+        expect(comm?['ct'], 24);
+        expect(comm?['platform'], 'yqq.json');
+        expect(comm?['loginUin'], 12345);
         final fav = decoded['fav'];
         expect(fav, isNotNull);
         final params =

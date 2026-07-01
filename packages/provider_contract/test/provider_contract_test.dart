@@ -225,6 +225,7 @@ void main() {
           capabilities: const {
             ProviderCapability.authenticate,
             ProviderCapability.readDailyRecommendations,
+            ProviderCapability.readCharts,
             ProviderCapability.resolvePlayback,
           },
         ),
@@ -248,6 +249,9 @@ void main() {
       final recs = await provider.getDailyRecommendations();
       expect(recs.length, 1);
       expect(recs.first.ref.trackId, 'track_1');
+
+      final charts = await provider.getChartPlaylists();
+      expect(charts.single.name, 'Alpha Music Chart');
 
       // playback ticket support
       final ticket = await provider.createPlaybackTicket(

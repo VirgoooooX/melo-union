@@ -3,10 +3,12 @@ import 'package:melo_union_app/src/bootstrap/app_bootstrap.dart';
 import 'package:melo_union_app/src/bootstrap/demo_repository.dart';
 import 'package:melo_union_app/src/bootstrap/managed_snapshot_store.dart';
 import 'package:melo_union_app/src/bootstrap/netease_session_store.dart';
+import 'package:melo_union_app/src/bootstrap/qq_music_session_store.dart';
 import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 import 'package:provider_netease/provider_netease.dart';
+import 'package:provider_qq/provider_qq.dart';
 
 final class _MemorySnapshotStore implements MeloSnapshotStore {
   _MemorySnapshotStore(this.snapshot);
@@ -39,6 +41,23 @@ final class _MemoryNeteaseSessionStore implements NeteaseSessionStore {
 
   @override
   Future<void> write(NeteaseCredentials credentials) async {
+    this.credentials = credentials;
+  }
+
+  @override
+  Future<void> clear() async {
+    credentials = null;
+  }
+}
+
+final class _MemoryQqMusicSessionStore implements QqMusicSessionStore {
+  QqMusicCredentials? credentials;
+
+  @override
+  Future<QqMusicCredentials?> read() async => credentials;
+
+  @override
+  Future<void> write(QqMusicCredentials credentials) async {
     this.credentials = credentials;
   }
 
@@ -162,5 +181,34 @@ void main() {
           .supports(ProviderCapability.readFavorites),
       isFalse,
     );
+  });
+
+  test('DemoRepository validates and stores QQ Music cookie credentials',
+      () async {
+    final qqStore = _MemoryQqMusicSessionStore();
+    final repository = DemoRepository.seeded(qqMusicSessionStore: qqStore);
+
+    await expectLater(
+      repository.saveQqMusicCredentials(
+        const QqMusicCredentials(cookie: 'pgv_pvid=fake'),
+      ),
+      throwsArgumentError,
+    );
+
+    await repository.saveQqMusicCredentials(
+      const QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+    );
+
+    expect(qqStore.credentials?.cookie, 'uin=o12345; qqmusic_key=abc');
+    expect(repository.hasQqMusicSession, isTrue);
+    expect(
+      repository.registry.entryOf(qqMusicProviderId)!.provider.isAuthenticated,
+      isTrue,
+    );
+
+    await repository.clearQqMusicCredentials();
+
+    expect(qqStore.credentials, isNull);
+    expect(repository.hasQqMusicSession, isFalse);
   });
 }

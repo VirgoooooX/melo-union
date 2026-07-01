@@ -89,7 +89,8 @@ void main() {
     final provider = NeteaseMusicProvider(
       credentials: const NeteaseCredentials(cookie: 'MUSIC_U=secret'),
       client: MockClient((request) async {
-        if (request.url.path != '/api/song/lyric') {
+        if (request.url.path != '/api/song/lyric' &&
+            request.url.path != '/api/toplist/detail') {
           expect(request.headers['Cookie'], 'MUSIC_U=secret');
         }
         if (request.url.path == '/api/nuser/account/get') {
@@ -185,6 +186,22 @@ void main() {
             ],
           });
         }
+        if (request.url.path == '/api/toplist/detail') {
+          expect(request.headers['Cookie'], isNull);
+          return _jsonResponse({
+            'code': 200,
+            'list': [
+              {
+                'id': 3778678,
+                'name': '热歌榜',
+                'coverImgUrl': 'https://p1.music.126.net/top.jpg',
+                'trackCount': 200,
+                'playCount': 9876543,
+                'updateFrequency': '每日更新',
+              }
+            ],
+          });
+        }
         if (request.url.path == '/api/song/enhance/player/url/v1') {
           expect(request.url.queryParameters['level'], 'higher');
           return _jsonResponse({
@@ -220,6 +237,7 @@ void main() {
     await provider.setFavorite(track: trackRef, liked: true);
     final recommendations = await provider.getDailyRecommendations();
     final recommendedPlaylists = await provider.getRecommendedPlaylists();
+    final chartPlaylists = await provider.getChartPlaylists();
     final lyrics = await provider.getLyrics(trackRef);
     final playbackTicket = await provider.createPlaybackTicket(
       track: trackRef,
@@ -243,6 +261,7 @@ void main() {
         provider.descriptor
             .supports(ProviderCapability.readDailyRecommendations),
         isTrue);
+    expect(provider.descriptor.supports(ProviderCapability.readCharts), isTrue);
     expect(provider.descriptor.supports(ProviderCapability.resolvePlayback),
         isTrue);
     expect(provider.descriptor.supports(ProviderCapability.resolveDownload),
@@ -261,6 +280,9 @@ void main() {
         'https://p1.music.126.net/recommend.jpg');
     expect(recommendedPlaylists.single.description, '根据你的口味推荐');
     expect(recommendedPlaylists.single.playCount, 1234567);
+    expect(chartPlaylists.single.name, '热歌榜');
+    expect(chartPlaylists.single.playlistId, 'chart:3778678');
+    expect(chartPlaylists.single.description, '每日更新');
     expect(lyrics, '[00:00.00] 孤勇者歌词');
     expect(
         playbackTicket.mediaUri.toString(), 'https://cdn.example.test/std.mp3');

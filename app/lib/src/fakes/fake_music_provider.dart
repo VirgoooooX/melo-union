@@ -130,6 +130,24 @@ final class FakeMusicProvider implements MusicProvider {
   }
 
   @override
+  Future<List<ProviderPlaylist>> getChartPlaylists({
+    int limit = 20,
+  }) async {
+    _requireCapability(ProviderCapability.readCharts);
+    _requireAuthenticatedIfNeeded();
+    return [
+      ProviderPlaylist(
+        providerId: descriptor.id,
+        playlistId: '${descriptor.id.value}_chart',
+        name: '${descriptor.displayName} 热门榜',
+        creatorName: '榜单',
+        trackCount: _tracks.length,
+        playCount: _tracks.length * 20000,
+      ),
+    ].take(limit).toList(growable: false);
+  }
+
+  @override
   Future<List<ProviderPlaylist>> getUserPlaylists() async {
     _requireCapability(ProviderCapability.readUserPlaylists);
     _requireAuthenticatedIfNeeded();

@@ -8,6 +8,8 @@ import '../../presentation/provider_presentation.dart';
 import '../../widgets/melo_components.dart';
 import '../../widgets/provider_tabs.dart';
 
+enum _ShelfTab { playlists, charts }
+
 class RecommendationsPage extends ConsumerStatefulWidget {
   const RecommendationsPage({super.key});
 
@@ -18,8 +20,10 @@ class RecommendationsPage extends ConsumerStatefulWidget {
 
 class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
   String? _selectedProvider;
+  _ShelfTab? _selectedShelfTab;
   final Map<String, Future<List<SourceTrack>>> _recommendationFutures = {};
   final Map<String, Future<List<ProviderPlaylist>>> _playlistFutures = {};
+  final Map<String, Future<List<ProviderPlaylist>>> _chartFutures = {};
 
   Future<List<SourceTrack>> _recommendationsFuture(ProviderId providerId) {
     return _recommendationFutures.putIfAbsent(
@@ -39,19 +43,28 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
     );
   }
 
+  Future<List<ProviderPlaylist>> _chartPlaylistsFuture(ProviderId providerId) {
+    return _chartFutures.putIfAbsent(
+      providerId.value,
+      () => ref.read(demoRepositoryProvider).loadChartPlaylists(providerId),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final repository = ref.watch(demoRepositoryProvider);
     final currentRef = ref.watch(
       demoRepositoryProvider.select((r) => r.queue.current?.track.ref),
     );
-    final providers = repository.providerEntries
-        .where((entry) =>
-            entry.isEnabled &&
-            entry.provider.isAuthenticated &&
-            entry.descriptor
-                .supports(ProviderCapability.readDailyRecommendations))
-        .toList(growable: false);
+    final providers = repository.providerEntries.where((entry) {
+      if (!entry.isEnabled) return false;
+      final canReadRecommendations = entry.provider.isAuthenticated &&
+          entry.descriptor
+              .supports(ProviderCapability.readDailyRecommendations);
+      final canReadCharts =
+          entry.descriptor.supports(ProviderCapability.readCharts);
+      return canReadRecommendations || canReadCharts;
+    }).toList(growable: false);
     final tabs = <ProviderTabItem>[
       for (final entry in providers)
         ProviderTabItem(
@@ -72,6 +85,27 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
         ? _selectedProvider!
         : (providers.isEmpty ? 'more' : providers.first.descriptor.id.value);
     final selectedProviderId = ProviderId(selected);
+    ProviderRegistryEntry? selectedEntry;
+    for (final entry in providers) {
+      if (entry.descriptor.id.value == selected) {
+        selectedEntry = entry;
+        break;
+      }
+    }
+    final canShowPlaylists = selectedEntry?.descriptor
+            .supports(ProviderCapability.readDailyRecommendations) ??
+        false;
+    final canShowCharts =
+        selectedEntry?.descriptor.supports(ProviderCapability.readCharts) ??
+            false;
+    final shelfTabs = [
+      if (canShowPlaylists) _ShelfTab.playlists,
+      if (canShowCharts) _ShelfTab.charts,
+    ];
+    final selectedShelfTab =
+        _selectedShelfTab != null && shelfTabs.contains(_selectedShelfTab)
+            ? _selectedShelfTab!
+            : (shelfTabs.isEmpty ? null : shelfTabs.first);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
@@ -92,13 +126,24 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
             },
           ),
           const SizedBox(height: 20),
-          if (selected != 'more') ...[
-            _RecommendedPlaylistStrip(
-              playlistsFuture: _recommendedPlaylistsFuture(selectedProviderId),
+          if (selected != 'more' && selectedShelfTab != null) ...[
+            _ShelfTabSelector(
+              tabs: shelfTabs,
+              selected: selectedShelfTab,
+              onSelected: (tab) => setState(() => _selectedShelfTab = tab),
+            ),
+            const SizedBox(height: 14),
+            _PlaylistShelf(
+              emptyLabel: selectedShelfTab == _ShelfTab.playlists
+                  ? '当前来源没有可展示的推荐歌单。'
+                  : '当前来源没有可展示的榜单。',
+              playlistsFuture: selectedShelfTab == _ShelfTab.playlists
+                  ? _recommendedPlaylistsFuture(selectedProviderId)
+                  : _chartPlaylistsFuture(selectedProviderId),
               onPlaylistSelected: (playlist) => _showPlaylistSheet(
                 context,
                 ref,
-                selectedProviderId,
+                playlist.providerId,
                 playlist,
               ),
             ),
@@ -114,7 +159,7 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
               ),
               const Spacer(),
               FilledButton.icon(
-                onPressed: selected == 'more'
+                onPressed: selected == 'more' || !canShowPlaylists
                     ? null
                     : () async {
                         final tracks =
@@ -134,118 +179,124 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
           Expanded(
             child: selected == 'more'
                 ? const Center(child: Text('当前来源暂未提供推荐内容。'))
-                : FutureBuilder<List<SourceTrack>>(
-                    future: _recommendationsFuture(selectedProviderId),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState != ConnectionState.done) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snapshot.hasError) {
-                        return Center(child: Text('推荐加载失败：${snapshot.error}'));
-                      }
-                      final tracks = snapshot.data ?? const [];
-                      if (tracks.isEmpty) {
-                        return const Center(child: Text('当前来源暂未提供推荐内容。'));
-                      }
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: MeloColors.surface,
-                          borderRadius: MeloRadii.lg,
-                          border: Border.all(color: MeloColors.border),
-                          boxShadow: MeloShadows.card,
-                        ),
-                        child: ListView.separated(
-                          itemCount: tracks.length,
-                          separatorBuilder: (_, __) => const Divider(
-                            height: 1,
-                            color: MeloColors.border,
-                          ),
-                          itemBuilder: (context, index) {
-                            final track = tracks[index];
-                            final selected = currentRef == track.ref;
-                            return MeloInteractiveRow(
-                              selected: selected,
-                              onDoubleTap: track.isPlayable
-                                  ? () => ref
-                                      .read(demoRepositoryProvider)
-                                      .playOrToggleTrack(track)
-                                  : null,
-                              builder: (context, hovered) => Row(
-                                children: [
-                                  SizedBox(
-                                    width: 32,
-                                    child: Icon(
-                                      selected
-                                          ? Icons.graphic_eq_rounded
-                                          : Icons.play_arrow_rounded,
-                                      size: 18,
-                                      color: selected || hovered
-                                          ? MeloColors.primary700
-                                          : MeloColors.textTertiary,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    flex: 3,
-                                    child: Row(
-                                      children: [
-                                        MeloTrackCover(
-                                          seed: track.title,
-                                          artwork: track.artwork,
-                                          isActive: selected,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: _RecommendationTrackTitleBlock(
-                                            title: track.title,
-                                            artists: track.artists,
-                                            active: selected,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text(
-                                      track.album ?? '今日推荐',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            color: MeloColors.textSecondary,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: '喜欢',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () => ref
-                                        .read(demoRepositoryProvider)
-                                        .toggleFavorite(
-                                          track: track,
-                                          liked: !track.isFavorited,
-                                        ),
-                                    icon: Icon(
-                                      track.isFavorited
-                                          ? Icons.favorite_rounded
-                                          : Icons.favorite_border_rounded,
-                                      color: track.isFavorited
-                                          ? MeloColors.favorite
-                                          : MeloColors.textTertiary,
-                                    ),
-                                  ),
-                                ],
+                : !canShowPlaylists
+                    ? const Center(child: Text('当前来源暂未提供每日推荐。'))
+                    : FutureBuilder<List<SourceTrack>>(
+                        future: _recommendationsFuture(selectedProviderId),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState !=
+                              ConnectionState.done) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+                          if (snapshot.hasError) {
+                            return Center(
+                                child: Text('推荐加载失败：${snapshot.error}'));
+                          }
+                          final tracks = snapshot.data ?? const [];
+                          if (tracks.isEmpty) {
+                            return const Center(child: Text('当前来源暂未提供推荐内容。'));
+                          }
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: MeloColors.surface,
+                              borderRadius: MeloRadii.lg,
+                              border: Border.all(color: MeloColors.border),
+                              boxShadow: MeloShadows.card,
+                            ),
+                            child: ListView.separated(
+                              itemCount: tracks.length,
+                              separatorBuilder: (_, __) => const Divider(
+                                height: 1,
+                                color: MeloColors.border,
                               ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
+                              itemBuilder: (context, index) {
+                                final track = tracks[index];
+                                final selected = currentRef == track.ref;
+                                return MeloInteractiveRow(
+                                  selected: selected,
+                                  onDoubleTap: track.isPlayable
+                                      ? () => ref
+                                          .read(demoRepositoryProvider)
+                                          .playOrToggleTrack(track)
+                                      : null,
+                                  builder: (context, hovered) => Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 32,
+                                        child: Icon(
+                                          selected
+                                              ? Icons.graphic_eq_rounded
+                                              : Icons.play_arrow_rounded,
+                                          size: 18,
+                                          color: selected || hovered
+                                              ? MeloColors.primary700
+                                              : MeloColors.textTertiary,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Row(
+                                          children: [
+                                            MeloTrackCover(
+                                              seed: track.title,
+                                              artwork: track.artwork,
+                                              isActive: selected,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child:
+                                                  _RecommendationTrackTitleBlock(
+                                                title: track.title,
+                                                artists: track.artists,
+                                                active: selected,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          track.album ?? '今日推荐',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                color: MeloColors.textSecondary,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        tooltip: '喜欢',
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () => ref
+                                            .read(demoRepositoryProvider)
+                                            .toggleFavorite(
+                                              track: track,
+                                              liked: !track.isFavorited,
+                                            ),
+                                        icon: Icon(
+                                          track.isFavorited
+                                              ? Icons.favorite_rounded
+                                              : Icons.favorite_border_rounded,
+                                          color: track.isFavorited
+                                              ? MeloColors.favorite
+                                              : MeloColors.textTertiary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
           ),
         ],
       ),
@@ -253,12 +304,92 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
   }
 }
 
-class _RecommendedPlaylistStrip extends StatelessWidget {
-  const _RecommendedPlaylistStrip({
+class _ShelfTabSelector extends StatelessWidget {
+  const _ShelfTabSelector({
+    required this.tabs,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<_ShelfTab> tabs;
+  final _ShelfTab selected;
+  final ValueChanged<_ShelfTab> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: MeloColors.surfaceMuted,
+        borderRadius: MeloRadii.pill,
+        border: Border.all(color: MeloColors.border),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final tab in tabs) ...[
+            _buildTab(context, tab),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab(BuildContext context, _ShelfTab tab) {
+    final isSelected = tab == selected;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => onSelected(tab),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? MeloColors.primary600 : Colors.transparent,
+            borderRadius: MeloRadii.pill,
+            boxShadow: isSelected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x1F0AA69A),
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _shelfTabIcon(tab),
+                size: 16,
+                color: isSelected ? MeloColors.surface : MeloColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _shelfTabLabel(tab),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                      color: isSelected ? MeloColors.surface : MeloColors.textSecondary,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlaylistShelf extends StatelessWidget {
+  const _PlaylistShelf({
+    required this.emptyLabel,
     required this.playlistsFuture,
     required this.onPlaylistSelected,
   });
 
+  final String emptyLabel;
   final Future<List<ProviderPlaylist>> playlistsFuture;
   final ValueChanged<ProviderPlaylist> onPlaylistSelected;
 
@@ -269,19 +400,24 @@ class _RecommendedPlaylistStrip extends StatelessWidget {
       builder: (context, snapshot) {
         final isLoading = snapshot.connectionState != ConnectionState.done;
         final playlists = snapshot.data ?? const <ProviderPlaylist>[];
-        if (snapshot.hasError || (!isLoading && playlists.isEmpty)) {
+        if (snapshot.hasError) {
           return const SizedBox.shrink();
+        }
+        if (!isLoading && playlists.isEmpty) {
+          return SizedBox(
+            height: 48,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                emptyLabel,
+                style: const TextStyle(color: MeloColors.textSecondary),
+              ),
+            ),
+          );
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '推荐歌单',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-            const SizedBox(height: 12),
             SizedBox(
               height: 204,
               child: isLoading
@@ -521,6 +657,16 @@ String _playlistMeta(ProviderPlaylist playlist) {
   }
   return playlist.creatorName ?? '推荐歌单';
 }
+
+String _shelfTabLabel(_ShelfTab tab) => switch (tab) {
+      _ShelfTab.playlists => '推荐歌单',
+      _ShelfTab.charts => '榜单',
+    };
+
+IconData _shelfTabIcon(_ShelfTab tab) => switch (tab) {
+      _ShelfTab.playlists => Icons.queue_music_rounded,
+      _ShelfTab.charts => Icons.leaderboard_rounded,
+    };
 
 String _compactCount(int value) {
   if (value >= 100000000) {

@@ -65,6 +65,7 @@ final class NeteaseMusicProvider implements MusicProvider {
         ProviderCapability.resolvePlayback,
         ProviderCapability.resolveDownload,
         ProviderCapability.lyrics,
+        ProviderCapability.readCharts,
         if (credentials?.hasCookie ?? false) ...{
           ProviderCapability.authenticate,
           ProviderCapability.readFavorites,
@@ -389,6 +390,22 @@ final class NeteaseMusicProvider implements MusicProvider {
   }
 
   @override
+  Future<List<ProviderPlaylist>> getChartPlaylists({
+    int limit = 20,
+  }) async {
+    _requireCapability(ProviderCapability.readCharts);
+    final boundedLimit = limit.clamp(1, 50).toInt();
+    final payload = await _getJson('/api/toplist/detail');
+    final charts = payload['list'] as List<Object?>? ?? const [];
+    return charts
+        .whereType<Map<Object?, Object?>>()
+        .map((item) => _chartFromPayload(_stringMap(item)))
+        .where((playlist) => playlist.playlistId != 'chart:')
+        .take(boundedLimit)
+        .toList(growable: false);
+  }
+
+  @override
   Future<List<ProviderPlaylist>> getUserPlaylists() async {
     _requireCapability(ProviderCapability.readUserPlaylists);
     final userId = _credentials?.userId ?? (await getProfile())?.accountId;
@@ -416,14 +433,20 @@ final class NeteaseMusicProvider implements MusicProvider {
 
   @override
   Future<List<SourceTrack>> getPlaylistTracks(String playlistId) async {
-    _requireCapability(ProviderCapability.readUserPlaylists);
+    final normalizedId = playlistId.trim();
+    final isChart = normalizedId.startsWith('chart:');
+    _requireCapability(
+      isChart
+          ? ProviderCapability.readCharts
+          : ProviderCapability.readUserPlaylists,
+    );
     final detailPayload = await _getJson(
       '/api/v6/playlist/detail',
       query: {
-        'id': playlistId,
+        'id': isChart ? normalizedId.substring('chart:'.length) : normalizedId,
         'n': '0',
       },
-      authenticated: true,
+      authenticated: !isChart,
     );
     final playlistObj = detailPayload['playlist'] as Map<Object?, Object?>?;
     if (playlistObj == null) {
@@ -637,6 +660,20 @@ final class NeteaseMusicProvider implements MusicProvider {
       trackCount: (item['trackCount'] as num?)?.toInt() ?? 0,
       playCount:
           (item['playCount'] as num? ?? item['playcount'] as num?)?.toInt(),
+    );
+  }
+
+  ProviderPlaylist _chartFromPayload(Map<String, Object?> item) {
+    final id = item['id']?.toString() ?? '';
+    return ProviderPlaylist(
+      providerId: descriptor.id,
+      playlistId: 'chart:$id',
+      name: item['name']?.toString() ?? 'NetEase Chart',
+      description: item['updateFrequency']?.toString(),
+      creatorName: '网易云音乐',
+      cover: _optionalUri(item['coverImgUrl'] ?? item['picUrl']),
+      trackCount: (item['trackCount'] as num?)?.toInt() ?? 0,
+      playCount: (item['playCount'] as num?)?.toInt(),
     );
   }
 

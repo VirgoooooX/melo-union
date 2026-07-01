@@ -247,12 +247,16 @@ class _FavoritesToolbar extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         _SortButton(sort: sort, onSelected: onSortSelected),
         const SizedBox(width: 10),
         IconButton(
           tooltip: '刷新同步歌单',
-          icon: const Icon(Icons.sync_rounded, color: MeloColors.textSecondary),
+          icon: const Icon(
+            Icons.sync_rounded,
+            color: MeloColors.textSecondary,
+            size: 20,
+          ),
           onPressed: onRefresh,
           style: IconButton.styleFrom(
             fixedSize: const Size(40, 40),
@@ -283,17 +287,25 @@ class _FavoritesToolbar extends StatelessWidget {
   }
 }
 
-class _SortButton extends StatelessWidget {
+class _SortButton extends StatefulWidget {
   const _SortButton({required this.sort, required this.onSelected});
 
   final _FavoriteSort sort;
   final ValueChanged<_FavoriteSort> onSelected;
 
   @override
+  State<_SortButton> createState() => _SortButtonState();
+}
+
+class _SortButtonState extends State<_SortButton> {
+  final GlobalKey<PopupMenuButtonState<_FavoriteSort>> _menuKey = GlobalKey();
+
+  @override
   Widget build(BuildContext context) {
     return PopupMenuButton<_FavoriteSort>(
+      key: _menuKey,
       tooltip: '排序',
-      onSelected: onSelected,
+      onSelected: widget.onSelected,
       offset: const Offset(0, 48),
       shape: RoundedRectangleBorder(borderRadius: MeloRadii.md),
       itemBuilder: (context) => [
@@ -303,9 +315,9 @@ class _SortButton extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  item == sort ? Icons.check_rounded : Icons.sort_rounded,
+                  item == widget.sort ? Icons.check_rounded : Icons.sort_rounded,
                   size: 18,
-                  color: item == sort
+                  color: item == widget.sort
                       ? MeloColors.primary700
                       : MeloColors.textTertiary,
                 ),
@@ -315,18 +327,21 @@ class _SortButton extends StatelessWidget {
             ),
           ),
       ],
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: MeloColors.surface,
-          borderRadius: MeloRadii.sm,
-          border: Border.all(color: MeloColors.border),
-        ),
-        child: const Icon(
+      child: IconButton(
+        tooltip: '排序',
+        icon: const Icon(
           Icons.tune_rounded,
-          size: 18,
+          size: 20,
           color: MeloColors.textSecondary,
+        ),
+        onPressed: () => _menuKey.currentState?.showButtonMenu(),
+        style: IconButton.styleFrom(
+          fixedSize: const Size(40, 40),
+          backgroundColor: MeloColors.surface,
+          shape: const RoundedRectangleBorder(
+            borderRadius: MeloRadii.sm,
+            side: BorderSide(color: MeloColors.border),
+          ),
         ),
       ),
     );

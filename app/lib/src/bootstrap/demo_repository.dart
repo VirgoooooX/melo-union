@@ -28,6 +28,8 @@ enum PlaybackRepeatMode { off, all, one }
 
 enum ProviderSessionActionKind { cookieImport, qrLogin }
 
+const _windowsAudioLoadTimeout = Duration(seconds: 2);
+
 final class ProviderSessionAction {
   const ProviderSessionAction({
     required this.kind,
@@ -60,6 +62,7 @@ class DemoRepository extends ChangeNotifier {
             favoritesOverrideRegistry ?? FavoritesOverrideRegistry(),
         _neteaseCredentials = neteaseCredentials,
         _qqMusicCredentials = qqMusicCredentials,
+        _volume = volume.clamp(0.0, 1.0).toDouble(),
         _selectedPlaylistId = playlists.listPlaylists().isEmpty
             ? null
             : playlists.listPlaylists().first.id {
@@ -72,7 +75,7 @@ class DemoRepository extends ChangeNotifier {
       seedTasks: seedDownloadTasks,
       seedLocalItems: seedLocalMediaItems,
     );
-    _audioPlayer.setVolume(volume);
+    unawaited(_audioPlayer.setVolume(_volume));
     // Notify UI when audio player state changes (play/pause/complete)
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
@@ -254,6 +257,7 @@ class DemoRepository extends ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final Random _random = Random();
   String? _playingTrackId;
+  double _volume;
   bool _playbackRequested = false;
   bool _shuffleEnabled = false;
   bool _isAdvancingAfterCompletion = false;
@@ -277,7 +281,7 @@ class DemoRepository extends ChangeNotifier {
 
   Stream<Duration?> get durationStream => _audioPlayer.durationStream;
 
-  double get volume => _audioPlayer.volume;
+  double get volume => _volume;
 
   AudioQuality get playbackQuality => playbackCoordinator.quality;
 
@@ -302,8 +306,9 @@ class DemoRepository extends ChangeNotifier {
     }
     if (providerId == qqMusicProviderId) {
       return ProviderSessionAction(
-        kind: ProviderSessionActionKind.qrLogin,
-        description: 'QQ 音乐支持 QQ / 微信两种扫码登录。扫码成功后 Cookie 会保存到平台安全存储。',
+        kind: ProviderSessionActionKind.cookieImport,
+        description:
+            'QQ 音乐扫码登录暂不可用。请从浏览器已登录的 y.qq.com 复制完整 Cookie 导入，Cookie 会保存到平台安全存储。',
         clear: clearQqMusicCredentials,
       );
     }
@@ -359,6 +364,17 @@ class DemoRepository extends ChangeNotifier {
       return const [];
     }
     return entry.provider.getRecommendedPlaylists(limit: limit);
+  }
+
+  Future<List<ProviderPlaylist>> loadChartPlaylists(
+    ProviderId providerId, {
+    int limit = 20,
+  }) async {
+    final entry = registry.entryOf(providerId);
+    if (entry == null || !entry.isEnabled) {
+      return const [];
+    }
+    return entry.provider.getChartPlaylists(limit: limit);
   }
 
   Future<List<ProviderPlaylist>> loadProviderPlaylists(
@@ -494,6 +510,7 @@ class DemoRepository extends ChangeNotifier {
       // Remove liked-at metadata when unliking.
       favoritesOverrideRegistry.removeLikedAt(track.ref);
     }
+    _persistSoon();
     notifyListeners();
   }
 
@@ -570,6 +587,14 @@ class DemoRepository extends ChangeNotifier {
         'QQ Music cookie must not be empty.',
       );
     }
+    final cookieProblem = _validateQqMusicCookie(credentials.cookie);
+    if (cookieProblem != null) {
+      throw ArgumentError.value(
+        credentials.cookie,
+        'credentials.cookie',
+        cookieProblem,
+      );
+    }
     await qqMusicSessionStore?.write(credentials);
     _qqMusicCredentials = credentials;
     // Clear old QQ registry entries so the next pull re-spreads timestamps.
@@ -596,6 +621,19 @@ class DemoRepository extends ChangeNotifier {
     for (final ref in toRemove) {
       favoritesOverrideRegistry.removeLikedAt(ref);
     }
+  }
+
+  String? _validateQqMusicCookie(String cookie) {
+    final hasUin =
+        RegExp(r'(^|;\s*)uin=o?\d+', caseSensitive: false).hasMatch(cookie);
+    final hasAuthKey = RegExp(
+      r'(^|;\s*)(qqmusic_key|qm_keyst|p_skey)=\S+',
+      caseSensitive: false,
+    ).hasMatch(cookie);
+    if (!hasUin || !hasAuthKey) {
+      return 'QQ Music cookie must include uin and qqmusic_key/qm_keyst.';
+    }
+    return null;
   }
 
   Future<QqMusicQrLoginSession> createQqMusicQrLoginSession(
@@ -804,7 +842,8 @@ class DemoRepository extends ChangeNotifier {
   Future<void> seek(Duration position) => _audioPlayer.seek(position);
 
   Future<void> setVolume(double value) async {
-    await _audioPlayer.setVolume(value.clamp(0.0, 1.0));
+    _volume = value.clamp(0.0, 1.0).toDouble();
+    await _audioPlayer.setVolume(_volume);
     notifyListeners();
     _persistSoon();
   }
@@ -860,17 +899,43 @@ class DemoRepository extends ChangeNotifier {
         final url = currentTicket.mediaUri.toString();
         debugPrint('AUDIO: playing "${current.title}"');
         await _audioPlayer.stop();
-        await _audioPlayer.setUrl(
+        await _loadAudioUrlForPlayback(
           url,
           headers: currentTicket.headers.isEmpty ? null : currentTicket.headers,
         );
-        _startAudioPlayer();
+        if (_playingTrackId == trackId) {
+          _startAudioPlayer();
+        }
       } catch (e) {
         debugPrint('Audio Error: $e');
         _playingTrackId = null;
         _playbackRequested = false;
       }
     }
+  }
+
+  Future<void> _loadAudioUrlForPlayback(
+    String url, {
+    Map<String, String>? headers,
+  }) async {
+    final loadFuture = _audioPlayer.setUrl(url, headers: headers);
+    if (defaultTargetPlatform != TargetPlatform.windows) {
+      await loadFuture;
+      return;
+    }
+
+    // just_audio_windows can miss the first ready event on Windows by sending
+    // native events from a non-platform thread. Continue to play so the first
+    // click behaves like the second manual click.
+    await loadFuture.timeout(
+      _windowsAudioLoadTimeout,
+      onTimeout: () {
+        debugPrint(
+          'AUDIO: Windows load timed out; continuing with play request.',
+        );
+        return null;
+      },
+    );
   }
 
   ProviderTrackRef? _nextTrackRef(PlaybackQueueState queueState) {

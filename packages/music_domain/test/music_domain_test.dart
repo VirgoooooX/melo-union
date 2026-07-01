@@ -700,6 +700,12 @@ final class _ThrowingFavoritesProvider implements MusicProvider {
       [];
 
   @override
+  Future<List<ProviderPlaylist>> getChartPlaylists({
+    int limit = 20,
+  }) async =>
+      [];
+
+  @override
   Future<List<ProviderPlaylist>> getUserPlaylists() async => [];
 
   @override
