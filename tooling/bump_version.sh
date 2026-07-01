@@ -54,8 +54,9 @@ fi
 # Update app/lib/src/bootstrap/app_version.dart
 version_path="app/lib/src/bootstrap/app_version.dart"
 if [ -f "$version_path" ]; then
-    echo "const String appVersion = '$VERSION';" > "$version_path"
-    echo "Updated $version_path to version: $VERSION"
+    display_version=$(echo "$VERSION" | cut -d'+' -f1)
+    echo -e "const String appVersion = '$VERSION';\nconst String appDisplayVersion = '$display_version';" > "$version_path"
+    echo "Updated $version_path to version: $VERSION (display: $display_version)"
 else
     echo "Error: Could not find $version_path"
     exit 1

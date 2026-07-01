@@ -45,9 +45,10 @@ if (Test-Path $pubspecPath) {
 # Update app/lib/src/bootstrap/app_version.dart
 $versionPath = "app/lib/src/bootstrap/app_version.dart"
 if (Test-Path $versionPath) {
-    $versionContent = "const String appVersion = '$Version';`n"
+    $displayVersion = $Version.Split('+')[0]
+    $versionContent = "const String appVersion = '$Version';`nconst String appDisplayVersion = '$displayVersion';`n"
     Set-Content $versionPath $versionContent -NoNewline
-    Write-Host "Updated $versionPath to version: $Version"
+    Write-Host "Updated $versionPath to version: $Version (display: $displayVersion)"
 } else {
     throw "Could not find $versionPath"
 }
