@@ -100,7 +100,7 @@ jobs:
 
       - name: Install Melos & Bootstrap
         run: |
-          dart pub global activate melos
+          dart pub global activate melos 6.2.0
           dart pub global run melos bootstrap
 
       - name: Build Release APK
@@ -136,7 +136,7 @@ jobs:
 
       - name: Install Melos & Bootstrap
         run: |
-          dart pub global activate melos
+          dart pub global activate melos 6.2.0
           dart pub global run melos bootstrap
 
       - name: Build Release Windows
