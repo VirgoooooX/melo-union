@@ -509,16 +509,16 @@ class _SettingsContent extends StatelessWidget {
       _SettingsSection.about => _SettingsPanel(
           title: '关于 MeloUnion',
           subtitle: '一个可扩展 Provider 的统一音乐库与播放客户端。',
-          children: const [
-            _AboutLogoCard(),
-            SizedBox(height: MeloSpacing.md),
+          children: [
+            const _AboutLogoCard(),
+            const SizedBox(height: MeloSpacing.md),
             _SettingsCard(
               title: '版本',
               subtitle: 'v$appDisplayVersion',
               leading: Icons.info_outline_rounded,
             ),
-            SizedBox(height: MeloSpacing.md),
-            _SettingsCard(
+            const SizedBox(height: MeloSpacing.md),
+            const _SettingsCard(
               title: '数据边界',
               subtitle: '登录凭证仅保存在本机安全存储中；播放票据不会写入快照。',
               leading: Icons.lock_outline_rounded,
