@@ -106,6 +106,7 @@ jobs:
       - name: Build Release APK
         run: |
           cd app
+          flutter pub get
           flutter build apk --release
 
       - name: Prepare Artifact
@@ -142,6 +143,7 @@ jobs:
       - name: Build Release Windows
         run: |
           cd app
+          flutter pub get
           flutter build windows --release
         shell: bash
 
