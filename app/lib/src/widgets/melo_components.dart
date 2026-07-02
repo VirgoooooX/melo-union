@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:music_domain/music_domain.dart';
@@ -8,6 +7,7 @@ import 'package:provider_contract/provider_contract.dart';
 import '../bootstrap/demo_repository.dart';
 import '../design/melo_tokens.dart';
 import '../presentation/provider_presentation.dart';
+import 'melo_file_cached_image_provider.dart';
 
 abstract final class MeloListMetrics {
   static const rowHeight = 64.0;
@@ -188,14 +188,16 @@ class _MeloTrackCoverState extends State<MeloTrackCover> {
       final displayPixels =
           (widget.size * MediaQuery.devicePixelRatioOf(context)).round();
       final cacheSize = (displayPixels * 1.6).round().clamp(128, 320);
+      final requestUri = _artworkRequestUri(artwork, cacheSize);
       final imageProvider = ScrollAwareImageProvider<Object>(
         context: _scrollAwareContext,
-        imageProvider: CachedNetworkImageProvider(
-          artwork.toString(),
-          headers: meloArtworkHeaders,
-          cacheKey: artwork.toString(),
-          maxWidth: cacheSize,
-          maxHeight: cacheSize,
+        imageProvider: ResizeImage.resizeIfNeeded(
+          cacheSize,
+          cacheSize,
+          MeloFileCachedNetworkImageProvider(
+            requestUri.toString(),
+            headers: meloArtworkHeaders,
+          ),
         ),
       );
       return Container(
@@ -254,6 +256,20 @@ class _MeloTrackCoverState extends State<MeloTrackCover> {
         color: Colors.white,
         size: widget.isActive ? widget.size * .42 : widget.size * .48,
       ),
+    );
+  }
+
+  Uri _artworkRequestUri(Uri artwork, int targetPixels) {
+    final host = artwork.host.toLowerCase();
+    if (!host.endsWith('music.126.net')) {
+      return artwork;
+    }
+    final thumbnailSize = targetPixels.clamp(160, 320);
+    return artwork.replace(
+      queryParameters: {
+        ...artwork.queryParameters,
+        'param': '${thumbnailSize}y$thumbnailSize',
+      },
     );
   }
 }
