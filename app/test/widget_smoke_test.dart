@@ -22,7 +22,7 @@ void main() {
     expect(find.text('全部喜欢'), findsWidgets);
     expect(find.text('推荐'), findsWidgets);
     expect(find.text('歌单'), findsWidgets);
-    expect(find.text('下载'), findsNothing);
+    expect(find.text('下载'), findsWidgets);
     expect(find.text('设置'), findsWidgets);
 
     await tester.tap(find.text('设置').last);
@@ -81,7 +81,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('首页'), findsOneWidget);
+    expect(find.text('推荐'), findsOneWidget);
     expect(find.text('喜欢'), findsOneWidget);
     expect(find.text('搜索'), findsOneWidget);
     expect(find.text('歌单'), findsOneWidget);

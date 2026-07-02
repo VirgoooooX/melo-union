@@ -188,9 +188,10 @@ class _MobileFavoriteRow extends ConsumerWidget {
         .firstWhere((variant) => variant.artwork != null, orElse: () => primary)
         .artwork;
 
-    return InkWell(
+    return MeloTapFeedback(
       onTap: () => repository.playOrToggleUnifiedTrack(track),
-      borderRadius: MeloRadii.sm,
+      selected: selected,
+      borderRadius: BorderRadius.zero,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(

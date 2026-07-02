@@ -333,7 +333,8 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                         ),
                         itemCount: tracks.length,
                         padding: EdgeInsets.only(bottom: isMobile ? 156 : 4),
-                        scrollCacheExtent: const ScrollCacheExtent.pixels(560),
+                        scrollCacheExtent:
+                            ScrollCacheExtent.pixels(isMobile ? 240 : 560),
                         itemExtent: MeloListMetrics.rowHeight,
                         addAutomaticKeepAlives: false,
                         addSemanticIndexes: false,
@@ -343,7 +344,10 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                           return _TrackRowFrame(
                             child: MeloInteractiveRow(
                               selected: selected,
-                              onDoubleTap: track.isPlayable
+                              onTap: isMobile && track.isPlayable
+                                  ? () => repository.playOrToggleTrack(track)
+                                  : null,
+                              onDoubleTap: !isMobile && track.isPlayable
                                   ? () => repository.playOrToggleTrack(track)
                                   : null,
                               builder: (context, hovered) => Row(
@@ -534,7 +538,8 @@ class _LocalPlaylistTracks extends StatelessWidget {
                     ),
                     itemCount: playlist.items.length,
                     padding: EdgeInsets.only(bottom: isMobile ? 156 : 4),
-                    scrollCacheExtent: const ScrollCacheExtent.pixels(560),
+                    scrollCacheExtent:
+                        ScrollCacheExtent.pixels(isMobile ? 240 : 560),
                     itemExtent: MeloListMetrics.rowHeight,
                     addAutomaticKeepAlives: false,
                     addSemanticIndexes: false,
@@ -551,7 +556,10 @@ class _LocalPlaylistTracks extends StatelessWidget {
                       return _TrackRowFrame(
                         child: MeloInteractiveRow(
                           selected: selected,
-                          onDoubleTap: track?.isPlayable == true
+                          onTap: isMobile && track?.isPlayable == true
+                              ? () => repository.playOrToggleTrack(track!)
+                              : null,
+                          onDoubleTap: !isMobile && track?.isPlayable == true
                               ? () => repository.playOrToggleTrack(track!)
                               : null,
                           builder: (context, hovered) => Row(

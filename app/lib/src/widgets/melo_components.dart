@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:music_domain/music_domain.dart';
@@ -90,7 +91,69 @@ class _MeloInteractiveRowState extends State<MeloInteractiveRow> {
   }
 }
 
-class MeloTrackCover extends StatelessWidget {
+class MeloTapFeedback extends StatefulWidget {
+  const MeloTapFeedback({
+    required this.child,
+    this.onTap,
+    this.borderRadius = MeloRadii.sm,
+    this.selected = false,
+    super.key,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final BorderRadius borderRadius;
+  final bool selected;
+
+  @override
+  State<MeloTapFeedback> createState() => _MeloTapFeedbackState();
+}
+
+class _MeloTapFeedbackState extends State<MeloTapFeedback> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value || !mounted) return;
+    setState(() => _pressed = value);
+  }
+
+  void _handleTap() {
+    widget.onTap?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final interactive = widget.onTap != null;
+    final background =
+        widget.selected ? MeloColors.primary50 : Colors.transparent;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: interactive ? (_) => _setPressed(true) : null,
+      onTapCancel: interactive ? () => _setPressed(false) : null,
+      onTapUp: interactive ? (_) => _setPressed(false) : null,
+      onTap: interactive ? _handleTap : null,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 70),
+        curve: Curves.easeOutCubic,
+        scale: _pressed ? .982 : 1,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: widget.borderRadius,
+          ),
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 70),
+            curve: Curves.easeOutCubic,
+            opacity: _pressed ? .88 : 1,
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MeloTrackCover extends StatefulWidget {
   const MeloTrackCover({
     required this.seed,
     this.artwork,
@@ -105,33 +168,60 @@ class MeloTrackCover extends StatelessWidget {
   final double size;
 
   @override
+  State<MeloTrackCover> createState() => _MeloTrackCoverState();
+}
+
+class _MeloTrackCoverState extends State<MeloTrackCover> {
+  late final DisposableBuildContext<_MeloTrackCoverState> _scrollAwareContext =
+      DisposableBuildContext(this);
+
+  @override
+  void dispose() {
+    _scrollAwareContext.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (artwork != null && artwork!.toString().isNotEmpty) {
-      if (Scrollable.recommendDeferredLoadingForContext(context)) {
-        return _placeholder();
-      }
-      final cacheSize = (size * MediaQuery.devicePixelRatioOf(context)).round();
+    final artwork = widget.artwork;
+    if (artwork != null && artwork.toString().isNotEmpty) {
+      final displayPixels =
+          (widget.size * MediaQuery.devicePixelRatioOf(context)).round();
+      final cacheSize = (displayPixels * 1.6).round().clamp(128, 320);
+      final imageProvider = ScrollAwareImageProvider<Object>(
+        context: _scrollAwareContext,
+        imageProvider: CachedNetworkImageProvider(
+          artwork.toString(),
+          headers: meloArtworkHeaders,
+          cacheKey: artwork.toString(),
+          maxWidth: cacheSize,
+          maxHeight: cacheSize,
+        ),
+      );
       return Container(
-        width: size,
-        height: size,
+        width: widget.size,
+        height: widget.size,
         decoration: BoxDecoration(
           borderRadius: MeloRadii.sm,
-          boxShadow: isActive ? MeloShadows.control : const [],
+          boxShadow: widget.isActive ? MeloShadows.control : const [],
         ),
         child: ClipRRect(
           borderRadius: MeloRadii.sm,
           clipBehavior: Clip.hardEdge,
-          child: Image.network(
-            artwork!.toString(),
-            width: size,
-            height: size,
+          child: Image(
+            image: imageProvider,
+            width: widget.size,
+            height: widget.size,
             fit: BoxFit.cover,
-            headers: meloArtworkHeaders,
-            cacheWidth: cacheSize,
-            cacheHeight: cacheSize,
-            filterQuality: FilterQuality.low,
+            filterQuality: FilterQuality.medium,
             gaplessPlayback: true,
-            errorBuilder: (_, __, ___) => _placeholder(),
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded || frame != null) {
+                return child;
+              }
+              return _placeholder(withShadow: false);
+            },
+            errorBuilder: (_, __, ___) => _placeholder(withShadow: false),
           ),
         ),
       );
@@ -139,12 +229,13 @@ class MeloTrackCover extends StatelessWidget {
     return _placeholder();
   }
 
-  Widget _placeholder() {
+  Widget _placeholder({bool withShadow = true}) {
     final hue =
-        seed.codeUnits.fold<int>(0, (total, value) => total + value) % 360;
+        widget.seed.codeUnits.fold<int>(0, (total, value) => total + value) %
+            360;
     return Container(
-      width: size,
-      height: size,
+      width: widget.size,
+      height: widget.size,
       decoration: BoxDecoration(
         borderRadius: MeloRadii.sm,
         gradient: LinearGradient(
@@ -155,12 +246,13 @@ class MeloTrackCover extends StatelessWidget {
             HSLColor.fromAHSL(1, (hue + 48) % 360, .54, .40).toColor(),
           ],
         ),
-        boxShadow: isActive ? MeloShadows.control : const [],
+        boxShadow:
+            withShadow && widget.isActive ? MeloShadows.control : const [],
       ),
       child: Icon(
-        isActive ? Icons.graphic_eq_rounded : Icons.music_note_rounded,
+        widget.isActive ? Icons.graphic_eq_rounded : Icons.music_note_rounded,
         color: Colors.white,
-        size: isActive ? size * .42 : size * .48,
+        size: widget.isActive ? widget.size * .42 : widget.size * .48,
       ),
     );
   }

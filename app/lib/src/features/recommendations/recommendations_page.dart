@@ -520,7 +520,7 @@ class _MobileRecommendationsView extends StatelessWidget {
             onSelected: onTabSelected,
             child: CustomScrollView(
               key: PageStorageKey<String>('mobile_recommendations_$selected'),
-              scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+              scrollCacheExtent: const ScrollCacheExtent.pixels(240),
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
@@ -723,10 +723,12 @@ class _MobileRecommendationTrackSliver extends StatelessWidget {
                 bottom: BorderSide(color: MeloColors.border),
               ),
             ),
-            child: InkWell(
+            child: MeloTapFeedback(
               onTap: track.isPlayable
                   ? () => repository.playOrToggleTrack(track)
                   : null,
+              selected: selected,
+              borderRadius: BorderRadius.zero,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(

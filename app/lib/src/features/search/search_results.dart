@@ -55,7 +55,7 @@ class _SearchResults extends ConsumerWidget {
           ],
         ];
         return ListView.builder(
-          scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+          scrollCacheExtent: const ScrollCacheExtent.pixels(240),
           addAutomaticKeepAlives: false,
           addSemanticIndexes: false,
           itemCount: entries.length,
@@ -183,10 +183,13 @@ class _SearchTrackRow extends ConsumerWidget {
       demoRepositoryProvider.select((r) => r.queue.current?.track.ref),
     );
     final selected = currentRef == track.ref;
+    final isMobile = MediaQuery.sizeOf(context).width < 960;
+    final play =
+        track.isPlayable ? () => repository.playOrToggleTrack(track) : null;
     return MeloInteractiveRow(
       selected: selected,
-      onDoubleTap:
-          track.isPlayable ? () => repository.playOrToggleTrack(track) : null,
+      onTap: isMobile ? play : null,
+      onDoubleTap: isMobile ? null : play,
       builder: (context, hovered) => Row(
         children: [
           SizedBox(

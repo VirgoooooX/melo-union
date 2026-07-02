@@ -337,7 +337,7 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 156),
       physics: const AlwaysScrollableScrollPhysics(),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      scrollCacheExtent: const ScrollCacheExtent.pixels(560),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(192),
       itemExtent: MeloListMetrics.mobileTrackRowHeight,
       addAutomaticKeepAlives: false,
       addRepaintBoundaries: false,
