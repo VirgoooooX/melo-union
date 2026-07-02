@@ -107,17 +107,20 @@ jobs:
         run: |
           cd app
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release --split-per-abi
 
       - name: Prepare Artifact
         run: |
-          mv app/build/app/outputs/flutter-apk/app-release.apk MeloUnion-Android.apk
+          mkdir -p dist-apk
+          mv app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist-apk/MeloUnion-Android-arm32.apk
+          mv app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist-apk/MeloUnion-Android-arm64.apk
+          mv app/build/app/outputs/flutter-apk/app-x86_64-release.apk dist-apk/MeloUnion-Android-x64.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: MeloUnion-Android.apk
+          path: dist-apk/
           if-no-files-found: error
 
   build-windows:
