@@ -81,11 +81,12 @@ final class UnifiedFavoritesService {
     //   Real exact likedAt from track -> update registry with exact precision.
     //   No likedAt -> fallback to sync detection estimation.
     if (overrides != null) {
+      overrides.normalizeLikedAtTracking();
       for (final snapshot in snapshots) {
         final tracksToEstimate = <SourceTrack>[];
         for (final track in snapshot.tracks) {
           if (track.likedAtSource == 'qq_import') {
-            final existing = overrides.likedAtTracking[track.ref];
+            final existing = overrides.likedAtFor(track.ref);
             if (track.likedAt != null) {
               // If we have a real precise likedAt from QQ Music, we can update or set it.
               // Overwrite if not in registry, or if it is in registry but was estimated (precision != exact).

@@ -97,11 +97,71 @@ class FavoritesOverrideRegistry {
 
   /// Records liked-at metadata for a track (app-action or sync-detected).
   void recordLikedAt(ProviderTrackRef ref, LikedAtMetadata metadata) {
-    likedAtTracking[ref] = metadata;
+    final identityKey = likedAtIdentityKey(ref);
+    var preferredRef = ref;
+    var preferredMetadata = metadata;
+    final equivalentRefs = <ProviderTrackRef>[];
+
+    for (final entry in likedAtTracking.entries) {
+      if (likedAtIdentityKey(entry.key) != identityKey) {
+        continue;
+      }
+      equivalentRefs.add(entry.key);
+      final preferred = _preferLikedAtEntry(
+        leftRef: preferredRef,
+        leftMetadata: preferredMetadata,
+        rightRef: entry.key,
+        rightMetadata: entry.value,
+      );
+      preferredRef = preferred.$1;
+      preferredMetadata = preferred.$2;
+    }
+
+    for (final existingRef in equivalentRefs) {
+      likedAtTracking.remove(existingRef);
+    }
+    likedAtTracking[preferredRef] = preferredMetadata;
   }
 
   /// Retrieves liked-at metadata for a track, if recorded.
-  LikedAtMetadata? likedAtFor(ProviderTrackRef ref) => likedAtTracking[ref];
+  LikedAtMetadata? likedAtFor(ProviderTrackRef ref) {
+    final exact = likedAtTracking[ref];
+    if (exact != null) {
+      return exact;
+    }
+
+    final identityKey = likedAtIdentityKey(ref);
+    ProviderTrackRef? preferredRef;
+    LikedAtMetadata? preferredMetadata;
+    for (final entry in likedAtTracking.entries) {
+      if (likedAtIdentityKey(entry.key) != identityKey) {
+        continue;
+      }
+      if (preferredMetadata == null) {
+        preferredRef = entry.key;
+        preferredMetadata = entry.value;
+        continue;
+      }
+      final preferred = _preferLikedAtEntry(
+        leftRef: preferredRef!,
+        leftMetadata: preferredMetadata,
+        rightRef: entry.key,
+        rightMetadata: entry.value,
+      );
+      preferredRef = preferred.$1;
+      preferredMetadata = preferred.$2;
+    }
+    return preferredMetadata;
+  }
+
+  /// Collapses duplicate liked-at records that refer to the same stable track.
+  void normalizeLikedAtTracking() {
+    final entries = likedAtTracking.entries.toList(growable: false);
+    likedAtTracking.clear();
+    for (final entry in entries) {
+      recordLikedAt(entry.key, entry.value);
+    }
+  }
 
   /// Clears liked-at metadata (e.g. when a track is unliked).
   void removeLikedAt(ProviderTrackRef ref) {
@@ -124,5 +184,87 @@ class FavoritesOverrideRegistry {
       }
     }
     return false;
+  }
+
+  static String likedAtIdentityKey(ProviderTrackRef ref) {
+    if (ref.providerId.value == 'qq_music') {
+      final songMid = ref.extraIds['song_mid']?.trim();
+      final stableId =
+          songMid != null && songMid.isNotEmpty ? songMid : ref.trackId.trim();
+      return '${ref.providerId.value}:$stableId';
+    }
+    return '${ref.providerId.value}:${ref.trackId}:${_extraIdsKey(ref)}';
+  }
+
+  static (ProviderTrackRef, LikedAtMetadata) _preferLikedAtEntry({
+    required ProviderTrackRef leftRef,
+    required LikedAtMetadata leftMetadata,
+    required ProviderTrackRef rightRef,
+    required LikedAtMetadata rightMetadata,
+  }) {
+    final leftScore = _metadataPriority(leftMetadata);
+    final rightScore = _metadataPriority(rightMetadata);
+    if (leftScore != rightScore) {
+      return leftScore > rightScore
+          ? (leftRef, leftMetadata)
+          : (rightRef, rightMetadata);
+    }
+
+    final leftLikedAt = leftMetadata.likedAt;
+    final rightLikedAt = rightMetadata.likedAt;
+    if (leftLikedAt != null && rightLikedAt != null) {
+      final comparison = leftLikedAt.compareTo(rightLikedAt);
+      if (comparison != 0) {
+        return comparison > 0
+            ? (leftRef, leftMetadata)
+            : (rightRef, rightMetadata);
+      }
+    } else if (leftLikedAt != null) {
+      return (leftRef, leftMetadata);
+    } else if (rightLikedAt != null) {
+      return (rightRef, rightMetadata);
+    }
+
+    final leftDetailScore = _refDetailScore(leftRef);
+    final rightDetailScore = _refDetailScore(rightRef);
+    if (leftDetailScore != rightDetailScore) {
+      return leftDetailScore > rightDetailScore
+          ? (leftRef, leftMetadata)
+          : (rightRef, rightMetadata);
+    }
+
+    return (leftRef, leftMetadata);
+  }
+
+  static int _metadataPriority(LikedAtMetadata metadata) {
+    final hasTime = metadata.likedAt != null;
+    if (metadata.source == LikedAtMetadata.sourceAppAction && hasTime) {
+      return 500;
+    }
+    if (metadata.precision == LikedAtMetadata.precisionExact && hasTime) {
+      if (metadata.source == LikedAtMetadata.sourceQqImport) {
+        return 400;
+      }
+      return 350;
+    }
+    if (metadata.precision == LikedAtMetadata.precisionApproximate && hasTime) {
+      return 250;
+    }
+    if (hasTime) {
+      return 100;
+    }
+    return 0;
+  }
+
+  static int _refDetailScore(ProviderTrackRef ref) {
+    final nonEmptyExtras =
+        ref.extraIds.values.where((value) => value.trim().isNotEmpty).length;
+    return ref.trackId.trim().isEmpty ? nonEmptyExtras : nonEmptyExtras + 1;
+  }
+
+  static String _extraIdsKey(ProviderTrackRef ref) {
+    final entries = ref.extraIds.entries.toList(growable: false)
+      ..sort((left, right) => left.key.compareTo(right.key));
+    return entries.map((entry) => '${entry.key}=${entry.value}').join('&');
   }
 }

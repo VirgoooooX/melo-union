@@ -185,8 +185,13 @@ class _MobileMineView extends ConsumerWidget {
         const SizedBox(height: 18),
         const _MineSectionTitle('应用信息'),
         const SizedBox(height: 10),
-        const SizedBox(height: 12),
         const _AboutLogoCard(),
+        const SizedBox(height: 10),
+        const _SettingsCard(
+          title: '版本',
+          subtitle: 'v$appDisplayVersion ($appVersion)',
+          leading: Icons.info_outline_rounded,
+        ),
       ],
     );
   }

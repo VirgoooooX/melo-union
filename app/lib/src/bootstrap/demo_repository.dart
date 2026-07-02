@@ -381,6 +381,9 @@ class DemoRepository extends ChangeNotifier {
       for (final track in r.tracks) {
         _rememberTracks(track.variants);
       }
+      // Unified favorites may add or normalize local liked-at metadata
+      // (notably QQ imports without reliable server timestamps).
+      _persistSoon();
       return r.tracks;
     });
   }

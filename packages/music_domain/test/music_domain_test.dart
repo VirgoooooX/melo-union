@@ -467,6 +467,212 @@ void main() {
       expect(result.tracks.first.variants.single.ref, trackA.ref);
       expect(result.failures.containsKey(ProviderId('beta_library')), isTrue);
     });
+
+    test('normalizes QQ liked-at records across changing extra ids', () {
+      final qqProviderId = ProviderId('qq_music');
+      final refV1 = ProviderTrackRef(
+        providerId: qqProviderId,
+        trackId: '003QDnvP3ygUkH',
+        extraIds: const {
+          'song_mid': '003QDnvP3ygUkH',
+          'album_mid': '004WLsw812xIlg',
+        },
+      );
+      final refV2 = ProviderTrackRef(
+        providerId: qqProviderId,
+        trackId: '003QDnvP3ygUkH',
+        extraIds: const {
+          'song_mid': '003QDnvP3ygUkH',
+          'media_mid': '003QDnvP3ygUkH',
+          'album_mid': '004WLsw812xIlg',
+        },
+      );
+      final refV3 = ProviderTrackRef(
+        providerId: qqProviderId,
+        trackId: '003QDnvP3ygUkH',
+        extraIds: const {
+          'song_id': '590860903',
+          'song_type': '0',
+          'song_mid': '003QDnvP3ygUkH',
+          'media_mid': '003QDnvP3ygUkH',
+          'album_mid': '004WLsw812xIlg',
+        },
+      );
+
+      final registry = FavoritesOverrideRegistry();
+      final olderEstimate = DateTime.utc(2026, 6, 30, 11);
+      final newerEstimate = DateTime.utc(2026, 7, 1, 7);
+      final appActionTime = DateTime.utc(2026, 6, 29, 9);
+
+      registry.recordLikedAt(
+        refV1,
+        LikedAtMetadata(
+          likedAt: olderEstimate,
+          source: LikedAtMetadata.sourceQqImport,
+          precision: LikedAtMetadata.precisionUnknown,
+        ),
+      );
+      registry.recordLikedAt(
+        refV2,
+        LikedAtMetadata(
+          likedAt: newerEstimate,
+          source: LikedAtMetadata.sourceQqImport,
+          precision: LikedAtMetadata.precisionUnknown,
+        ),
+      );
+
+      expect(registry.likedAtTracking, hasLength(1));
+      expect(registry.likedAtFor(refV1)?.likedAt, newerEstimate);
+      expect(registry.likedAtFor(refV3)?.likedAt, newerEstimate);
+
+      registry.recordLikedAt(
+        refV3,
+        LikedAtMetadata(
+          likedAt: appActionTime,
+          source: LikedAtMetadata.sourceAppAction,
+          precision: LikedAtMetadata.precisionExact,
+        ),
+      );
+
+      expect(registry.likedAtTracking, hasLength(1));
+      expect(registry.likedAtFor(refV1)?.likedAt, appActionTime);
+      expect(
+        registry.likedAtFor(refV2)?.source,
+        LikedAtMetadata.sourceAppAction,
+      );
+    });
+
+    test('reuses normalized QQ estimate when current ref shape changes',
+        () async {
+      final qqProviderId = ProviderId('qq_music');
+      final oldRef = ProviderTrackRef(
+        providerId: qqProviderId,
+        trackId: '003QDnvP3ygUkH',
+        extraIds: const {
+          'song_mid': '003QDnvP3ygUkH',
+          'album_mid': '004WLsw812xIlg',
+        },
+      );
+      final currentRef = ProviderTrackRef(
+        providerId: qqProviderId,
+        trackId: '003QDnvP3ygUkH',
+        extraIds: const {
+          'song_id': '590860903',
+          'song_type': '0',
+          'song_mid': '003QDnvP3ygUkH',
+          'media_mid': '003QDnvP3ygUkH',
+          'album_mid': '004WLsw812xIlg',
+        },
+      );
+      final existingEstimate = DateTime.utc(2026, 6, 30, 11);
+      final overrides = FavoritesOverrideRegistry()
+        ..recordLikedAt(
+          oldRef,
+          LikedAtMetadata(
+            likedAt: existingEstimate,
+            source: LikedAtMetadata.sourceQqImport,
+            precision: LikedAtMetadata.precisionUnknown,
+          ),
+        );
+      final qqProvider = FakeMusicProvider(
+        descriptor: ProviderDescriptor(
+          id: qqProviderId,
+          displayName: 'QQ Music',
+          capabilities: const {
+            ProviderCapability.authenticate,
+            ProviderCapability.readFavorites,
+          },
+        ),
+        seedTracks: [
+          SourceTrack(
+            ref: currentRef,
+            title: 'Borrowed Light',
+            artists: const ['Signal Room'],
+            duration: const Duration(minutes: 3),
+            isFavorited: true,
+            likedAtSource: LikedAtMetadata.sourceQqImport,
+            likedAtPrecision: LikedAtMetadata.precisionUnknown,
+          ),
+        ],
+      );
+
+      final result =
+          await const UnifiedFavoritesService().buildAllFavoritesWithResult(
+        StaticProviderRegistry([qqProvider]),
+        overrides: overrides,
+      );
+
+      expect(overrides.likedAtTracking, hasLength(1));
+      final variant = result.tracks.single.variants.single;
+      expect(variant.ref, currentRef);
+      expect(variant.likedAt, existingEstimate);
+      expect(variant.likedAtSource, LikedAtMetadata.sourceQqImport);
+      expect(variant.likedAtPrecision, LikedAtMetadata.precisionUnknown);
+    });
+
+    test('promotes QQ exact import over a previous local estimate', () async {
+      final qqProviderId = ProviderId('qq_music');
+      final oldRef = ProviderTrackRef(
+        providerId: qqProviderId,
+        trackId: '003QDnvP3ygUkH',
+        extraIds: const {'song_mid': '003QDnvP3ygUkH'},
+      );
+      final currentRef = ProviderTrackRef(
+        providerId: qqProviderId,
+        trackId: '003QDnvP3ygUkH',
+        extraIds: const {
+          'song_id': '590860903',
+          'song_mid': '003QDnvP3ygUkH',
+        },
+      );
+      final estimate = DateTime.utc(2026, 6, 30, 11);
+      final exact = DateTime.utc(2026, 7, 1, 8);
+      final overrides = FavoritesOverrideRegistry()
+        ..recordLikedAt(
+          oldRef,
+          LikedAtMetadata(
+            likedAt: estimate,
+            source: LikedAtMetadata.sourceQqImport,
+            precision: LikedAtMetadata.precisionUnknown,
+          ),
+        );
+      final qqProvider = FakeMusicProvider(
+        descriptor: ProviderDescriptor(
+          id: qqProviderId,
+          displayName: 'QQ Music',
+          capabilities: const {
+            ProviderCapability.authenticate,
+            ProviderCapability.readFavorites,
+          },
+        ),
+        seedTracks: [
+          SourceTrack(
+            ref: currentRef,
+            title: 'Borrowed Light',
+            artists: const ['Signal Room'],
+            duration: const Duration(minutes: 3),
+            isFavorited: true,
+            likedAt: exact,
+            likedAtSource: LikedAtMetadata.sourceQqImport,
+            likedAtPrecision: LikedAtMetadata.precisionExact,
+          ),
+        ],
+      );
+
+      final result =
+          await const UnifiedFavoritesService().buildAllFavoritesWithResult(
+        StaticProviderRegistry([qqProvider]),
+        overrides: overrides,
+      );
+
+      expect(overrides.likedAtTracking, hasLength(1));
+      expect(overrides.likedAtFor(oldRef)?.likedAt, exact);
+      expect(
+        overrides.likedAtFor(currentRef)?.precision,
+        LikedAtMetadata.precisionExact,
+      );
+      expect(result.tracks.single.variants.single.likedAt, exact);
+    });
   });
 
   group('DownloadCoordinator', () {
