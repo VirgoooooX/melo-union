@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 import '../bootstrap/demo_repository.dart';
@@ -10,6 +11,7 @@ import '../presentation/provider_presentation.dart';
 abstract final class MeloListMetrics {
   static const rowHeight = 64.0;
   static const compactRowHeight = 48.0;
+  static const mobileTrackRowHeight = 68.0;
   static const trackCoverSize = 42.0;
   static const sourceColumnWidth = 132.0;
   static const actionColumnWidth = 84.0;
@@ -105,6 +107,9 @@ class MeloTrackCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (artwork != null && artwork!.toString().isNotEmpty) {
+      if (Scrollable.recommendDeferredLoadingForContext(context)) {
+        return _placeholder();
+      }
       final cacheSize = (size * MediaQuery.devicePixelRatioOf(context)).round();
       return Container(
         width: size,
@@ -115,6 +120,7 @@ class MeloTrackCover extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: MeloRadii.sm,
+          clipBehavior: Clip.hardEdge,
           child: Image.network(
             artwork!.toString(),
             width: size,
@@ -123,7 +129,8 @@ class MeloTrackCover extends StatelessWidget {
             headers: meloArtworkHeaders,
             cacheWidth: cacheSize,
             cacheHeight: cacheSize,
-            filterQuality: FilterQuality.medium,
+            filterQuality: FilterQuality.low,
+            gaplessPlayback: true,
             errorBuilder: (_, __, ___) => _placeholder(),
           ),
         ),
@@ -356,18 +363,25 @@ class MeloSourceBadge extends StatelessWidget {
   const MeloSourceBadge({
     required this.providerId,
     this.label,
+    this.minWidth = 44.0,
+    this.maxWidth = 62.0,
     super.key,
   });
 
   final ProviderId providerId;
   final String? label;
+  final double? minWidth;
+  final double? maxWidth;
 
   @override
   Widget build(BuildContext context) {
     final presentation = meloProviderPresentation(providerId);
     final text = label ?? presentation.shortName;
     return Container(
-      constraints: const BoxConstraints(minWidth: 44, maxWidth: 62),
+      constraints: BoxConstraints(
+        minWidth: minWidth ?? 0.0,
+        maxWidth: maxWidth ?? double.infinity,
+      ),
       height: 20,
       padding: const EdgeInsets.symmetric(horizontal: 7),
       decoration: BoxDecoration(
@@ -721,8 +735,8 @@ class _MeloToastWidgetState extends State<_MeloToastWidget>
 /// Standardized track more menu (play next / add to playlist).
 ///
 /// Use in any track row to provide consistent actions and feedback.
-/// Pass [addToPlaylistDialog] to enable the "add to playlist" action; when
-/// omitted the menu item shows a placeholder SnackBar.
+/// Pass [addToPlaylistDialog] to customize the "add to playlist" action.
+/// When omitted, the shared local-playlist picker is used.
 class MeloTrackMoreMenu extends ConsumerWidget {
   const MeloTrackMoreMenu({
     required this.track,
@@ -757,17 +771,11 @@ class MeloTrackMoreMenu extends ConsumerWidget {
           return;
         }
         if (action == _TrackMenuAction.addToPlaylist) {
-          if (addToPlaylistDialog != null) {
-            await showDialog<void>(
-              context: context,
-              builder: (_) => addToPlaylistDialog!,
-            );
-          } else {
-            MeloSnackbar.show(
-              context: context,
-              message: '加入本地歌单操作将在下个交互迭代接入。',
-            );
-          }
+          await showDialog<void>(
+            context: context,
+            builder: (_) =>
+                addToPlaylistDialog ?? MeloAddToPlaylistDialog(track: track),
+          );
           return;
         }
       },
@@ -792,6 +800,199 @@ class MeloTrackMoreMenu extends ConsumerWidget {
 }
 
 enum _TrackMenuAction { playNext, addToPlaylist }
+
+class MeloAddToPlaylistDialog extends ConsumerWidget {
+  const MeloAddToPlaylistDialog({required this.track, super.key});
+
+  final SourceTrack track;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.watch(demoRepositoryProvider);
+    final playlists = repository.playlistList;
+    return Dialog(
+      shape: const RoundedRectangleBorder(borderRadius: MeloRadii.xl),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 430),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '加入本地歌单',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                track.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: MeloColors.textSecondary,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              if (playlists.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 22),
+                  child: Center(child: Text('还没有本地歌单。')),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 280),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: playlists.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) => _MeloPlaylistChoice(
+                      playlist: playlists[index],
+                      onTap: () {
+                        repository.addTrackToPlaylist(
+                          playlistId: playlists[index].id,
+                          track: track,
+                        );
+                        MeloSnackbar.show(
+                          context: context,
+                          message: '已加入“${playlists[index].name}”。',
+                        );
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final name = await _askForPlaylistName(context);
+                  if (name == null || name.trim().isEmpty) return;
+                  repository.createPlaylist(name.trim());
+                  final target = repository.selectedPlaylistId;
+                  if (target != null) {
+                    repository.addTrackToPlaylist(
+                      playlistId: target,
+                      track: track,
+                    );
+                  }
+                  if (context.mounted) Navigator.pop(context);
+                },
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('新建歌单并加入'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _askForPlaylistName(BuildContext context) async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('新建本地歌单'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '歌单名称'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return name;
+  }
+}
+
+class _MeloPlaylistChoice extends StatelessWidget {
+  const _MeloPlaylistChoice({required this.playlist, required this.onTap});
+
+  final LocalPlaylist playlist;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: MeloRadii.md,
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: MeloColors.surfaceMuted,
+          borderRadius: MeloRadii.md,
+          border: Border.all(color: MeloColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: MeloColors.primary50,
+                borderRadius: MeloRadii.sm,
+              ),
+              child: const Icon(
+                Icons.playlist_play_rounded,
+                color: MeloColors.primary700,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    playlist.name,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${playlist.items.length} 首 · 本地歌单',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textSecondary,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.add_rounded,
+              color: MeloColors.primary700,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _MeloTrackMenuItem extends StatelessWidget {
   const _MeloTrackMenuItem({required this.icon, required this.label});

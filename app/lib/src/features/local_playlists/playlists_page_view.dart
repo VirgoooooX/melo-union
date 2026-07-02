@@ -220,55 +220,68 @@ class _MobilePlaylistsView extends StatelessWidget {
             onMorePressed: onMorePressed,
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-          child: Row(
-            children: [
-              Text(
-                selected == 'local' ? '本地歌单' : '云端歌单',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-              ),
-              const Spacer(),
-              if (selected == 'local')
-                FilledButton.icon(
-                  onPressed: onCreatePlaylist,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('新建'),
-                  style: FilledButton.styleFrom(
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: MeloRadii.pill,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
         Expanded(
-          child: selected == 'local'
-              ? (showLocalPlaylistDetails && repository.selectedPlaylist != null
-                  ? Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                      child: _LocalPlaylistTracks(
-                        playlist: repository.selectedPlaylist!,
-                        repository: repository,
-                        onBack: onLocalBack,
+          child: ProviderTabSwipeRegion(
+            items: tabs,
+            selectedId: selected,
+            onSelected: onTabSelected,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                  child: Row(
+                    children: [
+                      Text(
+                        selected == 'local' ? '本地歌单' : '云端歌单',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                ),
                       ),
-                    )
-                  : _MobileLocalPlaylistList(
-                      repository: repository,
-                      onSelected: onLocalSelected,
-                    ))
-              : Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                  child: _RemotePlaylistsPanel(
-                    providerId: ProviderId(selected),
-                    selectedPlaylistId: selectedRemotePlaylistId,
-                    onSelected: onRemoteSelected,
-                    onBack: onRemoteBack,
+                      const Spacer(),
+                      if (selected == 'local')
+                        FilledButton.icon(
+                          onPressed: onCreatePlaylist,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('新建'),
+                          style: FilledButton.styleFrom(
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: MeloRadii.pill,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
+                Expanded(
+                  child: selected == 'local'
+                      ? (showLocalPlaylistDetails &&
+                              repository.selectedPlaylist != null
+                          ? Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                              child: _LocalPlaylistTracks(
+                                playlist: repository.selectedPlaylist!,
+                                repository: repository,
+                                onBack: onLocalBack,
+                              ),
+                            )
+                          : _MobileLocalPlaylistList(
+                              repository: repository,
+                              onSelected: onLocalSelected,
+                            ))
+                      : Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                          child: _RemotePlaylistsPanel(
+                            providerId: ProviderId(selected),
+                            selectedPlaylistId: selectedRemotePlaylistId,
+                            onSelected: onRemoteSelected,
+                            onBack: onRemoteBack,
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );

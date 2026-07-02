@@ -169,8 +169,10 @@ class _MobileFavoriteRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
-    final currentRef = repository.queue.current?.track.ref;
+    final repository = ref.read(demoRepositoryProvider);
+    final currentRef = ref.watch(
+      demoRepositoryProvider.select((r) => r.queue.current?.track.ref),
+    );
     final variants = providerId == null
         ? track.variants
         : track.variants
@@ -190,7 +192,7 @@ class _MobileFavoriteRow extends ConsumerWidget {
       onTap: () => repository.playOrToggleUnifiedTrack(track),
       borderRadius: MeloRadii.sm,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
             SizedBox(
@@ -215,7 +217,7 @@ class _MobileFavoriteRow extends ConsumerWidget {
               seed: track.title,
               artwork: artwork,
               isActive: selected,
-              size: 48,
+              size: 44,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -243,52 +245,180 @@ class _MobileFavoriteRow extends ConsumerWidget {
                           color: MeloColors.textSecondary,
                         ),
                   ),
-                  const SizedBox(height: 5),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      for (final variant in variants.take(3))
-                        MeloSourceBadge(providerId: variant.ref.providerId),
-                      Text(
-                        _formatTrackDuration(track.duration),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: MeloColors.textTertiary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
-            variants.length > 1
-                ? IconButton(
-                    tooltip: hasFavorite ? '管理喜欢' : '喜欢',
-                    onPressed: () => showDialog<void>(
-                      context: context,
-                      builder: (context) => _FavoriteSourceDialog(
-                        track: track,
-                        variants: variants,
-                      ),
-                    ),
-                    icon: Icon(
-                      hasFavorite
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      color: hasFavorite
-                          ? MeloColors.favorite
-                          : MeloColors.textTertiary,
-                    ),
-                  )
-                : MeloFavoriteButton(track: primary),
-            MeloTrackMoreMenu(
-              track: primary,
-              addToPlaylistDialog: _AddToPlaylistDialog(track: primary),
+            const SizedBox(width: 8),
+            _MobileTrackTrailingMeta(
+              variants: variants,
+              duration: track.duration,
+            ),
+            const SizedBox(width: 2),
+            _MobileFavoriteActionsButton(
+              track: track,
+              primary: primary,
+              variants: variants,
+              hasFavorite: hasFavorite,
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+enum _MobileFavoriteAction { favorite, queue, playlist }
+
+class _MobileFavoriteActionsButton extends ConsumerWidget {
+  const _MobileFavoriteActionsButton({
+    required this.track,
+    required this.primary,
+    required this.variants,
+    required this.hasFavorite,
+  });
+
+  final UnifiedFavoriteTrack track;
+  final SourceTrack primary;
+  final List<SourceTrack> variants;
+  final bool hasFavorite;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.read(demoRepositoryProvider);
+    return PopupMenuButton<_MobileFavoriteAction>(
+      tooltip: '更多操作',
+      icon: const Icon(Icons.more_horiz_rounded, size: 22),
+      offset: const Offset(0, 42),
+      shape: const RoundedRectangleBorder(borderRadius: MeloRadii.md),
+      popUpAnimationStyle: const AnimationStyle(
+        duration: Duration(milliseconds: 80),
+        reverseDuration: Duration(milliseconds: 60),
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+      onSelected: (action) async {
+        switch (action) {
+          case _MobileFavoriteAction.favorite:
+            if (variants.length > 1) {
+              await showDialog<void>(
+                context: context,
+                builder: (context) => _FavoriteSourceDialog(
+                  track: track,
+                  variants: variants,
+                ),
+              );
+              return;
+            }
+            await repository.toggleFavorite(
+              track: primary,
+              liked: !primary.isFavorited,
+            );
+            break;
+          case _MobileFavoriteAction.queue:
+            repository.enqueueTrack(primary);
+            MeloSnackbar.show(
+              context: context,
+              message: '已添加到播放队列末尾。',
+            );
+            break;
+          case _MobileFavoriteAction.playlist:
+            await showDialog<void>(
+              context: context,
+              builder: (context) => MeloAddToPlaylistDialog(track: primary),
+            );
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _MobileFavoriteAction.favorite,
+          child: _MobileActionItem(
+            icon: hasFavorite ? Icons.favorite_rounded : Icons.favorite_border,
+            label: variants.length > 1
+                ? '管理喜欢'
+                : (primary.isFavorited ? '取消喜欢' : '喜欢'),
+            color: hasFavorite ? MeloColors.favorite : null,
+          ),
+        ),
+        const PopupMenuItem(
+          value: _MobileFavoriteAction.queue,
+          child: _MobileActionItem(
+            icon: Icons.queue_music_rounded,
+            label: '加入播放队列',
+          ),
+        ),
+        const PopupMenuItem(
+          value: _MobileFavoriteAction.playlist,
+          child: _MobileActionItem(
+            icon: Icons.playlist_add_rounded,
+            label: '加入本地歌单',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MobileActionItem extends StatelessWidget {
+  const _MobileActionItem({
+    required this.icon,
+    required this.label,
+    this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 10),
+        Text(label),
+      ],
+    );
+  }
+}
+
+class _MobileTrackTrailingMeta extends StatelessWidget {
+  const _MobileTrackTrailingMeta({
+    required this.variants,
+    required this.duration,
+  });
+
+  final List<SourceTrack> variants;
+  final Duration duration;
+
+  @override
+  Widget build(BuildContext context) {
+    final extraSources = variants.length - 1;
+    final sourceLabel = extraSources > 0
+        ? '${meloProviderLabel(variants.first.ref.providerId)} +$extraSources'
+        : meloProviderLabel(variants.first.ref.providerId);
+    return SizedBox(
+      width: 76,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            _formatTrackDuration(duration),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: MeloColors.textSecondary,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 3),
+          MeloSourceBadge(
+            providerId: variants.first.ref.providerId,
+            label: sourceLabel,
+            maxWidth: 76.0,
+          ),
+        ],
       ),
     );
   }

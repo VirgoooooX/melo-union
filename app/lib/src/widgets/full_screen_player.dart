@@ -72,6 +72,7 @@ class MeloFullScreenPlayer extends ConsumerWidget {
             children: [
               DragToMoveArea(child: _DynamicBackdrop(track: track)),
               SafeArea(
+                bottom: useWindowChrome,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final narrow = constraints.maxWidth < 780;
@@ -689,26 +690,46 @@ class _MobileFullScreenLayoutState extends State<_MobileFullScreenLayout> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        MeloSpacing.md,
-        MeloSpacing.xs,
-        MeloSpacing.md,
-        MeloSpacing.sm,
-      ),
-      children: [
-        _PrimaryPlayerPanel(
-          track: widget.track,
-          repository: widget.repository,
-          coverSize: 238,
-          compact: true,
-          showLyrics: _showLyrics,
-          onLyricsToggle: widget.track == null
-              ? null
-              : () => setState(() => _showLyrics = !_showLyrics),
-          onQueuePressed: widget.track == null ? null : _showQueue,
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bottomInset = MediaQuery.paddingOf(context).bottom;
+        final bottomPadding = bottomInset + 8;
+        final availableHeight =
+            (constraints.maxHeight - MeloSpacing.xs - bottomPadding)
+                .clamp(0, double.infinity)
+                .toDouble();
+        final maxArtworkByWidth =
+            (constraints.maxWidth - (MeloSpacing.md * 2) - 68)
+                .clamp(220, 318)
+                .toDouble();
+        final maxArtworkByHeight =
+            (constraints.maxHeight * .36).clamp(220, 318).toDouble();
+        final coverSize = maxArtworkByWidth < maxArtworkByHeight
+            ? maxArtworkByWidth
+            : maxArtworkByHeight;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            MeloSpacing.md,
+            MeloSpacing.xs,
+            MeloSpacing.md,
+            bottomPadding,
+          ),
+          child: SizedBox(
+            height: availableHeight,
+            child: _PrimaryPlayerPanel(
+              track: widget.track,
+              repository: widget.repository,
+              coverSize: coverSize,
+              compact: true,
+              showLyrics: _showLyrics,
+              onLyricsToggle: widget.track == null
+                  ? null
+                  : () => setState(() => _showLyrics = !_showLyrics),
+              onQueuePressed: widget.track == null ? null : _showQueue,
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -749,96 +770,179 @@ class _PrimaryPlayerPanel extends StatelessWidget {
 
     final presentation = meloProviderPresentation(track!.ref.providerId);
     final artworkSize =
-        compact ? coverSize.clamp(210, 264).toDouble() : coverSize;
+        compact ? coverSize.clamp(220, 318).toDouble() : coverSize;
     final artworkHeight = compact ? artworkSize + 78 : artworkSize + 116;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 240),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: showLyrics
-              ? SizedBox(
-                  key: const ValueKey('mobile-lyrics-stage'),
-                  width: double.infinity,
-                  height: artworkHeight,
-                  child: _FullscreenLyrics(
-                    track: track,
-                    repository: repository,
-                    compact: true,
+    if (compact) {
+      return Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 240),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: showLyrics
+                        ? SizedBox(
+                            key: const ValueKey('mobile-lyrics-stage'),
+                            width: double.infinity,
+                            height: artworkHeight,
+                            child: _FullscreenLyrics(
+                              track: track,
+                              repository: repository,
+                              compact: true,
+                            ),
+                          )
+                        : _RotatingArtwork(
+                            key: const ValueKey('mobile-artwork-stage'),
+                            track: track!,
+                            repository: repository,
+                            size: artworkSize,
+                            compact: true,
+                          ),
                   ),
-                )
-              : _RotatingArtwork(
-                  key: const ValueKey('mobile-artwork-stage'),
-                  track: track!,
-                  repository: repository,
-                  size: artworkSize,
-                  compact: compact,
-                ),
-        ),
-        SizedBox(height: compact ? 16 : MeloSpacing.xl),
-        Text(
-          track!.title,
-          maxLines: compact ? 1 : 2,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: Colors.white,
-                fontSize: compact ? 26 : null,
-                fontWeight: FontWeight.w900,
-                height: compact ? 1.08 : 1.12,
-                letterSpacing: 0,
+                  const SizedBox(height: 14),
+                  Text(
+                    track!.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          height: 1.08,
+                          letterSpacing: 0,
+                        ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    track!.artists.join(' / '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: .68),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
               ),
-        ),
-        SizedBox(height: compact ? 5 : MeloSpacing.xs),
-        Text(
-          track!.artists.join(' / '),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.white.withValues(alpha: .68),
-                fontSize: compact ? 15 : null,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        if (!compact) ...[
-          const SizedBox(height: MeloSpacing.md),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: MeloSpacing.xs,
-            runSpacing: MeloSpacing.xs,
-            children: [
-              _GlassPill(label: presentation.shortName),
-              _GlassPill(label: _qualityLabel(repository.playbackQuality)),
-              if (track!.isFavorited)
-                const _GlassPill(
-                  label: '已收藏',
-                  icon: Icons.favorite_rounded,
-                  accent: MeloColors.favorite,
-                ),
-            ],
+            ),
+          ),
+          _FullscreenProgress(repository: repository),
+          const SizedBox(height: 12),
+          _FullscreenTransport(
+            repository: repository,
+            track: track!,
+            compact: true,
+          ),
+          const SizedBox(height: 12),
+          _SecondaryControls(
+            repository: repository,
+            track: track!,
+            compact: true,
+            showLyrics: showLyrics,
+            onLyricsToggle: onLyricsToggle,
+            onQueuePressed: onQueuePressed,
           ),
         ],
-        SizedBox(height: compact ? 16 : MeloSpacing.lg),
-        _FullscreenProgress(repository: repository),
-        SizedBox(height: compact ? 12 : MeloSpacing.md),
-        _FullscreenTransport(
-          repository: repository,
-          track: track!,
-          compact: compact,
-        ),
-        SizedBox(height: compact ? 14 : MeloSpacing.sm),
-        _SecondaryControls(
-          repository: repository,
-          track: track!,
-          compact: compact,
-          showLyrics: showLyrics,
-          onLyricsToggle: onLyricsToggle,
-          onQueuePressed: onQueuePressed,
+      );
+    }
+
+    final children = [
+      AnimatedSwitcher(
+        duration: const Duration(milliseconds: 240),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        child: showLyrics
+            ? SizedBox(
+                key: const ValueKey('mobile-lyrics-stage'),
+                width: double.infinity,
+                height: artworkHeight,
+                child: _FullscreenLyrics(
+                  track: track,
+                  repository: repository,
+                  compact: true,
+                ),
+              )
+            : _RotatingArtwork(
+                key: const ValueKey('mobile-artwork-stage'),
+                track: track!,
+                repository: repository,
+                size: artworkSize,
+                compact: compact,
+              ),
+      ),
+      SizedBox(height: compact ? 16 : MeloSpacing.xl),
+      Text(
+        track!.title,
+        maxLines: compact ? 1 : 2,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: Colors.white,
+              fontSize: compact ? 26 : null,
+              fontWeight: FontWeight.w900,
+              height: compact ? 1.08 : 1.12,
+              letterSpacing: 0,
+            ),
+      ),
+      SizedBox(height: compact ? 5 : MeloSpacing.xs),
+      Text(
+        track!.artists.join(' / '),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white.withValues(alpha: .68),
+              fontSize: compact ? 15 : null,
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+      if (!compact) ...[
+        const SizedBox(height: MeloSpacing.md),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: MeloSpacing.xs,
+          runSpacing: MeloSpacing.xs,
+          children: [
+            _GlassPill(label: presentation.shortName),
+            _GlassPill(label: _qualityLabel(repository.playbackQuality)),
+            if (track!.isFavorited)
+              const _GlassPill(
+                label: '已收藏',
+                icon: Icons.favorite_rounded,
+                accent: MeloColors.favorite,
+              ),
+          ],
         ),
       ],
+      SizedBox(height: compact ? 16 : MeloSpacing.lg),
+      _FullscreenProgress(repository: repository),
+      SizedBox(height: compact ? 12 : MeloSpacing.md),
+      _FullscreenTransport(
+        repository: repository,
+        track: track!,
+        compact: compact,
+      ),
+      SizedBox(height: compact ? 14 : MeloSpacing.sm),
+      _SecondaryControls(
+        repository: repository,
+        track: track!,
+        compact: compact,
+        showLyrics: showLyrics,
+        onLyricsToggle: onLyricsToggle,
+        onQueuePressed: onQueuePressed,
+      ),
+    ];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: children,
     );
   }
 }
@@ -1759,13 +1863,22 @@ class _FullscreenTransport extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _GlassIconButton(
+            tooltip: repository.shuffleEnabled ? '关闭随机播放' : '随机播放',
+            icon: Icons.shuffle_rounded,
+            active: repository.shuffleEnabled,
+            buttonSize: 44,
+            iconSize: 23,
+            onPressed: repository.toggleShuffle,
+          ),
+          const SizedBox(width: 8),
+          _GlassIconButton(
             tooltip: '上一首',
             icon: Icons.skip_previous_rounded,
-            buttonSize: 52,
-            iconSize: 32,
+            buttonSize: 50,
+            iconSize: 30,
             onPressed: repository.queuePrevious,
           ),
-          const SizedBox(width: 18),
+          const SizedBox(width: 10),
           StreamBuilder<PlayerState>(
             stream: repository.playerStateStream,
             initialData: repository.audioPlayer.playerState,
@@ -1789,13 +1902,24 @@ class _FullscreenTransport extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(width: 18),
+          const SizedBox(width: 10),
           _GlassIconButton(
             tooltip: '下一首',
             icon: Icons.skip_next_rounded,
-            buttonSize: 52,
-            iconSize: 32,
+            buttonSize: 50,
+            iconSize: 30,
             onPressed: repository.queueNext,
+          ),
+          const SizedBox(width: 8),
+          _GlassIconButton(
+            tooltip: _repeatTooltip(repository.repeatMode),
+            icon: repository.repeatMode == PlaybackRepeatMode.one
+                ? Icons.repeat_one_rounded
+                : Icons.repeat_rounded,
+            active: repository.repeatMode != PlaybackRepeatMode.off,
+            buttonSize: 44,
+            iconSize: 23,
+            onPressed: repository.cycleRepeatMode,
           ),
         ],
       );
@@ -1887,12 +2011,22 @@ class _SecondaryControls extends ConsumerWidget {
       runSpacing: MeloSpacing.xs,
       children: [
         _FullscreenFavoriteButton(track: track, repository: repository),
+        _GlassIconButton(
+          tooltip: '加入本地歌单',
+          icon: Icons.playlist_add_rounded,
+          buttonSize: compact ? 44 : null,
+          iconSize: compact ? 24 : null,
+          onPressed: () {
+            showDialog<void>(
+              context: context,
+              builder: (context) => MeloAddToPlaylistDialog(track: track),
+            );
+          },
+        ),
         if (onLyricsToggle != null)
           _GlassIconButton(
             tooltip: showLyrics ? '返回唱片' : '显示歌词',
-            icon: showLyrics
-                ? Icons.album_rounded
-                : Icons.subtitles_rounded,
+            icon: showLyrics ? Icons.album_rounded : Icons.subtitles_rounded,
             buttonSize: compact ? 44 : null,
             iconSize: compact ? 24 : null,
             active: showLyrics,

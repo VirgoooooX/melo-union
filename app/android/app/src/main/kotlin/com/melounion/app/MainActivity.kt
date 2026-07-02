@@ -1,12 +1,15 @@
 package com.melounion.app
 
 import android.content.Intent
+import android.os.Bundle
+import android.os.Build
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
+import kotlin.math.abs
 
 class MainActivity : FlutterActivity() {
     private companion object {
@@ -16,6 +19,11 @@ class MainActivity : FlutterActivity() {
         const val NETEASE_COOKIE_KEY = "netease_cookie"
         const val NETEASE_USER_ID_KEY = "netease_user_id"
         const val QQ_MUSIC_COOKIE_KEY = "qq_music_cookie"
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        preferHighRefreshRate()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -196,5 +204,20 @@ class MainActivity : FlutterActivity() {
             intent.putExtra(MeloPlaybackService.EXTRA_PLAY_WHEN_READY, playWhenReady)
         }
         startService(intent)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun preferHighRefreshRate() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+
+        val supportedModes = windowManager.defaultDisplay.supportedModes
+        val preferredMode = supportedModes
+            .filter { it.refreshRate >= 90f }
+            .minByOrNull { abs(it.refreshRate - 120f) }
+            ?: return
+
+        val attributes = window.attributes
+        attributes.preferredDisplayModeId = preferredMode.modeId
+        window.attributes = attributes
     }
 }

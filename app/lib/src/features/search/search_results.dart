@@ -39,74 +39,129 @@ class _SearchResults extends ConsumerWidget {
             ),
           );
         }
-        return ListView(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                '找到 $count 首相关歌曲',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: MeloColors.textSecondary,
-                    ),
+        final entries = <_SearchResultEntry>[
+          _SearchResultEntry.summary(count),
+          for (final group in filtered) ...[
+            _SearchResultEntry.header(group),
+            for (final track in group.tracks)
+              _SearchResultEntry.track(
+                track,
+                meloProviderPresentation(
+                  group.provider.id,
+                  displayName: group.provider.displayName,
+                ).fullName,
               ),
-            ),
-            for (final group in filtered) ...[
-              _SourceResultSection(group: group),
-              const SizedBox(height: 18),
-            ],
+            const _SearchResultEntry.gap(),
           ],
+        ];
+        return ListView.builder(
+          scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+          addAutomaticKeepAlives: false,
+          addSemanticIndexes: false,
+          itemCount: entries.length,
+          itemBuilder: (context, index) {
+            final entry = entries[index];
+            return switch (entry.kind) {
+              _SearchResultEntryKind.summary => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    '找到 ${entry.count} 首相关歌曲',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textSecondary,
+                        ),
+                  ),
+                ),
+              _SearchResultEntryKind.header => _SearchResultHeader(
+                  group: entry.group!,
+                ),
+              _SearchResultEntryKind.track => RepaintBoundary(
+                  child: _SearchTrackRow(
+                    track: entry.track!,
+                    providerName: entry.providerName!,
+                  ),
+                ),
+              _SearchResultEntryKind.gap => const SizedBox(height: 18),
+            };
+          },
         );
       },
     );
   }
 }
 
-class _SourceResultSection extends ConsumerWidget {
-  const _SourceResultSection({required this.group});
+enum _SearchResultEntryKind { summary, header, track, gap }
+
+class _SearchResultEntry {
+  const _SearchResultEntry._({
+    required this.kind,
+    this.count,
+    this.group,
+    this.track,
+    this.providerName,
+  });
+
+  const _SearchResultEntry.summary(int count)
+      : this._(kind: _SearchResultEntryKind.summary, count: count);
+
+  const _SearchResultEntry.header(ProviderSearchResults group)
+      : this._(kind: _SearchResultEntryKind.header, group: group);
+
+  const _SearchResultEntry.track(SourceTrack track, String providerName)
+      : this._(
+          kind: _SearchResultEntryKind.track,
+          track: track,
+          providerName: providerName,
+        );
+
+  const _SearchResultEntry.gap() : this._(kind: _SearchResultEntryKind.gap);
+
+  final _SearchResultEntryKind kind;
+  final int? count;
+  final ProviderSearchResults? group;
+  final SourceTrack? track;
+  final String? providerName;
+}
+
+class _SearchResultHeader extends StatelessWidget {
+  const _SearchResultHeader({required this.group});
 
   final ProviderSearchResults group;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final providerName = meloProviderPresentation(
       group.provider.id,
       displayName: group.provider.displayName,
     ).fullName;
     return Container(
+      margin: const EdgeInsets.only(top: 2),
       decoration: BoxDecoration(
         color: MeloColors.surface,
-        borderRadius: MeloRadii.lg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
         border: Border.all(color: MeloColors.border),
         boxShadow: MeloShadows.card,
       ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Row(
-              children: [
-                MeloSourceBadge(providerId: group.provider.id),
-                const SizedBox(width: 8),
-                Text(
-                  providerName,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const Spacer(),
-                Text(
-                  '${group.tracks.length} 首',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: MeloColors.textSecondary,
-                      ),
-                ),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: Row(
+          children: [
+            MeloSourceBadge(providerId: group.provider.id),
+            const SizedBox(width: 8),
+            Text(
+              providerName,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
-          ),
-          const Divider(height: 1, color: MeloColors.border),
-          for (final track in group.tracks)
-            _SearchTrackRow(track: track, providerName: providerName),
-        ],
+            const Spacer(),
+            Text(
+              '${group.tracks.length} 首',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: MeloColors.textSecondary,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -191,33 +191,46 @@ class _MobileAllFavoritesView extends StatelessWidget {
             onMorePressed: onMorePressed,
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-          child: Row(
-            children: [
-              FilledButton.icon(
-                onPressed: onPlayAll,
-                icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                label: Text(
-                  visibleCount == null ? '全部播放' : '全部播放（$visibleCount 首）',
-                ),
-                style: FilledButton.styleFrom(
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: MeloRadii.pill,
+        Expanded(
+          child: ProviderTabSwipeRegion(
+            items: tabs,
+            selectedId: selected,
+            onSelected: onTabSelected,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                  child: Row(
+                    children: [
+                      FilledButton.icon(
+                        onPressed: onPlayAll,
+                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                        label: Text(
+                          visibleCount == null
+                              ? '全部播放'
+                              : '全部播放（$visibleCount 首）',
+                        ),
+                        style: FilledButton.styleFrom(
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: MeloRadii.pill,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      _SortButton(sort: sort, onSelected: onSortSelected),
+                    ],
                   ),
                 ),
-              ),
-              const Spacer(),
-              _SortButton(sort: sort, onSelected: onSortSelected),
-            ],
-          ),
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () async => onRefresh(),
-            child: _MobileFavoritesLibrary(
-              selectedProviderId: selected == 'all' ? null : selected,
-              sort: sort,
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () async => onRefresh(),
+                    child: _MobileFavoritesLibrary(
+                      selectedProviderId: selected == 'all' ? null : selected,
+                      sort: sort,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

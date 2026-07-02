@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:provider_contract/provider_contract.dart';
 
@@ -263,7 +264,13 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
                               boxShadow: MeloShadows.card,
                             ),
                             child: ListView.separated(
+                              key: PageStorageKey<String>(
+                                'recommendation_tracks_${selectedProviderId.value}',
+                              ),
                               itemCount: tracks.length,
+                              scrollCacheExtent:
+                                  const ScrollCacheExtent.pixels(560),
+                              addAutomaticKeepAlives: false,
                               separatorBuilder: (_, __) => const Divider(
                                 height: 1,
                                 color: MeloColors.border,
@@ -507,67 +514,92 @@ class _MobileRecommendationsView extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 156),
-            children: [
-              if (selected != 'more' && selectedShelfTab != null) ...[
-                const SizedBox(height: 6),
-                _ShelfTabSelector(
-                  tabs: shelfTabs,
-                  selected: selectedShelfTab!,
-                  onSelected: onShelfSelected,
-                ),
-                const SizedBox(height: 14),
-                _MobilePlaylistShelf(
-                  playlistsFuture: playlistsFuture,
-                  onPlaylistSelected: onPlaylistSelected,
-                ),
-              ],
-              const SizedBox(height: 22),
-              Row(
-                children: [
-                  Text(
-                    '推荐歌曲',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
+          child: ProviderTabSwipeRegion(
+            items: tabs,
+            selectedId: selected,
+            onSelected: onTabSelected,
+            child: CustomScrollView(
+              key: PageStorageKey<String>('mobile_recommendations_$selected'),
+              scrollCacheExtent: const ScrollCacheExtent.pixels(720),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Column(
+                      children: [
+                        if (selected != 'more' && selectedShelfTab != null) ...[
+                          const SizedBox(height: 6),
+                          _ShelfTabSelector(
+                            tabs: shelfTabs,
+                            selected: selectedShelfTab!,
+                            onSelected: onShelfSelected,
+                          ),
+                          const SizedBox(height: 14),
+                          _MobilePlaylistShelf(
+                            playlistsFuture: playlistsFuture,
+                            onPlaylistSelected: onPlaylistSelected,
+                          ),
+                        ],
+                        const SizedBox(height: 22),
+                        Row(
+                          children: [
+                            Text(
+                              '推荐歌曲',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                            const Spacer(),
+                            TextButton.icon(
+                              onPressed: recommendationsFuture == null
+                                  ? null
+                                  : () async {
+                                      final tracks =
+                                          await recommendationsFuture!;
+                                      if (tracks.isNotEmpty) {
+                                        await repository.playTracks(tracks);
+                                      }
+                                    },
+                              icon: const Icon(Icons.play_arrow_rounded,
+                                  size: 18),
+                              label: const Text('播放全部'),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: recommendationsFuture == null
+                ),
+                if (selected == 'more')
+                  const SliverToBoxAdapter(
+                    child: _MobileRecommendationMessage(
+                      message: '当前来源暂未提供推荐内容。',
+                    ),
+                  )
+                else if (!canShowPlaylists)
+                  const SliverToBoxAdapter(
+                    child: _MobileRecommendationMessage(
+                      message: '当前来源暂未提供每日推荐。',
+                    ),
+                  )
+                else
+                  _MobileRecommendationTrackSliver(
+                    future: recommendationsFuture!,
+                    cached: selectedEntry == null
                         ? null
-                        : () async {
-                            final tracks = await recommendationsFuture!;
-                            if (tracks.isNotEmpty) {
-                              await repository.playTracks(tracks);
-                            }
-                          },
-                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                    label: const Text('播放全部'),
+                        : repository.cachedRecommendations(
+                            selectedEntry!.descriptor.id,
+                          ),
+                    currentRef: currentRef,
+                    repository: repository,
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (selected == 'more')
-                const _MobileRecommendationMessage(
-                  message: '当前来源暂未提供推荐内容。',
-                )
-              else if (!canShowPlaylists)
-                const _MobileRecommendationMessage(
-                  message: '当前来源暂未提供每日推荐。',
-                )
-              else
-                _MobileRecommendationTracks(
-                  future: recommendationsFuture!,
-                  cached: selectedEntry == null
-                      ? null
-                      : repository.cachedRecommendations(
-                          selectedEntry!.descriptor.id,
-                        ),
-                  currentRef: currentRef,
-                  repository: repository,
-                ),
-            ],
+                const SliverToBoxAdapter(child: SizedBox(height: 156)),
+              ],
+            ),
           ),
         ),
       ],
@@ -605,6 +637,8 @@ class _MobilePlaylistShelf extends StatelessWidget {
           height: 226,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(360),
+            addAutomaticKeepAlives: false,
             itemCount: playlists.length.clamp(0, 8),
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
@@ -625,8 +659,8 @@ class _MobilePlaylistShelf extends StatelessWidget {
   }
 }
 
-class _MobileRecommendationTracks extends StatelessWidget {
-  const _MobileRecommendationTracks({
+class _MobileRecommendationTrackSliver extends StatelessWidget {
+  const _MobileRecommendationTrackSliver({
     required this.future,
     required this.cached,
     required this.currentRef,
@@ -646,73 +680,82 @@ class _MobileRecommendationTracks extends StatelessWidget {
         if (snapshot.connectionState != ConnectionState.done) {
           final cachedTracks = cached;
           if (cachedTracks != null && cachedTracks.isNotEmpty) {
-            return _buildList(context, cachedTracks);
+            return _buildSliver(cachedTracks);
           }
-          return const SizedBox(
-            height: 180,
-            child: Center(child: CircularProgressIndicator()),
+          return const SliverToBoxAdapter(
+            child: SizedBox(
+              height: 180,
+              child: Center(child: CircularProgressIndicator()),
+            ),
           );
         }
         if (snapshot.hasError) {
-          return MeloErrorState(message: '推荐加载失败：${snapshot.error}');
+          return SliverToBoxAdapter(
+            child: MeloErrorState(message: '推荐加载失败：${snapshot.error}'),
+          );
         }
         final tracks = snapshot.data ?? const <SourceTrack>[];
         if (tracks.isEmpty) {
-          return const _MobileRecommendationMessage(message: '当前来源暂无推荐歌曲。');
+          return const SliverToBoxAdapter(
+            child: _MobileRecommendationMessage(message: '当前来源暂无推荐歌曲。'),
+          );
         }
-        return _buildList(context, tracks);
+        return _buildSliver(tracks);
       },
     );
   }
 
-  Widget _buildList(BuildContext context, List<SourceTrack> tracks) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: MeloColors.surface,
-        borderRadius: MeloRadii.lg,
-        border: Border.all(color: MeloColors.border),
-      ),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
+  Widget _buildSliver(List<SourceTrack> tracks) {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: SliverFixedExtentList.builder(
+        itemExtent: MeloListMetrics.mobileTrackRowHeight,
         itemCount: tracks.length,
-        separatorBuilder: (_, __) =>
-            const Divider(height: 1, color: MeloColors.border),
+        addAutomaticKeepAlives: false,
+        addSemanticIndexes: false,
         itemBuilder: (context, index) {
           final track = tracks[index];
           final selected = currentRef == track.ref;
-          return InkWell(
-            onTap: track.isPlayable
-                ? () => repository.playOrToggleTrack(track)
-                : null,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                children: [
-                  MeloTrackCover(
-                    seed: track.title,
-                    artwork: track.artwork,
-                    isActive: selected,
-                    size: 44,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _RecommendationTrackTitleBlock(
-                      title: track.title,
-                      artists: track.artists,
-                      active: selected,
+          return DecoratedBox(
+            decoration: const BoxDecoration(
+              color: MeloColors.surface,
+              border: Border(
+                bottom: BorderSide(color: MeloColors.border),
+              ),
+            ),
+            child: InkWell(
+              onTap: track.isPlayable
+                  ? () => repository.playOrToggleTrack(track)
+                  : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    MeloTrackCover(
+                      seed: track.title,
+                      artwork: track.artwork,
+                      isActive: selected,
+                      size: 44,
                     ),
-                  ),
-                  Text(
-                    _formatRecommendationDuration(track.duration),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: MeloColors.textSecondary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(width: 6),
-                  MeloFavoriteButton(track: track),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _RecommendationTrackTitleBlock(
+                        title: track.title,
+                        artists: track.artists,
+                        active: selected,
+                      ),
+                    ),
+                    Text(
+                      _formatRecommendationDuration(track.duration),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: MeloColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(width: 6),
+                    MeloFavoriteButton(track: track),
+                  ],
+                ),
               ),
             ),
           );
@@ -1039,7 +1082,10 @@ class _CachedRecommendationList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListView.separated(
+      key: const PageStorageKey<String>('cached_recommendation_tracks'),
       itemCount: tracks.length,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(560),
+      addAutomaticKeepAlives: false,
       separatorBuilder: (_, __) => const Divider(
         height: 1,
         color: MeloColors.border,

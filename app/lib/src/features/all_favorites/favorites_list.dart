@@ -332,20 +332,35 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
         subtitle: '切换来源或刷新后再试。',
       );
     }
-    return ListView.separated(
+    return ListView.builder(
+      key: PageStorageKey<String>('mobile_favorites_$selectedProviderId'),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 156),
       physics: const AlwaysScrollableScrollPhysics(),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(560),
+      itemExtent: MeloListMetrics.mobileTrackRowHeight,
+      addAutomaticKeepAlives: false,
+      addRepaintBoundaries: false,
+      addSemanticIndexes: false,
       itemCount: tracks.length,
-      separatorBuilder: (_, __) =>
-          const Divider(height: 1, color: MeloColors.border),
-      itemBuilder: (context, index) => RepaintBoundary(
-        child: _MobileFavoriteRow(
-          index: index + 1,
-          track: tracks[index],
-          providerId: selectedProviderId,
-        ),
-      ),
+      itemBuilder: (context, index) {
+        final track = tracks[index];
+        return RepaintBoundary(
+          key: ValueKey(track.unifiedId),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: MeloColors.border),
+              ),
+            ),
+            child: _MobileFavoriteRow(
+              index: index + 1,
+              track: track,
+              providerId: selectedProviderId,
+            ),
+          ),
+        );
+      },
     );
   }
 

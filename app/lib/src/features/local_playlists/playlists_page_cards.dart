@@ -327,103 +327,108 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
               Expanded(
                 child: tracks.isEmpty
                     ? const Center(child: Text('这个歌单暂时没有可显示曲目。'))
-                    : ListView.separated(
+                    : ListView.builder(
+                        key: PageStorageKey<String>(
+                          'remote_playlist_tracks_${widget.playlist.providerId.value}_${widget.playlist.playlistId}',
+                        ),
                         itemCount: tracks.length,
                         padding: EdgeInsets.only(bottom: isMobile ? 156 : 4),
-                        separatorBuilder: (_, __) => const Divider(
-                          height: 1,
-                          color: MeloColors.border,
-                        ),
+                        scrollCacheExtent: const ScrollCacheExtent.pixels(560),
+                        itemExtent: MeloListMetrics.rowHeight,
+                        addAutomaticKeepAlives: false,
+                        addSemanticIndexes: false,
                         itemBuilder: (context, index) {
                           final track = tracks[index];
                           final selected = currentRef == track.ref;
-                          return MeloInteractiveRow(
-                            selected: selected,
-                            onDoubleTap: track.isPlayable
-                                ? () => repository.playOrToggleTrack(track)
-                                : null,
-                            builder: (context, hovered) => Row(
-                              children: [
-                                SizedBox(
-                                  width: 32,
-                                  child: selected
-                                      ? const Icon(
-                                          Icons.graphic_eq_rounded,
-                                          color: MeloColors.primary700,
-                                          size: 18,
-                                        )
-                                      : Text(
-                                          '${index + 1}'.padLeft(2, '0'),
-                                          textAlign: TextAlign.center,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(
-                                                color: hovered
-                                                    ? MeloColors.primary700
-                                                    : MeloColors.textTertiary,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                        ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  flex: 3,
-                                  child: Row(
-                                    children: [
-                                      MeloTrackCover(
-                                        seed: track.title,
-                                        artwork: track.artwork,
-                                        isActive: selected,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _PlaylistTrackTitleBlock(
-                                          title: track.title,
-                                          artists: track.artists,
-                                          active: selected,
-                                        ),
-                                      ),
-                                    ],
+                          return _TrackRowFrame(
+                            child: MeloInteractiveRow(
+                              selected: selected,
+                              onDoubleTap: track.isPlayable
+                                  ? () => repository.playOrToggleTrack(track)
+                                  : null,
+                              builder: (context, hovered) => Row(
+                                children: [
+                                  SizedBox(
+                                    width: 32,
+                                    child: selected
+                                        ? const Icon(
+                                            Icons.graphic_eq_rounded,
+                                            color: MeloColors.primary700,
+                                            size: 18,
+                                          )
+                                        : Text(
+                                            '${index + 1}'.padLeft(2, '0'),
+                                            textAlign: TextAlign.center,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: hovered
+                                                      ? MeloColors.primary700
+                                                      : MeloColors.textTertiary,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
                                   ),
-                                ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    track.album ??
-                                        meloProviderPresentation(
-                                          track.ref.providerId,
-                                        ).shortName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: MeloColors.textSecondary,
-                                          fontWeight: FontWeight.w500,
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Row(
+                                      children: [
+                                        MeloTrackCover(
+                                          seed: track.title,
+                                          artwork: track.artwork,
+                                          isActive: selected,
                                         ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: _PlaylistTrackTitleBlock(
+                                            title: track.title,
+                                            artists: track.artists,
+                                            active: selected,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 120),
-                                  opacity: hovered || selected ? 1 : 0,
-                                  child: IgnorePointer(
-                                    ignoring: !hovered && !selected,
-                                    child: IconButton(
-                                      tooltip: '播放',
-                                      visualDensity: VisualDensity.compact,
-                                      onPressed: track.isPlayable
-                                          ? () => repository
-                                              .playOrToggleTrack(track)
-                                          : null,
-                                      icon: const Icon(
-                                        Icons.play_arrow_rounded,
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      track.album ??
+                                          meloProviderPresentation(
+                                            track.ref.providerId,
+                                          ).shortName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: MeloColors.textSecondary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                  ),
+                                  AnimatedOpacity(
+                                    duration: const Duration(milliseconds: 120),
+                                    opacity: hovered || selected ? 1 : 0,
+                                    child: IgnorePointer(
+                                      ignoring: !hovered && !selected,
+                                      child: IconButton(
+                                        tooltip: '播放',
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: track.isPlayable
+                                            ? () => repository
+                                                .playOrToggleTrack(track)
+                                            : null,
+                                        icon: const Icon(
+                                          Icons.play_arrow_rounded,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           );
                         },
@@ -523,13 +528,16 @@ class _LocalPlaylistTracks extends StatelessWidget {
                     title: '这个歌单还没有歌曲',
                     subtitle: '在喜欢、推荐或搜索结果里通过更多菜单加入歌曲。',
                   )
-                : ListView.separated(
+                : ListView.builder(
+                    key: PageStorageKey<String>(
+                      'local_playlist_tracks_${playlist.id}',
+                    ),
                     itemCount: playlist.items.length,
                     padding: EdgeInsets.only(bottom: isMobile ? 156 : 4),
-                    separatorBuilder: (_, __) => const Divider(
-                      height: 1,
-                      color: MeloColors.border,
-                    ),
+                    scrollCacheExtent: const ScrollCacheExtent.pixels(560),
+                    itemExtent: MeloListMetrics.rowHeight,
+                    addAutomaticKeepAlives: false,
+                    addSemanticIndexes: false,
                     itemBuilder: (context, index) {
                       final item = playlist.items[index];
                       final track = repository.sourceTrackByRef(item.trackRef);
@@ -540,82 +548,84 @@ class _LocalPlaylistTracks extends StatelessWidget {
                           ? item.cachedProviderName
                           : meloProviderPresentation(track.ref.providerId)
                               .shortName;
-                      return MeloInteractiveRow(
-                        selected: selected,
-                        onDoubleTap: track?.isPlayable == true
-                            ? () => repository.playOrToggleTrack(track!)
-                            : null,
-                        builder: (context, hovered) => Row(
-                          children: [
-                            SizedBox(
-                              width: 34,
-                              child: selected
-                                  ? const Icon(
-                                      Icons.graphic_eq_rounded,
-                                      color: MeloColors.primary700,
-                                      size: 18,
-                                    )
-                                  : Text(
-                                      '${index + 1}'.padLeft(2, '0'),
-                                      textAlign: TextAlign.center,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: MeloColors.textTertiary,
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                      return _TrackRowFrame(
+                        child: MeloInteractiveRow(
+                          selected: selected,
+                          onDoubleTap: track?.isPlayable == true
+                              ? () => repository.playOrToggleTrack(track!)
+                              : null,
+                          builder: (context, hovered) => Row(
+                            children: [
+                              SizedBox(
+                                width: 34,
+                                child: selected
+                                    ? const Icon(
+                                        Icons.graphic_eq_rounded,
+                                        color: MeloColors.primary700,
+                                        size: 18,
+                                      )
+                                    : Text(
+                                        '${index + 1}'.padLeft(2, '0'),
+                                        textAlign: TextAlign.center,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: MeloColors.textTertiary,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                              ),
+                              const SizedBox(width: 14),
+                              MeloTrackCover(
+                                seed: title,
+                                artwork: track?.artwork,
+                                isActive: selected,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _PlaylistTrackTitleBlock(
+                                  title: title,
+                                  artists: artists,
+                                  active: selected,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                providerName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: MeloColors.textSecondary,
+                                      fontWeight: FontWeight.w700,
                                     ),
-                            ),
-                            const SizedBox(width: 14),
-                            MeloTrackCover(
-                              seed: title,
-                              artwork: track?.artwork,
-                              isActive: selected,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _PlaylistTrackTitleBlock(
-                                title: title,
-                                artists: artists,
-                                active: selected,
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              providerName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: MeloColors.textSecondary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              tooltip: track?.isPlayable == true
-                                  ? '播放'
-                                  : '当前会话缺少播放信息',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: track?.isPlayable == true
-                                  ? () => repository.playOrToggleTrack(track!)
-                                  : null,
-                              icon: const Icon(Icons.play_arrow_rounded),
-                            ),
-                            IconButton(
-                              tooltip: '从歌单移除',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () =>
-                                  repository.removeTrackFromPlaylist(
-                                playlistId: playlist.id,
-                                trackRef: item.trackRef,
+                              const SizedBox(width: 8),
+                              IconButton(
+                                tooltip: track?.isPlayable == true
+                                    ? '播放'
+                                    : '当前会话缺少播放信息',
+                                visualDensity: VisualDensity.compact,
+                                onPressed: track?.isPlayable == true
+                                    ? () => repository.playOrToggleTrack(track!)
+                                    : null,
+                                icon: const Icon(Icons.play_arrow_rounded),
                               ),
-                              icon: const Icon(Icons.close_rounded),
-                            ),
-                          ],
+                              IconButton(
+                                tooltip: '从歌单移除',
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () =>
+                                    repository.removeTrackFromPlaylist(
+                                  playlistId: playlist.id,
+                                  trackRef: item.trackRef,
+                                ),
+                                icon: const Icon(Icons.close_rounded),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -623,6 +633,24 @@ class _LocalPlaylistTracks extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TrackRowFrame extends StatelessWidget {
+  const _TrackRowFrame({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: MeloColors.border),
+        ),
+      ),
+      child: child,
     );
   }
 }

@@ -161,6 +161,7 @@ class _MobileMineView extends ConsumerWidget {
           _MobileSourceSummaryCard(entry: entry),
           const SizedBox(height: 10),
         ],
+        const _MobileMoreSourcesCard(),
         const SizedBox(height: 18),
         const _MineSectionTitle('播放偏好'),
         const SizedBox(height: 10),
@@ -223,53 +224,110 @@ class _MobileSourceSummaryCard extends ConsumerWidget {
     final signedIn = entry.provider.isAuthenticated;
     final canSyncFavorites =
         descriptor.supports(ProviderCapability.readFavorites);
+    return InkWell(
+      borderRadius: MeloRadii.lg,
+      onTap: () => _showSourceDialog(context),
+      child: _SettingsSurface(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            _SourceIcon(presentation: presentation),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          presentation.fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                        ),
+                      ),
+                      _StatusChip(
+                        label: signedIn ? '已登录' : '未登录',
+                        positive: signedIn,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    signedIn
+                        ? (canSyncFavorites ? '喜欢和歌单可同步' : '已连接，提供部分内容')
+                        : '点按管理登录、导入 Cookie 或清除会话',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textSecondary,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            IconButton(
+              tooltip: '管理账号',
+              onPressed: () => _showSourceDialog(context),
+              icon: const Icon(Icons.manage_accounts_rounded),
+            ),
+            Switch.adaptive(
+              value: entry.isEnabled,
+              onChanged: (value) =>
+                  repository.setProviderEnabled(descriptor.id, value),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSourceDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => _SourceManagementDialog(entry: entry),
+    );
+  }
+}
+
+class _MobileMoreSourcesCard extends StatelessWidget {
+  const _MobileMoreSourcesCard();
+
+  @override
+  Widget build(BuildContext context) {
     return _SettingsSurface(
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [
-          _SourceIcon(presentation: presentation),
+          const Icon(
+            Icons.add_circle_outline_rounded,
+            color: MeloColors.textTertiary,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        presentation.fullName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w900,
-                            ),
-                      ),
-                    ),
-                    _StatusChip(
-                      label: signedIn ? '已登录' : '未登录',
-                      positive: signedIn,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
                 Text(
-                  signedIn
-                      ? (canSyncFavorites ? '喜欢和歌单可同步' : '已连接，提供部分内容')
-                      : '前往桌面设置可导入或清除账号凭证',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  '更多账号来源',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '当前版本来源由内置 Provider 决定，多账号和自定义来源还未接入。',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: MeloColors.textSecondary,
                       ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 10),
-          Switch.adaptive(
-            value: entry.isEnabled,
-            onChanged: (value) =>
-                repository.setProviderEnabled(descriptor.id, value),
           ),
         ],
       ),
