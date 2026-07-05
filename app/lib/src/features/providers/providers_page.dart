@@ -12,19 +12,25 @@ class ProvidersPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
-    final eligible = repository.capabilityMatrix
-        .eligibleFavoritesEntries(repository.registry)
-        .map((entry) => entry.descriptor.id)
-        .toSet();
+    final eligible = ref.watch(
+      demoRepositoryProvider.select(
+        (r) => r.capabilityMatrix
+            .eligibleFavoritesEntries(r.registry)
+            .map((entry) => entry.descriptor.id)
+            .toSet(),
+      ),
+    );
+    final providerEntries = ref.watch(
+      demoRepositoryProvider.select((r) => r.providerEntries),
+    );
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+      padding: const EdgeInsets.all(MeloSpacing.lg),
       children: [
         Row(
           children: [
             const _ProvidersBrandLogo(),
-            const SizedBox(width: 12),
+            const SizedBox(width: MeloSpacing.sm),
             Expanded(
               child: Text(
                 'Provider / 我的',
@@ -35,25 +41,25 @@ class ProvidersPage extends ConsumerWidget {
                       fontWeight: FontWeight.w900,
                       color: MeloColors.textPrimary,
                       letterSpacing: 0,
-                    ),
+                     ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: MeloSpacing.xs),
         Text(
           '这里可以模拟启用/禁用来源与登录态变化，验证全部喜欢与本地歌单的降级行为。',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: MeloColors.textSecondary,
               ),
         ),
-        const SizedBox(height: 18),
-        for (final entry in repository.providerEntries) ...[
+        const SizedBox(height: MeloSpacing.lg),
+        for (final entry in providerEntries) ...[
           _ProviderCard(
             entry: entry,
             isEligibleFavoriteSource: eligible.contains(entry.descriptor.id),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: MeloSpacing.sm),
         ],
       ],
     );
@@ -70,7 +76,7 @@ class _ProvidersBrandLogo extends StatelessWidget {
       height: 44,
       decoration: BoxDecoration(
         color: MeloColors.primary600,
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: MeloRadii.md,
         boxShadow: [
           BoxShadow(
             color: MeloColors.primary600.withValues(alpha: .22),
@@ -99,11 +105,11 @@ class _ProviderCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
+    final repository = ref.read(demoRepositoryProvider);
     final descriptor = entry.descriptor;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(MeloSpacing.md),
       decoration: BoxDecoration(
         color: MeloColors.surface,
         borderRadius: MeloRadii.md,
@@ -126,7 +132,7 @@ class _ProviderCard extends ConsumerWidget {
                             color: MeloColors.textPrimary,
                           ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: MeloSpacing.xxs),
                     Text(
                       descriptor.shortDescription ?? descriptor.id.value,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -146,10 +152,10 @@ class _ProviderCard extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: MeloSpacing.sm),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: MeloSpacing.xs,
+            runSpacing: MeloSpacing.xs,
             children: [
               ProviderBadge(
                 label: entry.isEnabled ? '已启用' : '已禁用',
@@ -185,7 +191,7 @@ class _ProviderCard extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: MeloSpacing.sm),
           FutureBuilder<ProviderAccountProfile?>(
             future: entry.provider.getProfile(),
             builder: (context, snapshot) {
@@ -206,10 +212,10 @@ class _ProviderCard extends ConsumerWidget {
               );
             },
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: MeloSpacing.sm),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: MeloSpacing.xs,
+            runSpacing: MeloSpacing.xs,
             children: [
               for (final capability in descriptor.capabilities)
                 Chip(
@@ -223,7 +229,7 @@ class _ProviderCard extends ConsumerWidget {
             ],
           ),
           if (descriptor.supports(ProviderCapability.authenticate)) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: MeloSpacing.sm),
             OutlinedButton.icon(
               onPressed: () {
                 repository.toggleProviderAuthentication(

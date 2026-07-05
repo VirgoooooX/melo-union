@@ -133,6 +133,7 @@ class _MobileProviderResultSection extends StatelessWidget {
           const Divider(height: 1, color: MeloColors.border),
           for (var i = 0; i < group.tracks.length; i++) ...[
             _MobileSearchTrackRow(
+              index: i + 1,
               track: group.tracks[i],
               provider: group.provider,
             ),
@@ -159,10 +160,11 @@ class _DesktopProviderResultSection extends StatelessWidget {
     return Column(
       children: [
         _ProviderSectionHeader(group: group),
-        for (final track in group.tracks)
+        for (var i = 0; i < group.tracks.length; i++)
           RepaintBoundary(
             child: _DesktopSearchTrackRow(
-              track: track,
+              index: i + 1,
+              track: group.tracks[i],
               provider: group.provider,
             ),
           ),
@@ -288,10 +290,12 @@ class _ProviderCountPill extends StatelessWidget {
 
 class _MobileSearchTrackRow extends ConsumerWidget {
   const _MobileSearchTrackRow({
+    required this.index,
     required this.track,
     required this.provider,
   });
 
+  final int index;
   final SourceTrack track;
   final ProviderDescriptor provider;
 
@@ -303,45 +307,30 @@ class _MobileSearchTrackRow extends ConsumerWidget {
           .select((r) => r.queue.current?.track.ref == track.ref),
     );
     final playable = track.isPlayable;
-    return MeloTapFeedback(
-      selected: selected,
+    return MeloMobileTrackRow(
+      index: index,
+      title: track.title,
+      artists: track.artists,
+      artwork: track.artwork,
+      duration: track.duration,
+      isActive: selected,
       onTap: playable ? () => repository.playOrToggleTrack(track) : null,
-      borderRadius: BorderRadius.zero,
-      animatePress: playable,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: Row(
-          children: [
-            MeloTrackCover(
-              seed: track.title,
-              artwork: track.artwork,
-              isActive: selected,
-              size: 46,
-              borderRadius: BorderRadius.circular(8),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!playable) const _CatalogTag(),
+          if (playable)
+            Text(
+              _formatSearchDuration(track.duration),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: MeloColors.textTertiary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _SearchTrackTitleBlock(
-                title: track.title,
-                artists: track.artists,
-                active: selected,
-              ),
-            ),
-            const SizedBox(width: 10),
-            if (!playable) const _CatalogTag(),
-            if (playable)
-              Text(
-                _formatSearchDuration(track.duration),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: MeloColors.textTertiary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            const SizedBox(width: 4),
-            _SearchTrackActions(track: track),
-          ],
-        ),
+          const SizedBox(width: 4),
+          _SearchTrackActions(track: track),
+        ],
       ),
     );
   }
@@ -349,10 +338,12 @@ class _MobileSearchTrackRow extends ConsumerWidget {
 
 class _DesktopSearchTrackRow extends ConsumerWidget {
   const _DesktopSearchTrackRow({
+    required this.index,
     required this.track,
     required this.provider,
   });
 
+  final int index;
   final SourceTrack track;
   final ProviderDescriptor provider;
 
@@ -365,115 +356,28 @@ class _DesktopSearchTrackRow extends ConsumerWidget {
     );
     final playable = track.isPlayable;
     final play = playable ? () => repository.playOrToggleTrack(track) : null;
-    return MeloInteractiveRow(
-      selected: selected,
-      onTap: null,
+    return MeloDesktopTrackRow(
+      index: index,
+      title: track.title,
+      artists: track.artists,
+      artwork: track.artwork,
+      album: track.album ?? provider.displayName,
+      isActive: selected,
       onDoubleTap: play,
-      builder: (context, hovered) => Row(
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 32,
-            child: Icon(
-              selected
-                  ? Icons.graphic_eq_rounded
-                  : playable
-                      ? Icons.play_arrow_rounded
-                      : Icons.manage_search_rounded,
-              size: 18,
-              color: selected
-                  ? MeloColors.primary700
-                  : hovered && playable
-                      ? MeloColors.primary700
-                      : MeloColors.textTertiary,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            flex: 3,
-            child: Row(
-              children: [
-                MeloTrackCover(
-                  seed: track.title,
-                  artwork: track.artwork,
-                  isActive: selected,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _SearchTrackTitleBlock(
-                    title: track.title,
-                    artists: track.artists,
-                    active: selected,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              track.album ?? provider.displayName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: MeloColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-            ),
-          ),
-          SizedBox(
-            width: 92,
-            child: Center(
-              child: playable
-                  ? Text(_formatSearchDuration(track.duration))
-                  : const _CatalogTag(),
-            ),
-          ),
+          if (!playable) ...[
+            const _CatalogTag(),
+            const SizedBox(width: 8),
+          ],
+          if (playable) ...[
+            Text(_formatSearchDuration(track.duration)),
+            const SizedBox(width: 8),
+          ],
           _SearchTrackActions(track: track),
         ],
       ),
-    );
-  }
-}
-
-class _SearchTrackTitleBlock extends StatelessWidget {
-  const _SearchTrackTitleBlock({
-    required this.title,
-    required this.artists,
-    required this.active,
-  });
-
-  final String title;
-  final List<String> artists;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: active ? MeloColors.primary700 : MeloColors.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          artists.join(' / '),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: MeloColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-      ],
     );
   }
 }

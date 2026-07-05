@@ -5,9 +5,13 @@ class DesktopPlayerBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
-    final current = repository.queue.current?.track;
-    final queue = repository.queue;
+    final repository = ref.read(demoRepositoryProvider);
+    final current = ref.watch(
+      demoRepositoryProvider.select((r) => r.queue.current?.track),
+    );
+    final queue = ref.watch(
+      demoRepositoryProvider.select((r) => r.queue),
+    );
     return Container(
       height: MeloDimensions.desktopPlayerBarHeight,
       padding: const EdgeInsets.symmetric(horizontal: MeloSpacing.xl),
@@ -165,7 +169,7 @@ class _CurrentTrackSummary extends StatelessWidget {
   }
 }
 
-class _TransportControls extends StatelessWidget {
+class _TransportControls extends ConsumerWidget {
   const _TransportControls({
     required this.current,
     required this.compact,
@@ -177,17 +181,20 @@ class _TransportControls extends StatelessWidget {
   final DemoRepository repository;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shuffleEnabled = ref.watch(demoRepositoryProvider.select((r) => r.shuffleEnabled));
+    final repeatMode = ref.watch(demoRepositoryProvider.select((r) => r.repeatMode));
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (!compact)
           IconButton(
-            tooltip: repository.shuffleEnabled ? '关闭随机播放' : '随机播放',
+            tooltip: shuffleEnabled ? '关闭随机播放' : '随机播放',
             onPressed: current == null ? null : repository.toggleShuffle,
             icon: Icon(
               Icons.shuffle_rounded,
-              color: repository.shuffleEnabled
+              color: shuffleEnabled
                   ? MeloColors.primary700
                   : MeloColors.textSecondary,
             ),
@@ -226,13 +233,13 @@ class _TransportControls extends StatelessWidget {
         ),
         if (!compact)
           IconButton(
-            tooltip: _repeatTooltip(repository.repeatMode),
+            tooltip: _repeatTooltip(repeatMode),
             onPressed: current == null ? null : repository.cycleRepeatMode,
             icon: Icon(
-              repository.repeatMode == PlaybackRepeatMode.one
+              repeatMode == PlaybackRepeatMode.one
                   ? Icons.repeat_one_rounded
                   : Icons.repeat_rounded,
-              color: repository.repeatMode == PlaybackRepeatMode.off
+              color: repeatMode == PlaybackRepeatMode.off
                   ? MeloColors.textSecondary
                   : MeloColors.primary700,
             ),
@@ -242,16 +249,20 @@ class _TransportControls extends StatelessWidget {
   }
 }
 
-class _QualityMenuButton extends StatelessWidget {
+class _QualityMenuButton extends ConsumerWidget {
   const _QualityMenuButton({required this.repository});
 
   final DemoRepository repository;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playbackQuality = ref.watch(
+      demoRepositoryProvider.select((r) => r.playbackQuality),
+    );
+
     return PopupMenuButton<AudioQuality>(
       tooltip: '音质',
-      initialValue: repository.playbackQuality,
+      initialValue: playbackQuality,
       onSelected: repository.setPlaybackQuality,
       itemBuilder: (context) => [
         for (final quality in AudioQuality.values)
@@ -260,7 +271,7 @@ class _QualityMenuButton extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  quality == repository.playbackQuality
+                  quality == playbackQuality
                       ? Icons.check_rounded
                       : Icons.graphic_eq_rounded,
                   size: 18,
@@ -285,7 +296,7 @@ class _QualityMenuButton extends StatelessWidget {
             const Icon(Icons.high_quality_rounded, size: 17),
             const SizedBox(width: 6),
             Text(
-              _qualityLabel(repository.playbackQuality),
+              _qualityLabel(playbackQuality),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -297,7 +308,7 @@ class _QualityMenuButton extends StatelessWidget {
   }
 }
 
-class _VolumeControl extends StatelessWidget {
+class _VolumeControl extends ConsumerWidget {
   const _VolumeControl({
     required this.repository,
     required this.width,
@@ -307,7 +318,11 @@ class _VolumeControl extends StatelessWidget {
   final double width;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final volume = ref.watch(
+      demoRepositoryProvider.select((r) => r.volume),
+    );
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -317,7 +332,7 @@ class _VolumeControl extends StatelessWidget {
           child: SliderTheme(
             data: _playerSliderTheme(context),
             child: Slider(
-              value: repository.volume,
+              value: volume,
               onChanged: repository.setVolume,
             ),
           ),

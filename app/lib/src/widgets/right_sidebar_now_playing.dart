@@ -5,8 +5,10 @@ class RightSidebar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
-    final track = repository.queue.current?.track;
+    final repository = ref.read(demoRepositoryProvider);
+    final track = ref.watch(demoRepositoryProvider.select((r) => r.queue.current?.track));
+    final queueLength = ref.watch(demoRepositoryProvider.select((r) => r.queue.entries.length));
+    final queueIsEmpty = ref.watch(demoRepositoryProvider.select((r) => r.queue.entries.isEmpty));
     final mode = ref.watch(rightSidebarModeProvider);
     return Material(
       color: MeloColors.surface,
@@ -49,7 +51,7 @@ class RightSidebar extends ConsumerWidget {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '(${repository.queue.entries.length})',
+                          '($queueLength)',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: MeloColors.textSecondary,
@@ -58,7 +60,7 @@ class RightSidebar extends ConsumerWidget {
                         ),
                         const Spacer(),
                         TextButton(
-                          onPressed: repository.queue.entries.isEmpty
+                          onPressed: queueIsEmpty
                               ? null
                               : repository.clearQueue,
                           style: TextButton.styleFrom(
@@ -342,7 +344,7 @@ class _LyricsViewState extends ConsumerState<_LyricsView> {
       return const Center(child: Text('暂无播放歌曲'));
     }
 
-    final repository = ref.watch(demoRepositoryProvider);
+    final repository = ref.read(demoRepositoryProvider);
     final lyricsAsync = ref.watch(lyricsProvider(widget.track.ref));
 
     return lyricsAsync.when(

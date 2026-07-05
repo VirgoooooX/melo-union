@@ -19,23 +19,31 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final repository = ref.watch(demoRepositoryProvider);
-    final tasks = repository.downloadCoordinator.allTasks
-        .where((task) =>
-            task.status != DownloadStatus.completed &&
-            task.status != DownloadStatus.cancelled)
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    final localItems = repository.downloadCoordinator.localItems
-      ..sort((a, b) => b.downloadedAt.compareTo(a.downloadedAt));
+    final repository = ref.read(demoRepositoryProvider);
+    final tasks = ref.watch(
+      demoRepositoryProvider.select(
+        (r) => r.downloadCoordinator.allTasks
+            .where((task) =>
+                task.status != DownloadStatus.completed &&
+                task.status != DownloadStatus.cancelled)
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+      ),
+    );
+    final localItems = ref.watch(
+      demoRepositoryProvider.select(
+        (r) => r.downloadCoordinator.localItems
+          ..sort((a, b) => b.downloadedAt.compareTo(a.downloadedAt)),
+      ),
+    );
     final compact = MediaQuery.sizeOf(context).width < 960;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        compact ? 16 : 28,
-        compact ? 12 : 22,
-        compact ? 16 : 28,
-        compact ? 108 : 18,
+        compact ? MeloSpacing.md : 28,
+        compact ? MeloSpacing.sm : MeloSpacing.lg,
+        compact ? MeloSpacing.md : 28,
+        compact ? 108 : MeloSpacing.lg,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,9 +52,9 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
             quality: _quality,
             onQualityChanged: (value) => setState(() => _quality = value),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: MeloSpacing.sm),
           const _DownloadDirectoryNotice(),
-          const SizedBox(height: 18),
+          const SizedBox(height: MeloSpacing.lg),
           Expanded(
             child: tasks.isEmpty && localItems.isEmpty
                 ? const MeloEmptyState(
@@ -61,7 +69,7 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
                           title: '下载队列',
                           subtitle: '${tasks.length} 个任务',
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: MeloSpacing.xs),
                         for (final task in tasks) ...[
                           _DownloadTaskRow(
                             task: task,
@@ -75,16 +83,16 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
                               task.track.ref,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: MeloSpacing.xs),
                         ],
-                        const SizedBox(height: 12),
+                        const SizedBox(height: MeloSpacing.sm),
                       ],
                       if (localItems.isNotEmpty) ...[
                         _SectionTitle(
                           title: '本地音乐',
                           subtitle: '${localItems.length} 首已下载',
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: MeloSpacing.xs),
                         for (final item in localItems) ...[
                           _LocalMediaRow(
                             item: item,
@@ -95,9 +103,9 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
                               quality: _quality,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: MeloSpacing.xs),
                         ],
-                        const SizedBox(height: 12),
+                        const SizedBox(height: MeloSpacing.sm),
                       ],
                     ],
                   ),
@@ -133,7 +141,7 @@ class _DownloadsHeader extends StatelessWidget {
             color: MeloColors.primary700,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: MeloSpacing.sm),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,7 +162,7 @@ class _DownloadsHeader extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: MeloSpacing.sm),
         DropdownButton<AudioQuality>(
           value: quality,
           onChanged: (value) {
@@ -178,13 +186,16 @@ class _DownloadDirectoryNotice extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.watch(demoRepositoryProvider);
+    final repository = ref.read(demoRepositoryProvider);
     return FutureBuilder<String>(
       future: repository.downloadDirectoryPath(),
       builder: (context, snapshot) {
         final directory = snapshot.data ?? '正在读取保存位置...';
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: MeloSpacing.sm,
+            vertical: MeloSpacing.sm,
+          ),
           decoration: BoxDecoration(
             color: MeloColors.surface,
             borderRadius: MeloRadii.md,
@@ -197,7 +208,7 @@ class _DownloadDirectoryNotice extends ConsumerWidget {
                 color: MeloColors.primary700,
                 size: 20,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: MeloSpacing.xs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,7 +232,7 @@ class _DownloadDirectoryNotice extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: MeloSpacing.sm),
               TextButton.icon(
                 onPressed: snapshot.hasData
                     ? () async {
@@ -263,7 +274,7 @@ class _SectionTitle extends StatelessWidget {
                 fontWeight: FontWeight.w900,
               ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: MeloSpacing.xs),
         Text(
           subtitle,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -294,7 +305,7 @@ class _DownloadTaskRow extends StatelessWidget {
       child: Row(
         children: [
           MeloTrackCover(seed: task.track.title, artwork: task.track.artwork),
-          const SizedBox(width: 12),
+          const SizedBox(width: MeloSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +318,7 @@ class _DownloadTaskRow extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: MeloSpacing.xxs),
                 Text(
                   '${task.track.artists.join(' / ')} · ${_qualityLabel(task.quality)} · ${_statusLabel(task.status)}',
                   maxLines: 1,
@@ -317,7 +328,7 @@ class _DownloadTaskRow extends StatelessWidget {
                       ),
                 ),
                 if (task.error != null) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: MeloSpacing.xxs),
                   Text(
                     task.error!,
                     maxLines: 2,
@@ -329,7 +340,7 @@ class _DownloadTaskRow extends StatelessWidget {
                 ],
                 if (task.status == DownloadStatus.downloading ||
                     task.status == DownloadStatus.resolving) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: MeloSpacing.xs),
                   LinearProgressIndicator(
                     value: task.status == DownloadStatus.resolving
                         ? null
@@ -339,7 +350,7 @@ class _DownloadTaskRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: MeloSpacing.xs),
           _TaskActions(
             status: task.status,
             onStart: onStart,
@@ -386,7 +397,7 @@ class _TaskActions extends StatelessWidget {
         if (status == DownloadStatus.downloading ||
             status == DownloadStatus.resolving)
           Padding(
-            padding: const EdgeInsets.only(left: 8),
+            padding: const EdgeInsets.only(left: MeloSpacing.xs),
             child: _DownloadActionIconButton(
               tooltip: '暂停',
               onPressed: onPause,
@@ -394,7 +405,7 @@ class _TaskActions extends StatelessWidget {
             ),
           ),
         Padding(
-          padding: const EdgeInsets.only(left: 8),
+          padding: const EdgeInsets.only(left: MeloSpacing.xs),
           child: _DownloadActionIconButton(
             tooltip: '取消任务',
             onPressed: onCancel,
@@ -423,7 +434,7 @@ class _LocalMediaRow extends StatelessWidget {
       child: Row(
         children: [
           const Icon(Icons.offline_pin_rounded, color: MeloColors.success),
-          const SizedBox(width: 12),
+          const SizedBox(width: MeloSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,7 +447,7 @@ class _LocalMediaRow extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: MeloSpacing.xxs),
                 Text(
                   '${item.artists.join(' / ')} · ${_formatBytes(item.fileSize)}',
                   maxLines: 1,
@@ -456,7 +467,7 @@ class _LocalMediaRow extends StatelessWidget {
                 onPressed: onRedownload,
                 icon: const Icon(Icons.refresh_rounded),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: MeloSpacing.xs),
               _DownloadActionIconButton(
                 tooltip: '删除本地文件记录',
                 onPressed: onDelete,
@@ -513,7 +524,7 @@ class _DownloadSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(MeloSpacing.sm),
       decoration: BoxDecoration(
         color: MeloColors.surface,
         borderRadius: MeloRadii.md,

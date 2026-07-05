@@ -652,7 +652,7 @@ class _MeloPlaylistCardState extends State<MeloPlaylistCard> {
   }
 }
 
-class MeloPlaylistCover extends StatelessWidget {
+class MeloPlaylistCover extends StatefulWidget {
   const MeloPlaylistCover({
     required this.title,
     this.cover,
@@ -663,8 +663,23 @@ class MeloPlaylistCover extends StatelessWidget {
   final Uri? cover;
 
   @override
+  State<MeloPlaylistCover> createState() => _MeloPlaylistCoverState();
+}
+
+class _MeloPlaylistCoverState extends State<MeloPlaylistCover> {
+  late final DisposableBuildContext<_MeloPlaylistCoverState> _scrollAwareContext =
+      DisposableBuildContext(this);
+
+  @override
+  void dispose() {
+    _scrollAwareContext.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (cover != null && cover!.toString().isNotEmpty) {
+    final cover = widget.cover;
+    if (cover != null && cover.toString().isNotEmpty) {
       return LayoutBuilder(
         builder: (context, constraints) {
           final desktopLayout = MediaQuery.sizeOf(context).width >= 960;
@@ -686,20 +701,32 @@ class MeloPlaylistCover extends StatelessWidget {
                   .toInt()
               : decodedWidth;
           final imageUri = _meloHighResolutionArtworkUri(
-            cover!,
+            cover,
             desktopLayout ? 1000 : decodedWidth ?? 480,
             highResolution: desktopLayout,
           );
+          
+          final ImageProvider<Object> baseProvider =
+              MeloFileCachedNetworkImageProvider(
+            imageUri.toString(),
+            headers: meloArtworkHeaders,
+          );
+          final imageProvider = ScrollAwareImageProvider<Object>(
+            context: _scrollAwareContext,
+            imageProvider: ResizeImage.resizeIfNeeded(
+              decodedWidth,
+              decodedHeight,
+              baseProvider,
+            ),
+          );
+
           return ClipRRect(
             borderRadius: MeloRadii.md,
-            child: Image.network(
-              imageUri.toString(),
+            child: Image(
+              image: imageProvider,
               width: double.infinity,
               height: double.infinity,
               fit: BoxFit.cover,
-              headers: meloArtworkHeaders,
-              cacheWidth: decodedWidth,
-              cacheHeight: decodedHeight,
               filterQuality:
                   desktopLayout ? FilterQuality.high : FilterQuality.medium,
               errorBuilder: (_, __, ___) => _placeholder(),
@@ -712,7 +739,7 @@ class MeloPlaylistCover extends StatelessWidget {
   }
 
   Widget _placeholder() {
-    final hue = title.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
+    final hue = widget.title.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
     return Container(
       decoration: BoxDecoration(
         borderRadius: MeloRadii.md,

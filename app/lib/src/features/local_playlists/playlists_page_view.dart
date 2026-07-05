@@ -14,8 +14,21 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final repository = ref.watch(demoRepositoryProvider);
-    final remoteProviders = repository.providerEntries
+    final repository = ref.read(demoRepositoryProvider);
+    final providerEntries = ref.watch(
+      demoRepositoryProvider.select((r) => r.providerEntries),
+    );
+    final playlistList = ref.watch(
+      demoRepositoryProvider.select((r) => r.playlistList),
+    );
+    final selectedPlaylistId = ref.watch(
+      demoRepositoryProvider.select((r) => r.selectedPlaylistId),
+    );
+    final selectedPlaylist = ref.watch(
+      demoRepositoryProvider.select((r) => r.selectedPlaylist),
+    );
+
+    final remoteProviders = providerEntries
         .where(
           (entry) =>
               entry.isEnabled &&
@@ -49,6 +62,7 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
         selected: selected,
         showLocalPlaylistDetails: _showLocalPlaylistDetails,
         selectedRemotePlaylistId: _selectedRemotePlaylistId,
+        selectedPlaylist: selectedPlaylist,
         repository: repository,
         onTabSelected: (id) {
           setState(() {
@@ -120,16 +134,16 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
           Expanded(
             child: selected == 'local'
                 ? (_showLocalPlaylistDetails &&
-                        repository.selectedPlaylist != null
+                        selectedPlaylist != null
                     ? _LocalPlaylistTracks(
-                        playlist: repository.selectedPlaylist!,
+                        playlist: selectedPlaylist,
                         repository: repository,
                         onBack: () =>
                             setState(() => _showLocalPlaylistDetails = false),
                       )
                     : _PlaylistGrid(
-                        playlists: repository.playlistList,
-                        selectedPlaylistId: repository.selectedPlaylistId,
+                        playlists: playlistList,
+                        selectedPlaylistId: selectedPlaylistId,
                         onSelected: (playlistId) {
                           repository.selectPlaylist(playlistId);
                           setState(() => _showLocalPlaylistDetails = true);
@@ -185,6 +199,7 @@ class _MobilePlaylistsView extends StatelessWidget {
     required this.selected,
     required this.showLocalPlaylistDetails,
     required this.selectedRemotePlaylistId,
+    required this.selectedPlaylist,
     required this.repository,
     required this.onTabSelected,
     required this.onCreatePlaylist,
@@ -199,6 +214,7 @@ class _MobilePlaylistsView extends StatelessWidget {
   final String selected;
   final bool showLocalPlaylistDetails;
   final String? selectedRemotePlaylistId;
+  final LocalPlaylist? selectedPlaylist;
   final DemoRepository repository;
   final ValueChanged<String> onTabSelected;
   final VoidCallback onCreatePlaylist;
@@ -262,9 +278,9 @@ class _MobilePlaylistsView extends StatelessWidget {
                   Expanded(
                     child: selected == 'local'
                         ? (showLocalPlaylistDetails &&
-                                repository.selectedPlaylist != null
+                                selectedPlaylist != null
                             ? _LocalPlaylistTracks(
-                                playlist: repository.selectedPlaylist!,
+                                playlist: selectedPlaylist!,
                                 repository: repository,
                                 onBack: onLocalBack,
                               )

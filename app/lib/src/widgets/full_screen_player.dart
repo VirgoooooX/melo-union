@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -11,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import '../bootstrap/demo_repository.dart';
 import '../design/melo_tokens.dart';
 import '../presentation/provider_presentation.dart';
+import 'glass_vinyl_record.dart';
 import 'lyrics_provider.dart';
 import 'melo_components.dart';
 import 'right_sidebar.dart';
@@ -583,6 +583,20 @@ class _DesktopFullScreenLayout extends StatelessWidget {
   }
 }
 
+/// 为 [GlassVinylRecord] 构建专辑封面 widget
+Widget _fullscreenArtwork(SourceTrack track) {
+  final url = track.artwork;
+  if (url != null && url.toString().isNotEmpty) {
+    return Image.network(
+      url.toString(),
+      fit: BoxFit.cover,
+      headers: meloArtworkHeaders,
+      errorBuilder: (_, __, ___) => _ArtworkPlaceholder(seed: track.title),
+    );
+  }
+  return _ArtworkPlaceholder(seed: track.title);
+}
+
 class _DesktopAlbumStage extends StatelessWidget {
   const _DesktopAlbumStage({
     required this.track,
@@ -612,10 +626,10 @@ class _DesktopAlbumStage extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _RotatingArtwork(
-          track: current,
-          repository: repository,
+        GlassVinylRecord(
           size: 360,
+          isPlaying: repository.isPlaybackActive,
+          artwork: _fullscreenArtwork(current),
         ),
         const SizedBox(height: 18),
         Text(
@@ -860,12 +874,11 @@ class _PrimaryPlayerPanel extends StatelessWidget {
                               compact: true,
                             ),
                           )
-                        : _RotatingArtwork(
+                        : GlassVinylRecord(
                             key: const ValueKey('mobile-artwork-stage'),
-                            track: track!,
-                            repository: repository,
-                            size: artworkSize,
-                            compact: true,
+                            size: artworkSize.clamp(220, 318),
+                            isPlaying: repository.isPlaybackActive,
+                            artwork: _fullscreenArtwork(track!),
                           ),
                   ),
                   const SizedBox(height: 42),
@@ -946,12 +959,11 @@ class _PrimaryPlayerPanel extends StatelessWidget {
                   compact: true,
                 ),
               )
-            : _RotatingArtwork(
+            : GlassVinylRecord(
                 key: const ValueKey('mobile-artwork-stage'),
-                track: track!,
-                repository: repository,
                 size: artworkSize,
-                compact: compact,
+                isPlaying: repository.isPlaybackActive,
+                artwork: _fullscreenArtwork(track!),
               ),
       ),
       SizedBox(height: compact ? 16 : MeloSpacing.xl),
@@ -1021,441 +1033,6 @@ class _PrimaryPlayerPanel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: children,
     );
-  }
-}
-
-class _RotatingArtwork extends StatefulWidget {
-  const _RotatingArtwork({
-    required this.track,
-    required this.repository,
-    required this.size,
-    this.compact = false,
-    super.key,
-  });
-
-  final SourceTrack track;
-  final DemoRepository repository;
-  final double size;
-  final bool compact;
-
-  @override
-  State<_RotatingArtwork> createState() => _RotatingArtworkState();
-}
-
-class _RotatingArtworkState extends State<_RotatingArtwork>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  StreamSubscription<PlayerState>? _subscription;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 86),
-    );
-    _sync(widget.repository.audioPlayer.playerState);
-    _subscription = widget.repository.playerStateStream.listen(_sync);
-  }
-
-  @override
-  void didUpdateWidget(covariant _RotatingArtwork oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.repository != widget.repository) {
-      _subscription?.cancel();
-      _subscription = widget.repository.playerStateStream.listen(_sync);
-      _sync(widget.repository.audioPlayer.playerState);
-    }
-  }
-
-  void _sync(PlayerState state) {
-    final active = state.playing &&
-        state.processingState != ProcessingState.completed &&
-        state.processingState != ProcessingState.idle;
-    if (active && !_controller.isAnimating) {
-      _controller.repeat();
-    } else if (!active && _controller.isAnimating) {
-      _controller.stop();
-    }
-  }
-
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final diameter = widget.size;
-    if (widget.compact) {
-      final frameWidth = diameter + 68;
-      final frameHeight = diameter + 62;
-      return RepaintBoundary(
-        child: SizedBox(
-          width: frameWidth,
-          height: frameHeight,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Positioned(
-                bottom: 4,
-                child: CustomPaint(
-                  painter: _MobileVinylAuraPainter(),
-                  child: RotationTransition(
-                    turns: _controller,
-                    child: Container(
-                      width: diameter,
-                      height: diameter,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const RadialGradient(
-                          center: Alignment(-.16, -.18),
-                          radius: .76,
-                          colors: [
-                            Color(0xFF255A91),
-                            Color(0xFF153B68),
-                            Color(0xFF0A203E),
-                            Color(0xFF041020),
-                          ],
-                          stops: [0, .42, .74, 1],
-                        ),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: .18),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color:
-                                const Color(0xFF20D9FF).withValues(alpha: .16),
-                            blurRadius: 36,
-                            spreadRadius: 1,
-                            offset: const Offset(-12, -10),
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: .38),
-                            blurRadius: 46,
-                            offset: const Offset(0, 24),
-                          ),
-                        ],
-                      ),
-                      child: CustomPaint(
-                        painter: _VinylGroovePainter(accented: true),
-                        child: Center(
-                          child: Container(
-                            width: diameter * .64,
-                            height: diameter * .64,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: .30),
-                                width: 1.4,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: .36),
-                                  blurRadius: 22,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: _LargeArtwork(track: widget.track),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: frameWidth * .13,
-                top: frameHeight * .14,
-                child: Transform.rotate(
-                  angle: -.7,
-                  child: Container(
-                    width: diameter * .24,
-                    height: diameter * .06,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.white.withValues(alpha: .0),
-                          Colors.white.withValues(alpha: .26),
-                          Colors.white.withValues(alpha: .02),
-                        ],
-                      ),
-                      borderRadius: MeloRadii.pill,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final frameWidth = widget.compact ? diameter + 68 : diameter + 92;
-    final frameHeight = widget.compact ? diameter + 78 : diameter + 116;
-    final tonearmWidth = widget.compact ? diameter * .38 : diameter * .42;
-    final tonearmHeight = widget.compact ? diameter * .48 : diameter * .56;
-    return RepaintBoundary(
-      child: SizedBox(
-        width: frameWidth,
-        height: frameHeight,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
-          children: [
-            Positioned(
-              bottom: 0,
-              child: RotationTransition(
-                turns: _controller,
-                child: Container(
-                  width: diameter,
-                  height: diameter,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const RadialGradient(
-                      colors: [
-                        Color(0xFF2E3331),
-                        Color(0xFF141716),
-                        Color(0xFF050606),
-                      ],
-                      stops: [.0, .58, 1],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: .42),
-                        blurRadius: 46,
-                        offset: const Offset(0, 30),
-                      ),
-                      BoxShadow(
-                        color: Colors.white.withValues(alpha: .08),
-                        blurRadius: 20,
-                        offset: const Offset(-10, -10),
-                      ),
-                    ],
-                  ),
-                  child: CustomPaint(
-                    painter: _VinylGroovePainter(),
-                    child: Center(
-                      child: Container(
-                        width: diameter * .57,
-                        height: diameter * .57,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.black.withValues(alpha: .42),
-                            width: 8,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: .42),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child:
-                            ClipOval(child: _LargeArtwork(track: widget.track)),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: frameWidth * (widget.compact ? .48 : .45),
-              child: CustomPaint(
-                size: Size(tonearmWidth, tonearmHeight),
-                painter: _TonearmPainter(),
-              ),
-            ),
-            Positioned(
-              bottom: diameter * .275,
-              child: Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: .9),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .32),
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _VinylGroovePainter extends CustomPainter {
-  const _VinylGroovePainter({this.accented = false});
-
-  final bool accented;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    for (var i = 0; i < 28; i++) {
-      final radius = size.width * (.31 + i * .011);
-      paint.color = accented
-          ? (i.isEven
-              ? Colors.white.withValues(alpha: .052)
-              : const Color(0xFF03101F).withValues(alpha: .20))
-          : (i.isEven
-              ? Colors.white.withValues(alpha: .035)
-              : Colors.black.withValues(alpha: .16));
-      canvas.drawCircle(center, radius, paint);
-    }
-    final sheen = Paint()
-      ..shader = SweepGradient(
-        colors: [
-          Colors.white.withValues(alpha: .0),
-          Colors.white.withValues(alpha: accented ? .13 : .08),
-          Colors.white.withValues(alpha: .0),
-        ],
-        stops: const [.0, .12, .26],
-      ).createShader(Offset.zero & size);
-    canvas.drawCircle(center, size.width / 2, sheen);
-  }
-
-  @override
-  bool shouldRepaint(covariant _VinylGroovePainter oldDelegate) =>
-      oldDelegate.accented != accented;
-}
-
-class _MobileVinylAuraPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final discRadius = size.shortestSide / 2;
-    final haloRect = Rect.fromCircle(center: center, radius: discRadius + 15);
-    final halo = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..shader = SweepGradient(
-        colors: [
-          Colors.transparent,
-          const Color(0xFF18F3FF).withValues(alpha: .64),
-          Colors.white.withValues(alpha: .20),
-          Colors.transparent,
-        ],
-        stops: const [.0, .16, .28, .46],
-      ).createShader(haloRect);
-    canvas.drawCircle(center, discRadius + 15, halo);
-
-    final arc = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round
-      ..color = const Color(0xFF13F6FF).withValues(alpha: .78);
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: discRadius + 16),
-      3.78,
-      .78,
-      false,
-      arc,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _TonearmPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final arm = Paint()
-      ..color = Colors.white.withValues(alpha: .92)
-      ..strokeWidth = 8
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-    final shadow = Paint()
-      ..color = Colors.black.withValues(alpha: .20)
-      ..strokeWidth = 12
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final path = Path()
-      ..moveTo(size.width * .10, size.height * .08)
-      ..cubicTo(
-        size.width * .18,
-        size.height * .34,
-        size.width * .20,
-        size.height * .52,
-        size.width * .42,
-        size.height * .66,
-      )
-      ..lineTo(size.width * .70, size.height * .86);
-    canvas.drawPath(path.shift(const Offset(2, 3)), shadow);
-    canvas.drawPath(path, arm);
-
-    final basePaint = Paint()..color = Colors.white.withValues(alpha: .96);
-    canvas.drawCircle(
-        Offset(size.width * .10, size.height * .08), 18, basePaint);
-    canvas.drawCircle(
-      Offset(size.width * .10, size.height * .08),
-      8,
-      Paint()..color = const Color(0xFFD9DEDB),
-    );
-
-    final cartridge = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(size.width * .72, size.height * .88),
-        width: 34,
-        height: 18,
-      ),
-      const Radius.circular(5),
-    );
-    canvas.save();
-    canvas.translate(size.width * .72, size.height * .88);
-    canvas.rotate(.72);
-    canvas.translate(-size.width * .72, -size.height * .88);
-    canvas.drawRRect(
-      cartridge,
-      Paint()..color = Colors.white.withValues(alpha: .96),
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _LargeArtwork extends StatelessWidget {
-  const _LargeArtwork({required this.track});
-
-  final SourceTrack track;
-
-  @override
-  Widget build(BuildContext context) {
-    final artwork = track.artwork;
-    if (artwork != null && artwork.toString().isNotEmpty) {
-      return ClipRRect(
-        borderRadius: MeloRadii.xl,
-        child: Image.network(
-          artwork.toString(),
-          fit: BoxFit.cover,
-          headers: meloArtworkHeaders,
-          errorBuilder: (_, __, ___) => _ArtworkPlaceholder(seed: track.title),
-        ),
-      );
-    }
-    return _ArtworkPlaceholder(seed: track.title);
   }
 }
 

@@ -201,7 +201,13 @@ class _MobileFavoriteRow extends ConsumerWidget {
         .firstWhere((variant) => variant.artwork != null, orElse: () => primary)
         .artwork;
 
-    return MeloTapFeedback(
+    return MeloMobileTrackRow(
+      index: index,
+      title: track.title,
+      artists: track.artists,
+      artwork: artwork,
+      duration: track.duration,
+      isActive: selected,
       onTap: () {
         if (selected) {
           unawaited(repository.playOrToggleUnifiedTrack(track));
@@ -209,102 +215,34 @@ class _MobileFavoriteRow extends ConsumerWidget {
           unawaited(onPlay());
         }
       },
-      selected: selected,
-      borderRadius: BorderRadius.circular(12),
-      animatePress: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: selected ? MeloColors.primary50 : MeloColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: MeloShadows.card,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 20,
-              height: 28,
-              child: Center(
-                child: selected
-                    ? const Icon(
-                        Icons.graphic_eq_rounded,
-                        color: MeloColors.primary700,
-                        size: 16,
-                      )
-                    : Text(
-                        '$index',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: MeloColors.textSecondary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            MeloTrackCover(
-              seed: track.title,
-              artwork: artwork,
-              isActive: selected,
-              size: 48,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    track.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: selected
-                              ? MeloColors.primary700
-                              : MeloColors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    track.artists.join(' / '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: MeloColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                  ),
-                ],
-              ),
-            ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (providerId == null) ...[
+            MeloPlatformIcon(providerId: primary.ref.providerId),
             const SizedBox(width: 10),
-            if (providerId == null)
-              MeloPlatformIcon(providerId: primary.ref.providerId),
-            if (providerId == null) const SizedBox(width: 10),
-            Text(
-              _formatMobileDuration(track.duration),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: MeloColors.textSecondary,
-                    fontSize: 11,
-                  ),
-            ),
-            const SizedBox(width: 4),
-            SizedBox(
-              width: 40,
-              height: 40,
-              child: Center(
-                child: _MobileFavoriteActionsButton(
-                  track: track,
-                  primary: primary,
-                  variants: variants,
-                  hasFavorite: hasFavorite,
+          ],
+          Text(
+            _formatMobileDuration(track.duration),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: MeloColors.textSecondary,
+                  fontSize: 11,
                 ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: Center(
+              child: _MobileFavoriteActionsButton(
+                track: track,
+                primary: primary,
+                variants: variants,
+                hasFavorite: hasFavorite,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

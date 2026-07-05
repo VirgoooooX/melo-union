@@ -8,6 +8,7 @@ import '../../bootstrap/demo_repository.dart';
 import '../../design/melo_tokens.dart';
 import '../../presentation/provider_presentation.dart';
 import '../../widgets/melo_components.dart';
+import '../../widgets/melo_track_row.dart';
 import '../../widgets/provider_tabs.dart';
 
 part 'search_page_view.dart';
