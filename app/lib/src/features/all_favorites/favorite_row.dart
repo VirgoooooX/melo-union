@@ -5,11 +5,13 @@ class _FavoriteRow extends ConsumerStatefulWidget {
     required this.index,
     required this.track,
     required this.providerId,
+    required this.onPlay,
   });
 
   final int index;
   final UnifiedFavoriteTrack track;
   final String? providerId;
+  final Future<void> Function() onPlay;
 
   @override
   ConsumerState<_FavoriteRow> createState() => _FavoriteRowState();
@@ -35,7 +37,13 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
     return MeloInteractiveRow(
       selected: isPlaying,
       height: MeloListMetrics.rowHeight,
-      onDoubleTap: () => repository.playOrToggleUnifiedTrack(widget.track),
+      onDoubleTap: () {
+        if (isPlaying) {
+          unawaited(repository.playOrToggleUnifiedTrack(widget.track));
+        } else {
+          unawaited(widget.onPlay());
+        }
+      },
       builder: (context, hovered) {
         return Row(
           children: [
@@ -199,34 +207,42 @@ class _MobileFavoriteRow extends ConsumerWidget {
         }
       },
       selected: selected,
-      borderRadius: BorderRadius.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: selected ? MeloColors.primary50 : MeloColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: MeloShadows.card,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
             SizedBox(
-              width: 24,
-              child: selected
-                  ? const Icon(
-                      Icons.graphic_eq_rounded,
-                      color: MeloColors.primary700,
-                      size: 18,
-                    )
-                  : Text(
-                      '$index',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: MeloColors.textSecondary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
+              width: 20,
+              height: 28,
+              child: Center(
+                child: selected
+                    ? const Icon(
+                        Icons.graphic_eq_rounded,
+                        color: MeloColors.primary700,
+                        size: 16,
+                      )
+                    : Text(
+                        '$index',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: MeloColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+              ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             MeloTrackCover(
               seed: track.title,
               artwork: artwork,
               isActive: selected,
-              size: 44,
+              size: 48,
+              borderRadius: BorderRadius.circular(8),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -242,38 +258,58 @@ class _MobileFavoriteRow extends ConsumerWidget {
                           color: selected
                               ? MeloColors.primary700
                               : MeloColors.textPrimary,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     track.artists.join(' / '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: MeloColors.textSecondary,
+                          fontSize: 12,
                         ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            _MobileTrackTrailingMeta(
-              variants: variants,
-              duration: track.duration,
+            const SizedBox(width: 10),
+            if (providerId == null)
+              MeloPlatformIcon(providerId: primary.ref.providerId),
+            if (providerId == null) const SizedBox(width: 10),
+            Text(
+              _formatMobileDuration(track.duration),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: MeloColors.textSecondary,
+                    fontSize: 11,
+                  ),
             ),
-            const SizedBox(width: 2),
-            _MobileFavoriteActionsButton(
-              track: track,
-              primary: primary,
-              variants: variants,
-              hasFavorite: hasFavorite,
+            const SizedBox(width: 4),
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: Center(
+                child: _MobileFavoriteActionsButton(
+                  track: track,
+                  primary: primary,
+                  variants: variants,
+                  hasFavorite: hasFavorite,
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+String _formatMobileDuration(Duration duration) {
+  final minutes = duration.inMinutes.toString().padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
 }
 
 enum _MobileFavoriteAction { favorite, queue, download, playlist }
@@ -461,48 +497,6 @@ class _MobileActionItem extends StatelessWidget {
   }
 }
 
-class _MobileTrackTrailingMeta extends StatelessWidget {
-  const _MobileTrackTrailingMeta({
-    required this.variants,
-    required this.duration,
-  });
-
-  final List<SourceTrack> variants;
-  final Duration duration;
-
-  @override
-  Widget build(BuildContext context) {
-    final extraSources = variants.length - 1;
-    final sourceLabel = extraSources > 0
-        ? '${meloProviderLabel(variants.first.ref.providerId)} +$extraSources'
-        : meloProviderLabel(variants.first.ref.providerId);
-    return SizedBox(
-      width: 76,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            _formatTrackDuration(duration),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: MeloColors.textSecondary,
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 3),
-          MeloSourceBadge(
-            providerId: variants.first.ref.providerId,
-            label: sourceLabel,
-            maxWidth: 76.0,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TrackTitleBlock extends StatelessWidget {
   const _TrackTitleBlock({
     required this.title,
@@ -552,12 +546,6 @@ String _albumLabel(List<SourceTrack> variants) {
     }
   }
   return '未知专辑';
-}
-
-String _formatTrackDuration(Duration duration) {
-  final minutes = duration.inMinutes;
-  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-  return '$minutes:$seconds';
 }
 
 class _RowPlaybackIndicator extends StatelessWidget {

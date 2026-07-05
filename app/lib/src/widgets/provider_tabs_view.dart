@@ -203,6 +203,10 @@ class _ProviderTabButtonState extends State<_ProviderTabButton> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (item.leading != null) ...[
+                  item.leading!,
+                  const SizedBox(width: 8),
+                ],
                 Text(
                   item.label,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(

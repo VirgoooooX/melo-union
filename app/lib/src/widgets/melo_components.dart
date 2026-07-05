@@ -194,6 +194,7 @@ class MeloTrackCover extends StatefulWidget {
     this.artwork,
     this.isActive = false,
     this.size = MeloListMetrics.trackCoverSize,
+    this.borderRadius,
     super.key,
   });
 
@@ -201,6 +202,7 @@ class MeloTrackCover extends StatefulWidget {
   final Uri? artwork;
   final bool isActive;
   final double size;
+  final BorderRadius? borderRadius;
 
   @override
   State<MeloTrackCover> createState() => _MeloTrackCoverState();
@@ -253,11 +255,11 @@ class _MeloTrackCoverState extends State<MeloTrackCover> {
         width: widget.size,
         height: widget.size,
         decoration: BoxDecoration(
-          borderRadius: MeloRadii.sm,
+          borderRadius: widget.borderRadius ?? MeloRadii.sm,
           boxShadow: widget.isActive ? MeloShadows.control : const [],
         ),
         child: ClipRRect(
-          borderRadius: MeloRadii.sm,
+          borderRadius: widget.borderRadius ?? MeloRadii.sm,
           clipBehavior: Clip.antiAlias,
           child: Image(
             image: imageProvider,
@@ -289,7 +291,7 @@ class _MeloTrackCoverState extends State<MeloTrackCover> {
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(
-        borderRadius: MeloRadii.sm,
+        borderRadius: widget.borderRadius ?? MeloRadii.sm,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -1415,5 +1417,123 @@ class _MeloFavoriteButtonState extends ConsumerState<MeloFavoriteButton> {
         );
       }
     }
+  }
+}
+
+class MeloPageGradientBackground extends StatelessWidget {
+  const MeloPageGradientBackground({
+    required this.providerId,
+    required this.child,
+    super.key,
+  });
+
+  final String providerId;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    final id = providerId.toLowerCase();
+    if (id == 'all' || id == 'local' || id == 'recommendations' || id.isEmpty) {
+      color = const Color(0xFF14BBA6); // Brand Mint
+    } else if (id == 'netease_cloud_music' ||
+        id.contains('aurora') ||
+        id.contains('netease')) {
+      color = const Color(0xFFFF4D4F); // NetEase Red
+    } else if (id == 'qq_music' || id.contains('beacon') || id.contains('qq')) {
+      color = const Color(
+          0xFFFAC800); // QQ Golden Yellow (from the new logo circle)
+    } else {
+      color = const Color(0xFF14BBA6); // Fallback to brand Mint
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: 0.06), // Very subtle pale top
+            color.withValues(alpha: 0.01),
+            Colors.transparent, // Fade to transparent / canvas
+          ],
+          stops: const [0.0, 0.4, 1.0],
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class MeloPlatformIcon extends StatelessWidget {
+  const MeloPlatformIcon({required this.providerId, super.key});
+
+  final ProviderId providerId;
+
+  @override
+  Widget build(BuildContext context) {
+    final presentation = meloProviderPresentation(providerId);
+    final value = providerId.value.toLowerCase();
+
+    if (value == 'netease_cloud_music' ||
+        value.contains('aurora') ||
+        value.contains('netease')) {
+      return Image.asset(
+        'assets/images/netease_logo.png',
+        width: 18,
+        height: 18,
+        fit: BoxFit.contain,
+      );
+    } else if (value == 'qq_music' ||
+        value.contains('beacon') ||
+        value.contains('qq')) {
+      return Image.asset(
+        'assets/images/qq_logo.png',
+        width: 18,
+        height: 18,
+        fit: BoxFit.contain,
+      );
+    }
+
+    Color bgColor;
+    IconData iconData;
+
+    if (value.contains('local')) {
+      bgColor = const Color(0xFF2563EB);
+      iconData = Icons.folder_rounded;
+    } else {
+      bgColor = presentation.foregroundColor;
+      iconData = presentation.icon;
+    }
+
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(
+        color: bgColor,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        iconData,
+        size: 11,
+        color: Colors.white,
+      ),
+    );
+  }
+}
+
+/// Brand icon for Melo tabs — the MeloUnion logo mark.
+class MeloBrandIcon extends StatelessWidget {
+  const MeloBrandIcon({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/images/melo_logo.png',
+      width: 18,
+      height: 18,
+      fit: BoxFit.contain,
+    );
   }
 }

@@ -127,12 +127,25 @@ class _FavoritesLibraryPanelState
                       index: index + 1,
                       track: tracks[index],
                       providerId: widget.selectedProviderId,
+                      onPlay: () => ref
+                          .read(demoRepositoryProvider)
+                          .playUnifiedTracksFrom(
+                            tracks,
+                            tracks[index],
+                            providerId: widget.selectedProviderId,
+                          ),
                     ),
                   )
                 : _SilentRefreshList(
                     tracks: tracks,
                     providerId: widget.selectedProviderId,
                     scrollController: _scrollController,
+                    onPlay: (tracks, selected, providerId) =>
+                        ref.read(demoRepositoryProvider).playUnifiedTracksFrom(
+                              tracks,
+                              selected,
+                              providerId: providerId,
+                            ),
                   ),
           ),
         ),
@@ -188,11 +201,17 @@ class _SilentRefreshList extends StatefulWidget {
     required this.tracks,
     required this.providerId,
     required this.scrollController,
+    required this.onPlay,
   });
 
   final List<UnifiedFavoriteTrack> tracks;
   final String? providerId;
   final ScrollController scrollController;
+  final Future<void> Function(
+    List<UnifiedFavoriteTrack> tracks,
+    UnifiedFavoriteTrack selected,
+    String? providerId,
+  ) onPlay;
 
   @override
   State<_SilentRefreshList> createState() => _SilentRefreshListState();
@@ -282,6 +301,11 @@ class _SilentRefreshListState extends State<_SilentRefreshList> {
           index: index + 1,
           track: _items[index],
           providerId: widget.providerId,
+          onPlay: () => widget.onPlay(
+            _items,
+            _items[index],
+            widget.providerId,
+          ),
         );
       },
     );
@@ -300,10 +324,12 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
   const _MobileFavoritesLibrary({
     required this.selectedProviderId,
     required this.sort,
+    required this.query,
   });
 
   final String? selectedProviderId;
   final _FavoriteSort sort;
+  final String query;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -336,37 +362,30 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
         subtitle: '切换来源或刷新后再试。',
       );
     }
-    return ListView.builder(
+    return ListView.separated(
       key: PageStorageKey<String>('mobile_favorites_$selectedProviderId'),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 156),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 156),
       physics: const AlwaysScrollableScrollPhysics(),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       scrollCacheExtent: const ScrollCacheExtent.pixels(192),
-      itemExtent: MeloListMetrics.mobileTrackRowHeight,
       addAutomaticKeepAlives: false,
       addRepaintBoundaries: false,
       addSemanticIndexes: false,
       itemCount: tracks.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final track = tracks[index];
         final repository = ref.read(demoRepositoryProvider);
         return RepaintBoundary(
           key: ValueKey(track.unifiedId),
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: MeloColors.border),
-              ),
-            ),
-            child: _MobileFavoriteRow(
-              index: index + 1,
-              track: track,
+          child: _MobileFavoriteRow(
+            index: index + 1,
+            track: track,
+            providerId: selectedProviderId,
+            onPlay: () => repository.playUnifiedTracksFrom(
+              tracks,
+              track,
               providerId: selectedProviderId,
-              onPlay: () => repository.playUnifiedTracksFrom(
-                tracks,
-                track,
-                providerId: selectedProviderId,
-              ),
             ),
           ),
         );
@@ -376,10 +395,15 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
 
   List<UnifiedFavoriteTrack> _filterAndSort(List<UnifiedFavoriteTrack> tracks) {
     final visible = tracks.where((track) {
-      return selectedProviderId == null ||
+      final providerMatch = selectedProviderId == null ||
           track.variants.any(
             (item) => item.ref.providerId.value == selectedProviderId,
           );
+      final queryMatch = query.isEmpty ||
+          '${track.title} ${track.artists.join(' ')} ${track.variants.map((item) => item.album ?? '').join(' ')}'
+              .toLowerCase()
+              .contains(query);
+      return providerMatch && queryMatch;
     }).toList(growable: false);
     switch (sort) {
       case _FavoriteSort.recent:
@@ -426,6 +450,7 @@ class _AnimatedRemovingRow extends StatelessWidget {
           index: 0,
           track: track,
           providerId: null,
+          onPlay: () async {},
         ),
       ),
     );

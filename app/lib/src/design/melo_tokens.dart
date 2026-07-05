@@ -33,8 +33,8 @@ abstract final class MeloColors {
 
   static const neteaseForeground = Color(0xFFE95555);
   static const neteaseBackground = Color(0xFFFFF0F0);
-  static const qqForeground = Color(0xFF238B4E);
-  static const qqBackground = Color(0xFFECF8F0);
+  static const qqForeground = Color(0xFFC29000); // Golden amber (to distinguish from Brand Mint green)
+  static const qqBackground = Color(0xFFFFF8E1); // Soft gold accent background
   static const localForeground = Color(0xFF2563EB);
   static const localBackground = Color(0xFFEEF4FF);
   static const mixedForeground = Color(0xFF0F9F8A);

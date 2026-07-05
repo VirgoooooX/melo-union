@@ -87,6 +87,7 @@ class _RecommendationsPageState extends ConsumerState<RecommendationsPage> {
             entry.descriptor.id,
             displayName: entry.descriptor.displayName,
           ).shortName,
+          leading: MeloPlatformIcon(providerId: entry.descriptor.id),
         ),
       const ProviderTabItem(
         id: 'more',
@@ -503,107 +504,110 @@ class _MobileRecommendationsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-          child: ProviderTabs(
-            items: tabs,
-            selectedId: selected,
-            onSelected: onTabSelected,
-            onMorePressed: onMorePressed,
-          ),
-        ),
-        Expanded(
-          child: ProviderTabSwipeRegion(
-            items: tabs,
-            selectedId: selected,
-            onSelected: onTabSelected,
-            child: CustomScrollView(
-              key: PageStorageKey<String>('mobile_recommendations_$selected'),
-              scrollCacheExtent: const ScrollCacheExtent.pixels(240),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: Column(
-                      children: [
-                        if (selected != 'more' && selectedShelfTab != null) ...[
-                          const SizedBox(height: 6),
-                          _ShelfTabSelector(
-                            tabs: shelfTabs,
-                            selected: selectedShelfTab!,
-                            onSelected: onShelfSelected,
-                          ),
-                          const SizedBox(height: 14),
-                          _MobilePlaylistShelf(
-                            playlistsFuture: playlistsFuture,
-                            onPlaylistSelected: onPlaylistSelected,
-                          ),
-                        ],
-                        const SizedBox(height: 22),
-                        Row(
-                          children: [
-                            Text(
-                              '推荐歌曲',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                            ),
-                            const Spacer(),
-                            TextButton.icon(
-                              onPressed: recommendationsFuture == null
-                                  ? null
-                                  : () async {
-                                      final tracks =
-                                          await recommendationsFuture!;
-                                      if (tracks.isNotEmpty) {
-                                        await repository.playTracks(tracks);
-                                      }
-                                    },
-                              icon: const Icon(Icons.play_arrow_rounded,
-                                  size: 18),
-                              label: const Text('播放全部'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
-                ),
-                if (selected == 'more')
-                  const SliverToBoxAdapter(
-                    child: _MobileRecommendationMessage(
-                      message: '当前来源暂未提供推荐内容。',
-                    ),
-                  )
-                else if (!canShowPlaylists)
-                  const SliverToBoxAdapter(
-                    child: _MobileRecommendationMessage(
-                      message: '当前来源暂未提供每日推荐。',
-                    ),
-                  )
-                else
-                  _MobileRecommendationTrackSliver(
-                    future: recommendationsFuture!,
-                    cached: selectedEntry == null
-                        ? null
-                        : repository.cachedRecommendations(
-                            selectedEntry!.descriptor.id,
-                          ),
-                    currentRef: currentRef,
-                    repository: repository,
-                  ),
-                const SliverToBoxAdapter(child: SizedBox(height: 156)),
-              ],
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: ProviderTabs(
+              items: tabs,
+              selectedId: selected,
+              onSelected: onTabSelected,
+              onMorePressed: onMorePressed,
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: ProviderTabSwipeRegion(
+              items: tabs,
+              selectedId: selected,
+              onSelected: onTabSelected,
+              child: CustomScrollView(
+                key: PageStorageKey<String>('mobile_recommendations_$selected'),
+                scrollCacheExtent: const ScrollCacheExtent.pixels(240),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Column(
+                        children: [
+                          if (selected != 'more' && selectedShelfTab != null) ...[
+                            const SizedBox(height: 6),
+                            _ShelfTabSelector(
+                              tabs: shelfTabs,
+                              selected: selectedShelfTab!,
+                              onSelected: onShelfSelected,
+                            ),
+                            const SizedBox(height: 14),
+                            _MobilePlaylistShelf(
+                              playlistsFuture: playlistsFuture,
+                              onPlaylistSelected: onPlaylistSelected,
+                            ),
+                          ],
+                          const SizedBox(height: 22),
+                          Row(
+                            children: [
+                              Text(
+                                '推荐歌曲',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                              ),
+                              const Spacer(),
+                              TextButton.icon(
+                                onPressed: recommendationsFuture == null
+                                    ? null
+                                    : () async {
+                                        final tracks =
+                                            await recommendationsFuture!;
+                                        if (tracks.isNotEmpty) {
+                                          await repository.playTracks(tracks);
+                                        }
+                                      },
+                                icon: const Icon(Icons.play_arrow_rounded,
+                                    size: 18),
+                                label: const Text('播放全部'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (selected == 'more')
+                    const SliverToBoxAdapter(
+                      child: _MobileRecommendationMessage(
+                        message: '当前来源暂未提供推荐内容。',
+                      ),
+                    )
+                  else if (!canShowPlaylists)
+                    const SliverToBoxAdapter(
+                      child: _MobileRecommendationMessage(
+                        message: '当前来源暂未提供每日推荐。',
+                      ),
+                    )
+                  else
+                    _MobileRecommendationTrackSliver(
+                      future: recommendationsFuture!,
+                      cached: selectedEntry == null
+                          ? null
+                          : repository.cachedRecommendations(
+                              selectedEntry!.descriptor.id,
+                            ),
+                      currentRef: currentRef,
+                      repository: repository,
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 156)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -709,57 +713,97 @@ class _MobileRecommendationTrackSliver extends StatelessWidget {
   Widget _buildSliver(List<SourceTrack> tracks) {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      sliver: SliverFixedExtentList.builder(
-        itemExtent: MeloListMetrics.mobileTrackRowHeight,
+      sliver: SliverList.separated(
         itemCount: tracks.length,
-        addAutomaticKeepAlives: false,
-        addSemanticIndexes: false,
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final track = tracks[index];
           final selected = currentRef == track.ref;
-          return DecoratedBox(
-            decoration: const BoxDecoration(
-              color: MeloColors.surface,
-              border: Border(
-                bottom: BorderSide(color: MeloColors.border),
+          return MeloTapFeedback(
+            onTap: track.isPlayable
+                ? () => repository.playOrToggleTrack(track)
+                : null,
+            selected: selected,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: selected ? MeloColors.primary50 : MeloColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: MeloShadows.card,
               ),
-            ),
-            child: MeloTapFeedback(
-              onTap: track.isPlayable
-                  ? () => repository.playOrToggleTrack(track)
-                  : null,
-              selected: selected,
-              borderRadius: BorderRadius.zero,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    MeloTrackCover(
-                      seed: track.title,
-                      artwork: track.artwork,
-                      isActive: selected,
-                      size: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 28,
+                    child: Center(
+                      child: selected
+                          ? const Icon(
+                              Icons.graphic_eq_rounded,
+                              color: MeloColors.primary700,
+                              size: 16,
+                            )
+                          : Text(
+                              '${index + 1}',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: MeloColors.textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _RecommendationTrackTitleBlock(
-                        title: track.title,
-                        artists: track.artists,
-                        active: selected,
-                      ),
+                  ),
+                  const SizedBox(width: 8),
+                  MeloTrackCover(
+                    seed: track.title,
+                    artwork: track.artwork,
+                    isActive: selected,
+                    size: 48,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: selected
+                                    ? MeloColors.primary700
+                                    : MeloColors.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          track.artists.join(' / '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: MeloColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      _formatRecommendationDuration(track.duration),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: MeloColors.textSecondary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    const SizedBox(width: 6),
-                    MeloTrackDownloadButton(track: track),
-                    MeloFavoriteButton(track: track),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    _formatRecommendationDuration(track.duration),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                  ),
+                  const SizedBox(width: 4),
+                  MeloTrackDownloadButton(track: track),
+                  MeloFavoriteButton(track: track),
+                ],
               ),
             ),
           );
@@ -900,7 +944,7 @@ void _showPlaylistSheet(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -953,73 +997,116 @@ void _showPlaylistSheet(
                       MeloErrorState(message: '歌单加载失败：${snapshot.error}'),
                     ConnectionState.done when tracks.isEmpty =>
                       const Center(child: Text('歌单暂无歌曲。')),
-                    ConnectionState.done => ListView.separated(
-                        itemCount: tracks.length,
-                        separatorBuilder: (_, __) => const Divider(
-                          height: 1,
-                          color: MeloColors.border,
+                    ConnectionState.done => Expanded(
+                        child: ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                          itemCount: tracks.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final track = tracks[index];
+                            return MeloTapFeedback(
+                              onTap: track.isPlayable
+                                  ? () => ref
+                                      .read(demoRepositoryProvider)
+                                      .playOrToggleTrack(track)
+                                  : null,
+                              selected: false,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: MeloColors.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: MeloShadows.card,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 20,
+                                      height: 28,
+                                      child: Center(
+                                        child: Text(
+                                          '${index + 1}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color:
+                                                    MeloColors.textSecondary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    MeloTrackCover(
+                                      seed: track.title,
+                                      artwork: track.artwork,
+                                      size: 48,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            track.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  color:
+                                                      MeloColors.textPrimary,
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            track.artists.join(' / '),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: MeloColors
+                                                      .textSecondary,
+                                                  fontSize: 12,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      _formatRecommendationDuration(
+                                          track.duration),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: MeloColors.textSecondary,
+                                            fontSize: 11,
+                                          ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    MeloTrackDownloadButton(track: track),
+                                    MeloFavoriteButton(track: track),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        itemBuilder: (context, index) {
-                          final track = tracks[index];
-                          return MeloInteractiveRow(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            onDoubleTap: track.isPlayable
-                                ? () => ref
-                                    .read(demoRepositoryProvider)
-                                    .playOrToggleTrack(track)
-                                : null,
-                            builder: (context, hovered) => Row(
-                              children: [
-                                SizedBox(
-                                  width: 32,
-                                  child: Icon(
-                                    Icons.play_arrow_rounded,
-                                    size: 18,
-                                    color: hovered
-                                        ? MeloColors.primary700
-                                        : MeloColors.textTertiary,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  flex: 3,
-                                  child: Row(
-                                    children: [
-                                      MeloTrackCover(
-                                        seed: track.title,
-                                        artwork: track.artwork,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _RecommendationTrackTitleBlock(
-                                          title: track.title,
-                                          artists: track.artists,
-                                          active: false,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    track.album ?? '歌单',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: MeloColors.textSecondary,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                  ),
-                                ),
-                                MeloTrackDownloadButton(track: track),
-                              ],
-                            ),
-                          );
-                        },
                       ),
                     _ => const Center(child: CircularProgressIndicator()),
                   },

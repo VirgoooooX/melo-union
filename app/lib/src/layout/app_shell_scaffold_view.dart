@@ -168,34 +168,39 @@ class _MobileShell extends StatelessWidget {
     final selected = destinations.indexOf(mobileCurrent);
     final showMiniPlayer = current != AppDestination.settings &&
         current != AppDestination.downloads;
+    final isImmersivePage = current == AppDestination.favorites ||
+        current == AppDestination.recommendations ||
+        current == AppDestination.playlists;
+
+    final childWidget = isImmersivePage
+        ? child
+        : SafeArea(bottom: false, child: child);
+
     return Scaffold(
       extendBody: true,
       backgroundColor: MeloColors.canvas,
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [MeloColors.canvasSoft, MeloColors.canvas],
-                  ),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [MeloColors.canvasSoft, MeloColors.canvas],
                 ),
-                child: child,
               ),
+              child: childWidget,
             ),
-            if (showMiniPlayer)
-              Positioned(
-                left: 12,
-                right: 12,
-                bottom: MediaQuery.paddingOf(context).bottom + 76,
-                child: const MeloMobileMiniPlayer(),
-              ),
-          ],
-        ),
+          ),
+          if (showMiniPlayer)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: MediaQuery.paddingOf(context).bottom + 76,
+              child: const MeloMobileMiniPlayer(),
+            ),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         height: 64,
