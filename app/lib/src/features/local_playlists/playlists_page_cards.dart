@@ -24,7 +24,7 @@ class _PlaylistGrid extends StatelessWidget {
         crossAxisCount: count,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: width < 960 ? .66 : .70,
+        childAspectRatio: 0.78,
       ),
       itemCount: playlists.length + 1,
       itemBuilder: (context, index) {
@@ -175,23 +175,28 @@ class _RemotePlaylistGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final count = width >= 1240
-        ? 4
-        : width >= 980
-            ? 3
-            : 2;
+    final isMobile = width < 960;
+    final count = isMobile
+        ? 3
+        : width >= 1240
+            ? 4
+            : width >= 980
+                ? 3
+                : 2;
     return GridView.builder(
+      padding: isMobile ? const EdgeInsets.fromLTRB(10, 0, 10, 156) : EdgeInsets.zero,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: count,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: width < 960 ? .66 : .70,
+        mainAxisSpacing: isMobile ? 12 : 16,
+        crossAxisSpacing: isMobile ? 10 : 16,
+        childAspectRatio: isMobile ? 0.64 : 0.78,
       ),
       itemCount: playlists.length,
       itemBuilder: (context, index) {
         final playlist = playlists[index];
         final presentation = meloProviderPresentation(playlist.providerId);
         return MeloPlaylistCard(
+          compact: isMobile,
           title: playlist.name,
           subtitle:
               '${playlist.trackCount} 首 · ${playlist.creatorName ?? presentation.shortName}',

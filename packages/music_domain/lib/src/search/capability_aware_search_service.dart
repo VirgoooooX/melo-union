@@ -23,13 +23,22 @@ final class CapabilityAwareSearchService {
           !entry.descriptor.supports(ProviderCapability.search)) {
         continue;
       }
-      final tracks = await entry.provider.search(query);
-      groups.add(
-        ProviderSearchResults(
-          provider: entry.descriptor,
-          tracks: List.unmodifiable(tracks),
-        ),
-      );
+      try {
+        final tracks = await entry.provider.search(query);
+        groups.add(
+          ProviderSearchResults(
+            provider: entry.descriptor,
+            tracks: List.unmodifiable(tracks),
+          ),
+        );
+      } on ProviderException {
+        groups.add(
+          ProviderSearchResults(
+            provider: entry.descriptor,
+            tracks: const [],
+          ),
+        );
+      }
     }
     return List.unmodifiable(groups);
   }

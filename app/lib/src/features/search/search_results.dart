@@ -21,67 +21,43 @@ class _SearchResults extends ConsumerWidget {
         if (snapshot.hasError) {
           return MeloErrorState(message: '搜索失败：${snapshot.error}');
         }
+
         final groups = snapshot.data ?? const <ProviderSearchResults>[];
         final filtered = selectedSource == 'all'
             ? groups
             : groups
                 .where((group) => group.provider.id.value == selectedSource)
                 .toList(growable: false);
-        final count =
-            filtered.fold<int>(0, (sum, group) => sum + group.tracks.length);
+        final visibleGroups = filtered
+            .where((group) => group.tracks.isNotEmpty)
+            .toList(growable: false)
+          ..sort(_compareProviderGroups);
+        final count = visibleGroups.fold<int>(
+            0, (sum, group) => sum + group.tracks.length);
         if (count == 0) {
-          return Center(
-            child: Text(
-              '没有找到“$query”相关的结果。',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: MeloColors.textSecondary,
-                  ),
-            ),
-          );
+          return _SearchEmptyState(query: query);
         }
-        final entries = <_SearchResultEntry>[
-          _SearchResultEntry.summary(count),
-          for (final group in filtered) ...[
-            _SearchResultEntry.header(group),
-            for (final track in group.tracks)
-              _SearchResultEntry.track(
-                track,
-                meloProviderPresentation(
-                  group.provider.id,
-                  displayName: group.provider.displayName,
-                ).fullName,
-              ),
-            const _SearchResultEntry.gap(),
-          ],
-        ];
-        return ListView.builder(
-          scrollCacheExtent: const ScrollCacheExtent.pixels(240),
+
+        final compact = MediaQuery.sizeOf(context).width < 760;
+        return ListView.separated(
+          scrollCacheExtent: const ScrollCacheExtent.pixels(320),
           addAutomaticKeepAlives: false,
           addSemanticIndexes: false,
-          itemCount: entries.length,
+          padding: EdgeInsets.fromLTRB(0, compact ? 2 : 4, 0, 22),
+          itemCount: visibleGroups.length + 1,
+          separatorBuilder: (_, index) =>
+              SizedBox(height: index == 0 ? 14 : (compact ? 14 : 18)),
           itemBuilder: (context, index) {
-            final entry = entries[index];
-            return switch (entry.kind) {
-              _SearchResultEntryKind.summary => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    '找到 ${entry.count} 首相关歌曲',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: MeloColors.textSecondary,
-                        ),
-                  ),
-                ),
-              _SearchResultEntryKind.header => _SearchResultHeader(
-                  group: entry.group!,
-                ),
-              _SearchResultEntryKind.track => RepaintBoundary(
-                  child: _SearchTrackRow(
-                    track: entry.track!,
-                    providerName: entry.providerName!,
-                  ),
-                ),
-              _SearchResultEntryKind.gap => const SizedBox(height: 18),
-            };
+            if (index == 0) {
+              return _SearchSummary(
+                count: count,
+                sourceCount: visibleGroups.length,
+              );
+            }
+            final group = visibleGroups[index - 1];
+            return compact
+                ? _MobileProviderResultSection(group: group)
+                : _DesktopProviderResultSection(group: group);
           },
         );
       },
@@ -89,77 +65,281 @@ class _SearchResults extends ConsumerWidget {
   }
 }
 
-enum _SearchResultEntryKind { summary, header, track, gap }
-
-class _SearchResultEntry {
-  const _SearchResultEntry._({
-    required this.kind,
-    this.count,
-    this.group,
-    this.track,
-    this.providerName,
-  });
-
-  const _SearchResultEntry.summary(int count)
-      : this._(kind: _SearchResultEntryKind.summary, count: count);
-
-  const _SearchResultEntry.header(ProviderSearchResults group)
-      : this._(kind: _SearchResultEntryKind.header, group: group);
-
-  const _SearchResultEntry.track(SourceTrack track, String providerName)
-      : this._(
-          kind: _SearchResultEntryKind.track,
-          track: track,
-          providerName: providerName,
-        );
-
-  const _SearchResultEntry.gap() : this._(kind: _SearchResultEntryKind.gap);
-
-  final _SearchResultEntryKind kind;
-  final int? count;
-  final ProviderSearchResults? group;
-  final SourceTrack? track;
-  final String? providerName;
+int _compareProviderGroups(ProviderSearchResults a, ProviderSearchResults b) {
+  final aCatalog = _isCatalogProvider(a.provider);
+  final bCatalog = _isCatalogProvider(b.provider);
+  if (aCatalog != bCatalog) return aCatalog ? 1 : -1;
+  return a.provider.displayName.compareTo(b.provider.displayName);
 }
 
-class _SearchResultHeader extends StatelessWidget {
-  const _SearchResultHeader({required this.group});
+bool _isCatalogProvider(ProviderDescriptor provider) {
+  final value = provider.id.value.toLowerCase();
+  return value.contains('catalog') || value.contains('compass');
+}
+
+class _SearchSummary extends StatelessWidget {
+  const _SearchSummary({required this.count, required this.sourceCount});
+
+  final int count;
+  final int sourceCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '找到 $count 首相关内容 · $sourceCount 个来源',
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: MeloColors.textSecondary,
+            fontWeight: FontWeight.w700,
+          ),
+    );
+  }
+}
+
+class _SearchEmptyState extends StatelessWidget {
+  const _SearchEmptyState({required this.query});
+
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        '没有找到“$query”相关的结果。',
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: MeloColors.textSecondary,
+            ),
+      ),
+    );
+  }
+}
+
+class _MobileProviderResultSection extends StatelessWidget {
+  const _MobileProviderResultSection({required this.group});
 
   final ProviderSearchResults group;
 
   @override
   Widget build(BuildContext context) {
-    final providerName = meloProviderPresentation(
-      group.provider.id,
-      displayName: group.provider.displayName,
-    ).fullName;
     return Container(
-      margin: const EdgeInsets.only(top: 2),
       decoration: BoxDecoration(
         color: MeloColors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: MeloColors.border),
         boxShadow: MeloShadows.card,
       ),
+      child: Column(
+        children: [
+          _ProviderSectionHeader(group: group, compact: true),
+          const Divider(height: 1, color: MeloColors.border),
+          for (var i = 0; i < group.tracks.length; i++) ...[
+            _MobileSearchTrackRow(
+              track: group.tracks[i],
+              provider: group.provider,
+            ),
+            if (i != group.tracks.length - 1)
+              const Divider(
+                height: 1,
+                indent: 72,
+                color: MeloColors.border,
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DesktopProviderResultSection extends StatelessWidget {
+  const _DesktopProviderResultSection({required this.group});
+
+  final ProviderSearchResults group;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _ProviderSectionHeader(group: group),
+        for (final track in group.tracks)
+          RepaintBoundary(
+            child: _DesktopSearchTrackRow(
+              track: track,
+              provider: group.provider,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ProviderSectionHeader extends StatelessWidget {
+  const _ProviderSectionHeader({
+    required this.group,
+    this.compact = false,
+  });
+
+  final ProviderSearchResults group;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final presentation = meloProviderPresentation(
+      group.provider.id,
+      displayName: group.provider.displayName,
+    );
+    final catalog = _isCatalogProvider(group.provider);
+    return Padding(
+      padding:
+          EdgeInsets.fromLTRB(14, compact ? 12 : 10, 14, compact ? 10 : 12),
+      child: Row(
+        children: [
+          _ProviderLogoFrame(
+              providerId: group.provider.id, size: compact ? 32 : 34),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  presentation.fullName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: MeloColors.textPrimary,
+                        fontSize: compact ? 15.5 : null,
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                if (catalog) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '目录结果仅用于识别与整理',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textTertiary,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          _ProviderCountPill(
+            label: catalog
+                ? '目录 · ${group.tracks.length}'
+                : '${group.tracks.length} 首',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProviderLogoFrame extends StatelessWidget {
+  const _ProviderLogoFrame({required this.providerId, this.size = 32});
+
+  final ProviderId providerId;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: MeloColors.primary50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: MeloColors.primary100),
+      ),
+      alignment: Alignment.center,
+      child: MeloPlatformIcon(providerId: providerId),
+    );
+  }
+}
+
+class _ProviderCountPill extends StatelessWidget {
+  const _ProviderCountPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 26,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: BoxDecoration(
+        color: MeloColors.surfaceMuted,
+        borderRadius: MeloRadii.pill,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: MeloColors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+      ),
+    );
+  }
+}
+
+class _MobileSearchTrackRow extends ConsumerWidget {
+  const _MobileSearchTrackRow({
+    required this.track,
+    required this.provider,
+  });
+
+  final SourceTrack track;
+  final ProviderDescriptor provider;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.read(demoRepositoryProvider);
+    final selected = ref.watch(
+      demoRepositoryProvider
+          .select((r) => r.queue.current?.track.ref == track.ref),
+    );
+    final playable = track.isPlayable;
+    return MeloTapFeedback(
+      selected: selected,
+      onTap: playable ? () => repository.playOrToggleTrack(track) : null,
+      borderRadius: BorderRadius.zero,
+      animatePress: playable,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         child: Row(
           children: [
-            MeloSourceBadge(providerId: group.provider.id),
-            const SizedBox(width: 8),
-            Text(
-              providerName,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+            MeloTrackCover(
+              seed: track.title,
+              artwork: track.artwork,
+              isActive: selected,
+              size: 46,
+              borderRadius: BorderRadius.circular(8),
             ),
-            const Spacer(),
-            Text(
-              '${group.tracks.length} 首',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: MeloColors.textSecondary,
-                  ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _SearchTrackTitleBlock(
+                title: track.title,
+                artists: track.artists,
+                active: selected,
+              ),
             ),
+            const SizedBox(width: 10),
+            if (!playable) const _CatalogTag(),
+            if (playable)
+              Text(
+                _formatSearchDuration(track.duration),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: MeloColors.textTertiary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            const SizedBox(width: 4),
+            _SearchTrackActions(track: track),
           ],
         ),
       ),
@@ -167,39 +347,42 @@ class _SearchResultHeader extends StatelessWidget {
   }
 }
 
-class _SearchTrackRow extends ConsumerWidget {
-  const _SearchTrackRow({
+class _DesktopSearchTrackRow extends ConsumerWidget {
+  const _DesktopSearchTrackRow({
     required this.track,
-    required this.providerName,
+    required this.provider,
   });
 
   final SourceTrack track;
-  final String providerName;
+  final ProviderDescriptor provider;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.read(demoRepositoryProvider);
-    final currentRef = ref.watch(
-      demoRepositoryProvider.select((r) => r.queue.current?.track.ref),
+    final selected = ref.watch(
+      demoRepositoryProvider
+          .select((r) => r.queue.current?.track.ref == track.ref),
     );
-    final selected = currentRef == track.ref;
-    final isMobile = MediaQuery.sizeOf(context).width < 960;
-    final play =
-        track.isPlayable ? () => repository.playOrToggleTrack(track) : null;
+    final playable = track.isPlayable;
+    final play = playable ? () => repository.playOrToggleTrack(track) : null;
     return MeloInteractiveRow(
       selected: selected,
-      onTap: isMobile ? play : null,
-      onDoubleTap: isMobile ? null : play,
+      onTap: null,
+      onDoubleTap: play,
       builder: (context, hovered) => Row(
         children: [
           SizedBox(
             width: 32,
             child: Icon(
-              selected ? Icons.graphic_eq_rounded : Icons.play_arrow_rounded,
+              selected
+                  ? Icons.graphic_eq_rounded
+                  : playable
+                      ? Icons.play_arrow_rounded
+                      : Icons.manage_search_rounded,
               size: 18,
               color: selected
                   ? MeloColors.primary700
-                  : hovered
+                  : hovered && playable
                       ? MeloColors.primary700
                       : MeloColors.textTertiary,
             ),
@@ -228,7 +411,7 @@ class _SearchTrackRow extends ConsumerWidget {
           Expanded(
             flex: 3,
             child: Text(
-              track.album ?? providerName,
+              track.album ?? provider.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -237,8 +420,15 @@ class _SearchTrackRow extends ConsumerWidget {
                   ),
             ),
           ),
-          MeloFavoriteButton(track: track),
-          MeloTrackMoreMenu(track: track),
+          SizedBox(
+            width: 92,
+            child: Center(
+              child: playable
+                  ? Text(_formatSearchDuration(track.duration))
+                  : const _CatalogTag(),
+            ),
+          ),
+          _SearchTrackActions(track: track),
         ],
       ),
     );
@@ -268,6 +458,7 @@ class _SearchTrackTitleBlock extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: active ? MeloColors.primary700 : MeloColors.textPrimary,
+                fontSize: 15,
                 fontWeight: FontWeight.w800,
               ),
         ),
@@ -277,11 +468,61 @@ class _SearchTrackTitleBlock extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: MeloColors.textTertiary,
+                color: MeloColors.textSecondary,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
         ),
       ],
     );
   }
+}
+
+class _CatalogTag extends StatelessWidget {
+  const _CatalogTag();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: MeloColors.primary50,
+        borderRadius: MeloRadii.pill,
+        border: Border.all(color: MeloColors.primary100),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '目录',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: MeloColors.primary700,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+      ),
+    );
+  }
+}
+
+class _SearchTrackActions extends StatelessWidget {
+  const _SearchTrackActions({required this.track});
+
+  final SourceTrack track;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MeloFavoriteButton(track: track),
+        MeloTrackMoreMenu(track: track),
+      ],
+    );
+  }
+}
+
+String _formatSearchDuration(Duration duration) {
+  final minutes = duration.inMinutes.toString().padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
 }

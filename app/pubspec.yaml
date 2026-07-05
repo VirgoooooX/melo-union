@@ -43,6 +43,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/melo_logo.png
+    - assets/images/melo_logo_inverse.png
     - assets/images/netease_logo.png
     - assets/images/qq_logo.png
 

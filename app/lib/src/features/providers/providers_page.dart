@@ -4,6 +4,7 @@ import 'package:provider_contract/provider_contract.dart';
 
 import '../../bootstrap/demo_repository.dart';
 import '../../design/melo_tokens.dart';
+import '../../widgets/melo_logo_mark.dart';
 import '../../widgets/provider_badge.dart';
 
 class ProvidersPage extends ConsumerWidget {
@@ -18,16 +19,28 @@ class ProvidersPage extends ConsumerWidget {
         .toSet();
 
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
       children: [
-        Text(
-          'Provider / 我的',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: MeloColors.textPrimary,
+        Row(
+          children: [
+            const _ProvidersBrandLogo(),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Provider / 我的',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                      color: MeloColors.textPrimary,
+                      letterSpacing: 0,
+                    ),
               ),
+            ),
+          ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 10),
         Text(
           '这里可以模拟启用/禁用来源与登录态变化，验证全部喜欢与本地歌单的降级行为。',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -43,6 +56,34 @@ class ProvidersPage extends ConsumerWidget {
           const SizedBox(height: 14),
         ],
       ],
+    );
+  }
+}
+
+class _ProvidersBrandLogo extends StatelessWidget {
+  const _ProvidersBrandLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: MeloColors.primary600,
+        borderRadius: BorderRadius.circular(13),
+        boxShadow: [
+          BoxShadow(
+            color: MeloColors.primary600.withValues(alpha: .22),
+            blurRadius: 14,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: const ColorFiltered(
+        colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+        child: MeloLogoMark(size: 28, semanticLabel: null),
+      ),
     );
   }
 }

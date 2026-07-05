@@ -308,63 +308,22 @@ class _MobileLocalPlaylistList extends StatelessWidget {
         subtitle: '点右上角新建，把喜欢的歌加入歌单。',
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 156),
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(10, 0, 10, 156),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.64,
+      ),
       itemCount: playlists.length,
-      separatorBuilder: (_, __) =>
-          const Divider(height: 1, color: MeloColors.border),
       itemBuilder: (context, index) {
         final playlist = playlists[index];
-        final playableTracks = [
-          for (final item in playlist.items)
-            if (repository.sourceTrackByRef(item.trackRef) case final track?)
-              track,
-        ];
-        return InkWell(
+        return MeloPlaylistCard(
+          compact: true,
+          title: playlist.name,
+          subtitle: '${playlist.items.length} 首 · 本地',
           onTap: () => onSelected(playlist.id),
-          borderRadius: MeloRadii.md,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 58,
-                  height: 58,
-                  child: MeloPlaylistCover(title: playlist.name),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        playlist.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w900,
-                            ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${playlist.items.length} 首 · 本地歌单',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: MeloColors.textSecondary,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton.filledTonal(
-                  tooltip: '播放歌单',
-                  onPressed: playableTracks.isEmpty
-                      ? null
-                      : () => repository.playTracks(playableTracks),
-                  icon: const Icon(Icons.play_arrow_rounded),
-                ),
-              ],
-            ),
-          ),
         );
       },
     );

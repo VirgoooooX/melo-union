@@ -74,7 +74,7 @@ class _MusicSourceCard extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          _SourceIcon(presentation: presentation),
+          _SourceIcon(entry: entry),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -655,12 +655,41 @@ class _AdvancedSourceInfo extends StatelessWidget {
 }
 
 class _SourceIcon extends StatelessWidget {
-  const _SourceIcon({required this.presentation});
+  const _SourceIcon({required this.entry});
 
-  final MeloProviderPresentation presentation;
+  final ProviderRegistryEntry entry;
 
   @override
   Widget build(BuildContext context) {
+    final id = entry.descriptor.id.value.toLowerCase();
+    final isNetease = id == 'netease_cloud_music' ||
+        id.contains('aurora') ||
+        id.contains('netease');
+    final isQQ = id == 'qq_music' || id.contains('beacon') || id.contains('qq');
+
+    if (isNetease || isQQ) {
+      return Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: MeloRadii.md,
+          border: Border.all(color: MeloColors.border),
+        ),
+        padding: const EdgeInsets.all(6),
+        child: Image.asset(
+          isNetease
+              ? 'assets/images/netease_logo.png'
+              : 'assets/images/qq_logo.png',
+          fit: BoxFit.contain,
+        ),
+      );
+    }
+
+    final presentation = meloProviderPresentation(
+      entry.descriptor.id,
+      displayName: entry.descriptor.displayName,
+    );
     return Container(
       width: 46,
       height: 46,

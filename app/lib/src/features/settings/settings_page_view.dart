@@ -135,7 +135,12 @@ class _MobileMineView extends ConsumerWidget {
       children: [
         Row(
           children: [
-            const MeloLogoMark(size: 40),
+            Image.asset(
+              'assets/images/melo_logo_inverse.png',
+              width: 40,
+              height: 40,
+              fit: BoxFit.contain,
+            ),
             const SizedBox(width: MeloSpacing.sm),
             Expanded(
               child: Text(
@@ -236,7 +241,7 @@ class _MobileSourceSummaryCard extends ConsumerWidget {
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            _SourceIcon(presentation: presentation),
+            _SourceIcon(entry: entry),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

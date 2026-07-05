@@ -27,6 +27,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   Widget build(BuildContext context) {
     final repository = ref.watch(demoRepositoryProvider);
+    final compact = MediaQuery.sizeOf(context).width < 760;
     final searchable = repository.providerEntries
         .where((entry) =>
             entry.isEnabled &&
@@ -37,6 +38,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       for (final entry in searchable)
         ProviderTabItem(
           id: entry.descriptor.id.value,
+          leading: MeloPlatformIcon(providerId: entry.descriptor.id),
           label: meloProviderPresentation(
             entry.descriptor.id,
             displayName: entry.descriptor.displayName,
@@ -48,7 +50,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         : 'all';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+      padding: EdgeInsets.fromLTRB(
+        compact ? 16 : 24,
+        compact ? 18 : 20,
+        compact ? 16 : 24,
+        16,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -58,7 +65,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 child: Text(
                   '搜索',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontSize: compact ? 28 : null,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0,
                       ),
                 ),
               ),
@@ -79,6 +88,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.search_rounded),
               hintText: '搜索歌曲、歌手或专辑',
+              filled: true,
+              fillColor: MeloColors.surface,
               suffixIcon: _query.isEmpty
                   ? null
                   : IconButton(
@@ -92,11 +103,19 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
           ),
           const SizedBox(height: 14),
-          ProviderTabs(
-            items: tabs,
-            selectedId: selected,
-            onSelected: (value) => setState(() => _selectedSource = value),
-          ),
+          compact
+              ? _MobileSearchSourceRail(
+                  items: tabs,
+                  selectedId: selected,
+                  onSelected: (value) =>
+                      setState(() => _selectedSource = value),
+                )
+              : ProviderTabs(
+                  items: tabs,
+                  selectedId: selected,
+                  onSelected: (value) =>
+                      setState(() => _selectedSource = value),
+                ),
           const SizedBox(height: 14),
           Expanded(
             child: _query.isEmpty
@@ -104,6 +123,91 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 : _SearchResults(query: _query, selectedSource: selected),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MobileSearchSourceRail extends StatelessWidget {
+  const _MobileSearchSourceRail({
+    required this.items,
+    required this.selectedId,
+    required this.onSelected,
+  });
+
+  final List<ProviderTabItem> items;
+  final String selectedId;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return _MobileSearchSourceChip(
+            item: item,
+            selected: item.id == selectedId,
+            onTap: () => onSelected(item.id),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MobileSearchSourceChip extends StatelessWidget {
+  const _MobileSearchSourceChip({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ProviderTabItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground =
+        selected ? MeloColors.primary700 : MeloColors.textSecondary;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: selected ? MeloColors.primary50 : MeloColors.surface,
+          borderRadius: MeloRadii.pill,
+          border: Border.all(
+            color: selected ? MeloColors.primary100 : MeloColors.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            item.leading ??
+                Icon(
+                  Icons.all_inclusive_rounded,
+                  size: 18,
+                  color: foreground,
+                ),
+            const SizedBox(width: 7),
+            Text(
+              item.label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }

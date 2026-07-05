@@ -170,6 +170,7 @@ class _MobileFavoriteRow extends ConsumerWidget {
     required this.track,
     required this.providerId,
     required this.onPlay,
+    super.key,
   });
 
   final int index;
@@ -180,9 +181,6 @@ class _MobileFavoriteRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.read(demoRepositoryProvider);
-    final currentRef = ref.watch(
-      demoRepositoryProvider.select((r) => r.queue.current?.track.ref),
-    );
     final variants = providerId == null
         ? track.variants
         : track.variants
@@ -191,8 +189,13 @@ class _MobileFavoriteRow extends ConsumerWidget {
     if (variants.isEmpty) return const SizedBox.shrink();
 
     final primary = variants.first;
-    final selected = currentRef != null &&
-        variants.any((variant) => variant.ref == currentRef);
+    final selected = ref.watch(
+      demoRepositoryProvider.select((repository) {
+        final currentRef = repository.queue.current?.track.ref;
+        return currentRef != null &&
+            variants.any((variant) => variant.ref == currentRef);
+      }),
+    );
     final hasFavorite = variants.any((variant) => variant.isFavorited);
     final artwork = track.variants
         .firstWhere((variant) => variant.artwork != null, orElse: () => primary)
@@ -208,6 +211,7 @@ class _MobileFavoriteRow extends ConsumerWidget {
       },
       selected: selected,
       borderRadius: BorderRadius.circular(12),
+      animatePress: false,
       child: Container(
         decoration: BoxDecoration(
           color: selected ? MeloColors.primary50 : MeloColors.surface,

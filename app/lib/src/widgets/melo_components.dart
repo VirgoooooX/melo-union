@@ -132,6 +132,7 @@ class MeloTapFeedback extends StatefulWidget {
     this.onTap,
     this.borderRadius = MeloRadii.sm,
     this.selected = false,
+    this.animatePress = true,
     super.key,
   });
 
@@ -139,6 +140,7 @@ class MeloTapFeedback extends StatefulWidget {
   final VoidCallback? onTap;
   final BorderRadius borderRadius;
   final bool selected;
+  final bool animatePress;
 
   @override
   State<MeloTapFeedback> createState() => _MeloTapFeedbackState();
@@ -161,29 +163,35 @@ class _MeloTapFeedbackState extends State<MeloTapFeedback> {
     final interactive = widget.onTap != null;
     final background =
         widget.selected ? MeloColors.primary50 : Colors.transparent;
+    final child = DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: widget.borderRadius,
+      ),
+      child: widget.child,
+    );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: interactive ? (_) => _setPressed(true) : null,
-      onTapCancel: interactive ? () => _setPressed(false) : null,
-      onTapUp: interactive ? (_) => _setPressed(false) : null,
+      onTapDown:
+          interactive && widget.animatePress ? (_) => _setPressed(true) : null,
+      onTapCancel:
+          interactive && widget.animatePress ? () => _setPressed(false) : null,
+      onTapUp:
+          interactive && widget.animatePress ? (_) => _setPressed(false) : null,
       onTap: interactive ? _handleTap : null,
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 70),
-        curve: Curves.easeOutCubic,
-        scale: _pressed ? .982 : 1,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: widget.borderRadius,
-          ),
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 70),
-            curve: Curves.easeOutCubic,
-            opacity: _pressed ? .88 : 1,
-            child: widget.child,
-          ),
-        ),
-      ),
+      child: widget.animatePress
+          ? AnimatedScale(
+              duration: const Duration(milliseconds: 70),
+              curve: Curves.easeOutCubic,
+              scale: _pressed ? .982 : 1,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 70),
+                curve: Curves.easeOutCubic,
+                opacity: _pressed ? .88 : 1,
+                child: child,
+              ),
+            )
+          : child,
     );
   }
 }
@@ -234,15 +242,11 @@ class _MeloTrackCoverState extends State<MeloTrackCover> {
         desktopLayout ? 640 : cacheSize,
         highResolution: desktopLayout,
       );
-      final ImageProvider<Object> baseProvider = desktopLayout
-          ? MeloFileCachedNetworkImageProvider(
-              requestUri.toString(),
-              headers: meloArtworkHeaders,
-            )
-          : NetworkImage(
-              requestUri.toString(),
-              headers: meloArtworkHeaders,
-            );
+      final ImageProvider<Object> baseProvider =
+          MeloFileCachedNetworkImageProvider(
+        requestUri.toString(),
+        headers: meloArtworkHeaders,
+      );
       final imageProvider = ScrollAwareImageProvider<Object>(
         context: _scrollAwareContext,
         imageProvider: ResizeImage.resizeIfNeeded(
@@ -260,7 +264,7 @@ class _MeloTrackCoverState extends State<MeloTrackCover> {
         ),
         child: ClipRRect(
           borderRadius: widget.borderRadius ?? MeloRadii.sm,
-          clipBehavior: Clip.antiAlias,
+          clipBehavior: desktopLayout ? Clip.antiAlias : Clip.hardEdge,
           child: Image(
             image: imageProvider,
             width: widget.size,
@@ -591,27 +595,32 @@ class _MeloPlaylistCardState extends State<MeloPlaylistCard> {
           curve: Curves.easeOutCubic,
           padding: EdgeInsets.all(widget.compact ? 4 : 10),
           decoration: BoxDecoration(
-            color: _hovered ? const Color(0xFFFAFCFD) : MeloColors.surface,
+            color: _hovered
+                ? MeloColors.surfaceHover
+                : MeloColors.surfaceHover.withValues(alpha: 0),
             borderRadius: MeloRadii.md,
             border: Border.all(
-              color: _hovered ? MeloColors.borderStrong : Colors.transparent,
+              color: _hovered
+                  ? MeloColors.borderStrong
+                  : MeloColors.borderStrong.withValues(alpha: 0),
             ),
           ),
-          child: ClipRect(
-            child: SingleChildScrollView(
-              physics: const NeverScrollableScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AspectRatio(
-                    aspectRatio: 1,
-                    child: MeloPlaylistCover(
-                      title: widget.title,
-                      cover: widget.cover,
-                    ),
-                  ),
-                  SizedBox(height: widget.compact ? 8 : 10),
-                  Text(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(
+                aspectRatio: 1,
+                child: MeloPlaylistCover(
+                  title: widget.title,
+                  cover: widget.cover,
+                ),
+              ),
+              SizedBox(height: widget.compact ? 8 : 10),
+              SizedBox(
+                height: 34,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
                     widget.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -621,19 +630,19 @@ class _MeloPlaylistCardState extends State<MeloPlaylistCard> {
                           height: 1.18,
                         ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    widget.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: MeloColors.textTertiary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 3),
+              Text(
+                widget.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: MeloColors.textTertiary,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ],
           ),
         ),
       ),
@@ -954,6 +963,7 @@ class MeloTrackMoreMenu extends ConsumerWidget {
       ),
       onSelected: (action) async {
         if (action == _TrackMenuAction.playNext) {
+          if (!track.isPlayable) return;
           repository.enqueueTrack(track);
           MeloSnackbar.show(
             context: context,
@@ -975,13 +985,14 @@ class MeloTrackMoreMenu extends ConsumerWidget {
         }
       },
       itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: _TrackMenuAction.playNext,
-          child: _MeloTrackMenuItem(
-            icon: Icons.queue_music_rounded,
-            label: '加入播放队列',
+        if (track.isPlayable)
+          const PopupMenuItem(
+            value: _TrackMenuAction.playNext,
+            child: _MeloTrackMenuItem(
+              icon: Icons.queue_music_rounded,
+              label: '加入播放队列',
+            ),
           ),
-        ),
         if (repository.canDownloadTrack(track))
           const PopupMenuItem(
             value: _TrackMenuAction.download,
@@ -1008,17 +1019,26 @@ class MeloTrackDownloadButton extends ConsumerWidget {
   const MeloTrackDownloadButton({
     required this.track,
     this.tooltip = '下载',
+    this.lightweight = false,
     super.key,
   });
 
   final SourceTrack track;
   final String tooltip;
+  final bool lightweight;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.read(demoRepositoryProvider);
     if (!repository.canDownloadTrack(track)) {
       return const SizedBox.shrink();
+    }
+    if (lightweight) {
+      return _MeloLightweightIconButton(
+        tooltip: tooltip,
+        icon: Icons.download_rounded,
+        onPressed: () => _downloadTrackFromMenu(context, repository, track),
+      );
     }
     return IconButton(
       tooltip: tooltip,
@@ -1088,6 +1108,45 @@ String _audioQualityLabel(AudioQuality quality) => switch (quality) {
       AudioQuality.high => '极高',
       AudioQuality.lossless => '无损',
     };
+
+class _MeloLightweightIconButton extends StatelessWidget {
+  const _MeloLightweightIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.color = MeloColors.textTertiary,
+    this.size = 21,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPressed,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Center(
+            child: Icon(
+              icon,
+              color: enabled ? color : MeloColors.textQuaternary,
+              size: size,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class MeloAddToPlaylistDialog extends ConsumerWidget {
   const MeloAddToPlaylistDialog({required this.track, super.key});
@@ -1318,12 +1377,14 @@ class MeloFavoriteButton extends ConsumerStatefulWidget {
     required this.track,
     this.showSnackbar = true,
     this.size = 21,
+    this.lightweight = false,
     super.key,
   });
 
   final SourceTrack track;
   final bool showSnackbar;
   final double size;
+  final bool lightweight;
 
   @override
   ConsumerState<MeloFavoriteButton> createState() => _MeloFavoriteButtonState();
@@ -1362,17 +1423,31 @@ class _MeloFavoriteButtonState extends ConsumerState<MeloFavoriteButton> {
     final repository = ref.read(demoRepositoryProvider);
     final availability =
         repository.favoriteWriteAvailability(widget.track.ref.providerId);
+    final tooltip = availability.reason ?? (liked ? '取消喜欢' : '喜欢');
+    final icon = liked ? Icons.favorite_rounded : Icons.favorite_border_rounded;
+    final color = liked ? MeloColors.favorite : MeloColors.textTertiary;
+    final onPressed = availability.isEnabled
+        ? () => _toggle(context, repository, liked)
+        : null;
+
+    if (widget.lightweight) {
+      return _MeloLightweightIconButton(
+        tooltip: tooltip,
+        icon: icon,
+        color: color,
+        size: widget.size,
+        onPressed: onPressed,
+      );
+    }
 
     return IconButton(
-      tooltip: availability.reason ?? (liked ? '取消喜欢' : '喜欢'),
+      tooltip: tooltip,
       visualDensity: VisualDensity.compact,
       splashRadius: 20,
-      onPressed: availability.isEnabled
-          ? () => _toggle(context, repository, liked)
-          : null,
+      onPressed: onPressed,
       icon: Icon(
-        liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-        color: liked ? MeloColors.favorite : MeloColors.textTertiary,
+        icon,
+        color: color,
         size: widget.size,
       ),
     );
@@ -1530,7 +1605,7 @@ class MeloBrandIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Image.asset(
-      'assets/images/melo_logo.png',
+      'assets/images/melo_logo_inverse.png',
       width: 18,
       height: 18,
       fit: BoxFit.contain,

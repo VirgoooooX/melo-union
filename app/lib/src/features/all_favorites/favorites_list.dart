@@ -362,31 +362,29 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
         subtitle: '切换来源或刷新后再试。',
       );
     }
-    return ListView.separated(
+    return ListView.builder(
       key: PageStorageKey<String>('mobile_favorites_$selectedProviderId'),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 156),
       physics: const AlwaysScrollableScrollPhysics(),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       scrollCacheExtent: const ScrollCacheExtent.pixels(192),
+      itemExtentBuilder: (index, _) => index.isEven ? 64 : 8,
       addAutomaticKeepAlives: false,
-      addRepaintBoundaries: false,
       addSemanticIndexes: false,
-      itemCount: tracks.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
+      itemCount: tracks.length * 2 - 1,
       itemBuilder: (context, index) {
-        final track = tracks[index];
+        if (index.isOdd) return const SizedBox(height: 8);
+        final track = tracks[index ~/ 2];
         final repository = ref.read(demoRepositoryProvider);
-        return RepaintBoundary(
+        return _MobileFavoriteRow(
           key: ValueKey(track.unifiedId),
-          child: _MobileFavoriteRow(
-            index: index + 1,
-            track: track,
+          index: index ~/ 2 + 1,
+          track: track,
+          providerId: selectedProviderId,
+          onPlay: () => repository.playUnifiedTracksFrom(
+            tracks,
+            track,
             providerId: selectedProviderId,
-            onPlay: () => repository.playUnifiedTracksFrom(
-              tracks,
-              track,
-              providerId: selectedProviderId,
-            ),
           ),
         );
       },

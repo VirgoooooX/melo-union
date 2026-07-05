@@ -725,6 +725,7 @@ class _MobileRecommendationTrackSliver extends StatelessWidget {
                 : null,
             selected: selected,
             borderRadius: BorderRadius.circular(12),
+            animatePress: false,
             child: Container(
               decoration: BoxDecoration(
                 color: selected ? MeloColors.primary50 : MeloColors.surface,
@@ -801,8 +802,8 @@ class _MobileRecommendationTrackSliver extends StatelessWidget {
                         ),
                   ),
                   const SizedBox(width: 4),
-                  MeloTrackDownloadButton(track: track),
-                  MeloFavoriteButton(track: track),
+                  MeloTrackDownloadButton(track: track, lightweight: true),
+                  MeloFavoriteButton(track: track, lightweight: true),
                 ],
               ),
             ),
@@ -1013,6 +1014,7 @@ void _showPlaylistSheet(
                                   : null,
                               selected: false,
                               borderRadius: BorderRadius.circular(12),
+                              animatePress: false,
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: MeloColors.surface,
@@ -1099,8 +1101,14 @@ void _showPlaylistSheet(
                                           ),
                                     ),
                                     const SizedBox(width: 4),
-                                    MeloTrackDownloadButton(track: track),
-                                    MeloFavoriteButton(track: track),
+                                    MeloTrackDownloadButton(
+                                      track: track,
+                                      lightweight: true,
+                                    ),
+                                    MeloFavoriteButton(
+                                      track: track,
+                                      lightweight: true,
+                                    ),
                                   ],
                                 ),
                               ),

@@ -51,6 +51,15 @@ MeloProviderPresentation meloProviderPresentation(
       icon: Icons.folder_rounded,
     );
   }
+  if (value == 'compass_catalog' || value.contains('compass')) {
+    return const MeloProviderPresentation(
+      shortName: 'Compass',
+      fullName: 'Compass Catalog',
+      backgroundColor: Color(0xFFEAF8F6),
+      foregroundColor: Color(0xFF087C76),
+      icon: Icons.explore_rounded,
+    );
+  }
   final label = displayName ?? id.value;
   return MeloProviderPresentation(
     shortName: label,

@@ -88,7 +88,9 @@ class MeloFullScreenPlayer extends ConsumerWidget {
                           );
                     return Column(
                       children: [
-                        _FullScreenHeader(track: track),
+                        _FullScreenHeader(
+                          track: track,
+                        ),
                         Expanded(child: content),
                       ],
                     );
@@ -336,12 +338,40 @@ class _DynamicBackdrop extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [
-                  const Color(0xFF05070B).withValues(alpha: .72),
-                  const Color(0xFF0A0E14).withValues(alpha: .62),
-                  const Color(0xFF030509).withValues(alpha: .86),
+                  const Color(0xFF020817).withValues(alpha: .88),
+                  const Color(0xFF051C43).withValues(alpha: .74),
+                  const Color(0xFF052B62).withValues(alpha: .62),
+                  const Color(0xFF03101F).withValues(alpha: .88),
+                ],
+                stops: const [0, .34, .68, 1],
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(0, .76),
+                radius: .88,
+                colors: [
+                  const Color(0xFF2EA8FF).withValues(alpha: .42),
+                  const Color(0xFF0E5EB8).withValues(alpha: .18),
+                  Colors.transparent,
+                ],
+                stops: const [0, .42, 1],
+              ),
+            ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(-.72, -.42),
+                radius: .96,
+                colors: [
+                  const Color(0xFF13F2FF).withValues(alpha: .16),
+                  Colors.transparent,
                 ],
               ),
             ),
@@ -349,10 +379,10 @@ class _DynamicBackdrop extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: RadialGradient(
-                center: const Alignment(-.45, -.55),
-                radius: 1.1,
+                center: const Alignment(.82, .12),
+                radius: .86,
                 colors: [
-                  Colors.white.withValues(alpha: .12),
+                  const Color(0xFF6BAEFF).withValues(alpha: .15),
                   Colors.transparent,
                 ],
               ),
@@ -397,6 +427,41 @@ class _FullScreenHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentTrack = track;
     final compact = MediaQuery.sizeOf(context).width < 780;
+    if (compact) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(28, 14, 28, 0),
+        child: SizedBox(
+          height: 48,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _GlassIconButton(
+                  tooltip: '返回',
+                  icon: Icons.chevron_left_rounded,
+                  buttonSize: 46,
+                  iconSize: 32,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+              ),
+              Text(
+                '正在播放',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: .88),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
         compact ? MeloSpacing.md : MeloSpacing.xl,
@@ -700,10 +765,10 @@ class _MobileFullScreenLayoutState extends State<_MobileFullScreenLayout> {
                 .toDouble();
         final maxArtworkByWidth =
             (constraints.maxWidth - (MeloSpacing.md * 2) - 68)
-                .clamp(220, 318)
+                .clamp(196, 344)
                 .toDouble();
         final maxArtworkByHeight =
-            (constraints.maxHeight * .36).clamp(220, 318).toDouble();
+            (constraints.maxHeight * .42).clamp(224, 344).toDouble();
         final coverSize = maxArtworkByWidth < maxArtworkByHeight
             ? maxArtworkByWidth
             : maxArtworkByHeight;
@@ -803,7 +868,7 @@ class _PrimaryPlayerPanel extends StatelessWidget {
                             compact: true,
                           ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 42),
                   Text(
                     track!.title,
                     maxLines: 1,
@@ -811,23 +876,35 @@ class _PrimaryPlayerPanel extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
-                          fontSize: 26,
+                          fontSize: 31,
                           fontWeight: FontWeight.w900,
-                          height: 1.08,
+                          height: 1.02,
                           letterSpacing: 0,
                         ),
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    track!.artists.join(' / '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: .68),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          track!.artists.join(' / '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Colors.white.withValues(alpha: .68),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0,
+                                  ),
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      _MobileProviderBadge(providerId: track!.ref.providerId),
+                    ],
                   ),
                 ],
               ),
@@ -1012,6 +1089,114 @@ class _RotatingArtworkState extends State<_RotatingArtwork>
   @override
   Widget build(BuildContext context) {
     final diameter = widget.size;
+    if (widget.compact) {
+      final frameWidth = diameter + 68;
+      final frameHeight = diameter + 62;
+      return RepaintBoundary(
+        child: SizedBox(
+          width: frameWidth,
+          height: frameHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Positioned(
+                bottom: 4,
+                child: CustomPaint(
+                  painter: _MobileVinylAuraPainter(),
+                  child: RotationTransition(
+                    turns: _controller,
+                    child: Container(
+                      width: diameter,
+                      height: diameter,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const RadialGradient(
+                          center: Alignment(-.16, -.18),
+                          radius: .76,
+                          colors: [
+                            Color(0xFF255A91),
+                            Color(0xFF153B68),
+                            Color(0xFF0A203E),
+                            Color(0xFF041020),
+                          ],
+                          stops: [0, .42, .74, 1],
+                        ),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: .18),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFF20D9FF).withValues(alpha: .16),
+                            blurRadius: 36,
+                            spreadRadius: 1,
+                            offset: const Offset(-12, -10),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .38),
+                            blurRadius: 46,
+                            offset: const Offset(0, 24),
+                          ),
+                        ],
+                      ),
+                      child: CustomPaint(
+                        painter: _VinylGroovePainter(accented: true),
+                        child: Center(
+                          child: Container(
+                            width: diameter * .64,
+                            height: diameter * .64,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: .30),
+                                width: 1.4,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: .36),
+                                  blurRadius: 22,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: _LargeArtwork(track: widget.track),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: frameWidth * .13,
+                top: frameHeight * .14,
+                child: Transform.rotate(
+                  angle: -.7,
+                  child: Container(
+                    width: diameter * .24,
+                    height: diameter * .06,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withValues(alpha: .0),
+                          Colors.white.withValues(alpha: .26),
+                          Colors.white.withValues(alpha: .02),
+                        ],
+                      ),
+                      borderRadius: MeloRadii.pill,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final frameWidth = widget.compact ? diameter + 68 : diameter + 92;
     final frameHeight = widget.compact ? diameter + 78 : diameter + 116;
     final tonearmWidth = widget.compact ? diameter * .38 : diameter * .42;
@@ -1115,6 +1300,10 @@ class _RotatingArtworkState extends State<_RotatingArtwork>
 }
 
 class _VinylGroovePainter extends CustomPainter {
+  const _VinylGroovePainter({this.accented = false});
+
+  final bool accented;
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
@@ -1123,21 +1312,64 @@ class _VinylGroovePainter extends CustomPainter {
       ..strokeWidth = 1;
     for (var i = 0; i < 28; i++) {
       final radius = size.width * (.31 + i * .011);
-      paint.color = i.isEven
-          ? Colors.white.withValues(alpha: .035)
-          : Colors.black.withValues(alpha: .16);
+      paint.color = accented
+          ? (i.isEven
+              ? Colors.white.withValues(alpha: .052)
+              : const Color(0xFF03101F).withValues(alpha: .20))
+          : (i.isEven
+              ? Colors.white.withValues(alpha: .035)
+              : Colors.black.withValues(alpha: .16));
       canvas.drawCircle(center, radius, paint);
     }
     final sheen = Paint()
       ..shader = SweepGradient(
         colors: [
           Colors.white.withValues(alpha: .0),
-          Colors.white.withValues(alpha: .08),
+          Colors.white.withValues(alpha: accented ? .13 : .08),
           Colors.white.withValues(alpha: .0),
         ],
         stops: const [.0, .12, .26],
       ).createShader(Offset.zero & size);
     canvas.drawCircle(center, size.width / 2, sheen);
+  }
+
+  @override
+  bool shouldRepaint(covariant _VinylGroovePainter oldDelegate) =>
+      oldDelegate.accented != accented;
+}
+
+class _MobileVinylAuraPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final discRadius = size.shortestSide / 2;
+    final haloRect = Rect.fromCircle(center: center, radius: discRadius + 15);
+    final halo = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..shader = SweepGradient(
+        colors: [
+          Colors.transparent,
+          const Color(0xFF18F3FF).withValues(alpha: .64),
+          Colors.white.withValues(alpha: .20),
+          Colors.transparent,
+        ],
+        stops: const [.0, .16, .28, .46],
+      ).createShader(haloRect);
+    canvas.drawCircle(center, discRadius + 15, halo);
+
+    final arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF13F6FF).withValues(alpha: .78);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: discRadius + 16),
+      3.78,
+      .78,
+      false,
+      arc,
+    );
   }
 
   @override
@@ -2253,6 +2485,38 @@ class _GlassIconButton extends StatelessWidget {
           shape: const CircleBorder(),
         ),
         icon: Icon(icon),
+      ),
+    );
+  }
+}
+
+class _MobileProviderBadge extends StatelessWidget {
+  const _MobileProviderBadge({required this.providerId});
+
+  final ProviderId providerId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFF062C4D).withValues(alpha: .54),
+        border: Border.all(
+          color: const Color(0xFF13E8F2).withValues(alpha: .62),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF13E8F2).withValues(alpha: .24),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Transform.scale(
+        scale: .72,
+        child: MeloPlatformIcon(providerId: providerId),
       ),
     );
   }

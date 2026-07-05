@@ -54,10 +54,17 @@ final class FakeMusicProvider implements MusicProvider {
   Future<List<SourceTrack>> search(String query) async {
     _requireCapability(ProviderCapability.search);
     final normalized = query.trim().toLowerCase();
+    final providerText =
+        '${descriptor.displayName} ${descriptor.shortDescription ?? ''}'
+            .toLowerCase();
+    if (providerText.contains(normalized)) {
+      return _tracks.values.toList(growable: false);
+    }
     return _tracks.values
         .where(
           (track) =>
               track.title.toLowerCase().contains(normalized) ||
+              (track.album?.toLowerCase().contains(normalized) ?? false) ||
               track.artists.any(
                 (artist) => artist.toLowerCase().contains(normalized),
               ),
