@@ -3,3 +3,8 @@ name: melo_union
 packages:
   - app
   - packages/**
+
+scripts:
+  test:
+    run: melos exec --dir-exists="test" -- "flutter test"
+    description: Run tests in all packages containing a test folder.
