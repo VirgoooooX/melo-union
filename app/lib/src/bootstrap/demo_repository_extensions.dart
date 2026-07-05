@@ -16,4 +16,31 @@ extension UnifiedQueuePlayback on DemoRepository {
     ];
     await playTracks(sources);
   }
+
+  Future<void> playUnifiedTracksFrom(
+    List<UnifiedFavoriteTrack> tracks,
+    UnifiedFavoriteTrack selected, {
+    String? providerId,
+  }) async {
+    SourceTrack? sourceFor(UnifiedFavoriteTrack track) {
+      final variants = providerId == null
+          ? track.variants
+          : track.variants
+              .where((variant) => variant.ref.providerId.value == providerId);
+      for (final variant in variants) {
+        if (variant.isPlayable) return variant;
+      }
+      return null;
+    }
+
+    final sources = <SourceTrack>[
+      for (final track in tracks)
+        if (sourceFor(track) case final source?) source,
+    ];
+    final selectedSource = sourceFor(selected);
+    if (selectedSource == null) {
+      return;
+    }
+    await playTracksFrom(sources, selectedSource.ref);
+  }
 }

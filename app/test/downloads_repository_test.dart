@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:melo_union_app/src/bootstrap/demo_repository.dart';
 import 'package:melo_union_app/src/fakes/fake_music_provider.dart';
 import 'package:music_data/music_data.dart';
@@ -90,11 +91,18 @@ void main() {
     expect(repository.downloadCoordinator.getTask(ref)?.status,
         DownloadStatus.cancelled);
 
-    repository.redownloadLocalMedia(ref);
+    final redownload = repository.redownloadLocalMedia(ref);
 
     expect(repository.downloadCoordinator.isAvailableLocally(ref), isFalse);
-    expect(repository.downloadCoordinator.getTask(ref)?.status,
-        DownloadStatus.queued);
+    expect(
+      repository.downloadCoordinator.getTask(ref)?.status,
+      isNot(DownloadStatus.queued),
+    );
+    await redownload;
+    expect(
+      repository.downloadCoordinator.getTask(ref)?.status,
+      isNot(DownloadStatus.queued),
+    );
   });
 
   test('DemoRepository persists download and local media mutations', () async {
@@ -140,5 +148,28 @@ void main() {
     expect(store.writes, isNotEmpty);
     expect(store.writes.last.volume, closeTo(0.42, 0.001));
     expect(repository.toSnapshot().volume, closeTo(0.42, 0.001));
+  });
+
+  test('DemoRepository persists configured download directory', () async {
+    final store = _RecordingSnapshotStore();
+    final repository = DemoRepository.seeded(snapshotStore: store);
+    final directory = path.join(
+      path.current,
+      'build',
+      'test_downloads',
+      'custom',
+    );
+
+    await repository.setDownloadDirectory(directory);
+    await Future<void>.delayed(Duration.zero);
+
+    final expected = path.normalize(path.absolute(directory));
+    expect(await repository.downloadDirectoryPath(), expected);
+    expect(repository.toSnapshot().downloadDirectory, expected);
+    expect(store.writes.last.downloadDirectory, expected);
+
+    await repository.setDownloadDirectory(null);
+
+    expect(repository.toSnapshot().downloadDirectory, isNull);
   });
 }

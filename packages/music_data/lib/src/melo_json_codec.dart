@@ -23,6 +23,7 @@ final class MeloJsonCodec {
       ],
       'playbackQuality': snapshot.playbackQuality.name,
       'volume': snapshot.volume,
+      'downloadDirectory': snapshot.downloadDirectory,
       'favoritesOverrides': _encodeFavoritesOverrides(
         snapshot.favoritesOverrides,
       ),
@@ -55,8 +56,8 @@ final class MeloJsonCodec {
         LikedAtMetadata(
           likedAt: _optionalDateTime(meta['likedAt']?.toString()),
           source: meta['source']?.toString() ?? LikedAtMetadata.sourceUnknown,
-          precision: meta['precision']?.toString() ??
-              LikedAtMetadata.precisionUnknown,
+          precision:
+              meta['precision']?.toString() ?? LikedAtMetadata.precisionUnknown,
         ),
       );
     }
@@ -78,6 +79,7 @@ final class MeloJsonCodec {
         json['playbackQuality'] as String? ?? AudioQuality.standard.name,
       ),
       volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
+      downloadDirectory: json['downloadDirectory'] as String?,
       favoritesOverrides: overrides,
     );
   }
@@ -206,8 +208,7 @@ final class MeloJsonCodec {
       isFavorited: json['isFavorited'] as bool? ?? false,
       isPlayable: json['isPlayable'] as bool? ?? true,
       isDownloadable: json['isDownloadable'] as bool? ?? false,
-      likedAt:
-          likedAtStr == null ? null : DateTime.parse(likedAtStr).toUtc(),
+      likedAt: likedAtStr == null ? null : DateTime.parse(likedAtStr).toUtc(),
       likedAtSource: json['likedAtSource'] as String?,
       likedAtPrecision: json['likedAtPrecision'] as String?,
     );

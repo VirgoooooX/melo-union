@@ -49,6 +49,10 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
       'volume': double.tryParse(
         metaRows.where((row) => row.key == 'volume').firstOrNull?.value ?? '',
       ),
+      'downloadDirectory': metaRows
+          .where((row) => row.key == 'downloadDirectory')
+          .firstOrNull
+          ?.value,
       'playlists': [
         for (final row in playlistRows) _jsonMap(row.payloadJson),
       ],
@@ -97,6 +101,14 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
               value: snapshot.volume.toStringAsFixed(4),
             ),
           );
+      if (snapshot.downloadDirectory != null) {
+        await database.into(database.meloMetaRows).insert(
+              MeloMetaRowsCompanion.insert(
+                key: 'downloadDirectory',
+                value: snapshot.downloadDirectory!,
+              ),
+            );
+      }
 
       for (var i = 0; i < playlists.length; i++) {
         final playlist = playlists[i];

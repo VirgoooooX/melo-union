@@ -803,7 +803,7 @@ class _PrimaryPlayerPanel extends StatelessWidget {
                             compact: true,
                           ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 24),
                   Text(
                     track!.title,
                     maxLines: 1,

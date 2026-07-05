@@ -187,6 +187,23 @@ void main() {
       () async {
     final qqStore = _MemoryQqMusicSessionStore();
     final repository = DemoRepository.seeded(qqMusicSessionStore: qqStore);
+    final qqRef = ProviderTrackRef(
+      providerId: qqMusicProviderId,
+      trackId: 'qq_mid_001',
+      extraIds: const {
+        'song_id': '123456',
+        'song_mid': 'qq_mid_001',
+      },
+    );
+    final likedAt = DateTime.utc(2026, 7, 5, 8, 30);
+    repository.favoritesOverrideRegistry.recordLikedAt(
+      qqRef,
+      LikedAtMetadata(
+        likedAt: likedAt,
+        source: LikedAtMetadata.sourceQqImport,
+        precision: LikedAtMetadata.precisionUnknown,
+      ),
+    );
 
     await expectLater(
       repository.saveQqMusicCredentials(
@@ -205,10 +222,18 @@ void main() {
       repository.registry.entryOf(qqMusicProviderId)!.provider.isAuthenticated,
       isTrue,
     );
+    expect(
+      repository.favoritesOverrideRegistry.likedAtFor(qqRef)?.likedAt,
+      likedAt,
+    );
 
     await repository.clearQqMusicCredentials();
 
     expect(qqStore.credentials, isNull);
     expect(repository.hasQqMusicSession, isFalse);
+    expect(
+      repository.favoritesOverrideRegistry.likedAtFor(qqRef)?.likedAt,
+      likedAt,
+    );
   });
 }

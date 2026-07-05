@@ -414,20 +414,27 @@ class _RemotePlaylistTracksState extends ConsumerState<_RemotePlaylistTracks> {
                                     ),
                                   ),
                                   AnimatedOpacity(
-                                    duration: const Duration(milliseconds: 120),
+                                    duration: Duration.zero,
                                     opacity: hovered || selected ? 1 : 0,
                                     child: IgnorePointer(
                                       ignoring: !hovered && !selected,
-                                      child: IconButton(
-                                        tooltip: '播放',
-                                        visualDensity: VisualDensity.compact,
-                                        onPressed: track.isPlayable
-                                            ? () => repository
-                                                .playOrToggleTrack(track)
-                                            : null,
-                                        icon: const Icon(
-                                          Icons.play_arrow_rounded,
-                                        ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          MeloTrackDownloadButton(track: track),
+                                          IconButton(
+                                            tooltip: '播放',
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            onPressed: track.isPlayable
+                                                ? () => repository
+                                                    .playOrToggleTrack(track)
+                                                : null,
+                                            icon: const Icon(
+                                              Icons.play_arrow_rounded,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -612,6 +619,8 @@ class _LocalPlaylistTracks extends StatelessWidget {
                                     ),
                               ),
                               const SizedBox(width: 8),
+                              if (track != null)
+                                MeloTrackDownloadButton(track: track),
                               IconButton(
                                 tooltip: track?.isPlayable == true
                                     ? '播放'

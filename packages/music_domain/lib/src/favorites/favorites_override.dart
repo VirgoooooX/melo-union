@@ -97,13 +97,14 @@ class FavoritesOverrideRegistry {
 
   /// Records liked-at metadata for a track (app-action or sync-detected).
   void recordLikedAt(ProviderTrackRef ref, LikedAtMetadata metadata) {
-    final identityKey = likedAtIdentityKey(ref);
+    final identityKeys = likedAtIdentityKeys(ref);
     var preferredRef = ref;
     var preferredMetadata = metadata;
     final equivalentRefs = <ProviderTrackRef>[];
 
     for (final entry in likedAtTracking.entries) {
-      if (likedAtIdentityKey(entry.key) != identityKey) {
+      if (!_sharesLikedAtIdentity(
+          identityKeys, likedAtIdentityKeys(entry.key))) {
         continue;
       }
       equivalentRefs.add(entry.key);
@@ -130,11 +131,12 @@ class FavoritesOverrideRegistry {
       return exact;
     }
 
-    final identityKey = likedAtIdentityKey(ref);
+    final identityKeys = likedAtIdentityKeys(ref);
     ProviderTrackRef? preferredRef;
     LikedAtMetadata? preferredMetadata;
     for (final entry in likedAtTracking.entries) {
-      if (likedAtIdentityKey(entry.key) != identityKey) {
+      if (!_sharesLikedAtIdentity(
+          identityKeys, likedAtIdentityKeys(entry.key))) {
         continue;
       }
       if (preferredMetadata == null) {
@@ -165,7 +167,11 @@ class FavoritesOverrideRegistry {
 
   /// Clears liked-at metadata (e.g. when a track is unliked).
   void removeLikedAt(ProviderTrackRef ref) {
-    likedAtTracking.remove(ref);
+    final identityKeys = likedAtIdentityKeys(ref);
+    likedAtTracking.removeWhere(
+      (storedRef, _) =>
+          _sharesLikedAtIdentity(identityKeys, likedAtIdentityKeys(storedRef)),
+    );
   }
 
   bool shouldSplit(ProviderTrackRef a, ProviderTrackRef b) {
@@ -187,13 +193,36 @@ class FavoritesOverrideRegistry {
   }
 
   static String likedAtIdentityKey(ProviderTrackRef ref) {
+    return likedAtIdentityKeys(ref).first;
+  }
+
+  static Set<String> likedAtIdentityKeys(ProviderTrackRef ref) {
     if (ref.providerId.value == 'qq_music') {
+      final result = <String>{};
+      final songId = ref.extraIds['song_id']?.trim();
+      if (songId != null && songId.isNotEmpty) {
+        result.add('${ref.providerId.value}:song_id:$songId');
+      }
       final songMid = ref.extraIds['song_mid']?.trim();
-      final stableId =
-          songMid != null && songMid.isNotEmpty ? songMid : ref.trackId.trim();
-      return '${ref.providerId.value}:$stableId';
+      if (songMid != null && songMid.isNotEmpty) {
+        result.add('${ref.providerId.value}:song_mid:$songMid');
+      }
+      final trackId = ref.trackId.trim();
+      if (trackId.isNotEmpty) {
+        result.add('${ref.providerId.value}:track_id:$trackId');
+      }
+      if (result.isNotEmpty) {
+        return result;
+      }
     }
-    return '${ref.providerId.value}:${ref.trackId}:${_extraIdsKey(ref)}';
+    return {'${ref.providerId.value}:${ref.trackId}:${_extraIdsKey(ref)}'};
+  }
+
+  static bool _sharesLikedAtIdentity(Set<String> left, Set<String> right) {
+    if (left.length < right.length) {
+      return left.any(right.contains);
+    }
+    return right.any(left.contains);
   }
 
   static (ProviderTrackRef, LikedAtMetadata) _preferLikedAtEntry({

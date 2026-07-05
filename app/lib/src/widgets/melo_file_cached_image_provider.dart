@@ -189,7 +189,7 @@ class MeloFileCachedNetworkImageProvider
     final existing = _cacheDirectory;
     if (existing != null) return existing;
     final dir = Directory(
-      '${Directory.systemTemp.path}${Platform.pathSeparator}melo_union_artwork_cache',
+      '${Directory.systemTemp.path}${Platform.pathSeparator}melo_union_artwork_cache_v3',
     );
     await dir.create(recursive: true);
     _cacheDirectory = dir;

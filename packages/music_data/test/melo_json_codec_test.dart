@@ -84,6 +84,7 @@ void main() {
       ],
       playbackQuality: AudioQuality.lossless,
       volume: 0.7,
+      downloadDirectory: r'C:\Music\MeloUnion',
       favoritesOverrides: overrides,
     );
 
@@ -101,6 +102,7 @@ void main() {
     expect(decoded.downloadTasks.single.status, DownloadStatus.paused);
     expect(decoded.playbackQuality, AudioQuality.lossless);
     expect(decoded.volume, closeTo(0.7, 0.001));
+    expect(decoded.downloadDirectory, r'C:\Music\MeloUnion');
     expect(decoded.localMediaItems.single.filePath, contains('alpha_midnight'));
     expect(decoded.favoritesOverrides.shouldMerge(sourceRef, alternateRef),
         isTrue);

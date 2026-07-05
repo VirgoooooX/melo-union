@@ -312,7 +312,7 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
     return favorites.when(
       loading: () {
         if (cached != null && cached.isNotEmpty) {
-          return _buildList(context, _filterAndSort(cached));
+          return _buildList(context, ref, _filterAndSort(cached));
         }
         return const Center(child: CircularProgressIndicator());
       },
@@ -320,11 +320,15 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
         message: '喜欢列表加载失败：$error',
         onRetry: () => ref.invalidate(allFavoritesProvider),
       ),
-      data: (tracks) => _buildList(context, _filterAndSort(tracks)),
+      data: (tracks) => _buildList(context, ref, _filterAndSort(tracks)),
     );
   }
 
-  Widget _buildList(BuildContext context, List<UnifiedFavoriteTrack> tracks) {
+  Widget _buildList(
+    BuildContext context,
+    WidgetRef ref,
+    List<UnifiedFavoriteTrack> tracks,
+  ) {
     if (tracks.isEmpty) {
       return const MeloEmptyState(
         icon: Icons.favorite_border_rounded,
@@ -345,6 +349,7 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
       itemCount: tracks.length,
       itemBuilder: (context, index) {
         final track = tracks[index];
+        final repository = ref.read(demoRepositoryProvider);
         return RepaintBoundary(
           key: ValueKey(track.unifiedId),
           child: DecoratedBox(
@@ -357,6 +362,11 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
               index: index + 1,
               track: track,
               providerId: selectedProviderId,
+              onPlay: () => repository.playUnifiedTracksFrom(
+                tracks,
+                track,
+                providerId: selectedProviderId,
+              ),
             ),
           ),
         );

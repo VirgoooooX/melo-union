@@ -177,7 +177,7 @@ class _MobileMineView extends ConsumerWidget {
         const SizedBox(height: 10),
         _SettingsCard(
           title: '下载功能',
-          subtitle: '当前版本暂未实现下载功能，点这里查看后续占位页。',
+          subtitle: '管理下载队列、本地音乐和默认下载音质。',
           leading: Icons.download_done_outlined,
           trailing: Icons.chevron_right_rounded,
           onTap: () => context.go(AppDestination.downloads.path),
@@ -300,41 +300,114 @@ class _MobileSourceSummaryCard extends ConsumerWidget {
   }
 }
 
-class _MobileMoreSourcesCard extends StatelessWidget {
+class _MobileMoreSourcesCard extends ConsumerWidget {
   const _MobileMoreSourcesCard();
 
   @override
-  Widget build(BuildContext context) {
-    return _SettingsSurface(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.add_circle_outline_rounded,
-            color: MeloColors.textTertiary,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '更多账号来源',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return InkWell(
+      borderRadius: MeloRadii.lg,
+      onTap: () => _showAddSourceSheet(context),
+      child: _SettingsSurface(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.add_circle_outline_rounded,
+              color: MeloColors.textTertiary,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '更多账号来源',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '添加新的音乐平台账号或自定义 Provider。',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textSecondary,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddSourceSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '添加账号来源',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '当前版本来源由内置 Provider 决定，多账号和自定义来源还未接入。',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: MeloColors.textSecondary,
-                      ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: MeloColors.surfaceMuted,
+                  borderRadius: MeloRadii.md,
+                  border: Border.all(color: MeloColors.border),
                 ),
-              ],
-            ),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.extension_outlined,
+                      color: MeloColors.textTertiary,
+                      size: 30,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '暂无可添加来源',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '当前移动端只开放网易云音乐和 QQ 音乐账号入口。',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: MeloColors.textSecondary,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('关闭'),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -398,8 +471,7 @@ class _SettingsNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      for (final section in _SettingsSection.values
-          .where((s) => s != _SettingsSection.downloads))
+      for (final section in _SettingsSection.values)
         _SettingsNavItem(
           section: section,
           selected: section == selected,
@@ -543,13 +615,9 @@ class _SettingsContent extends StatelessWidget {
         ),
       _SettingsSection.downloads => _SettingsPanel(
           title: '下载设置',
-          subtitle: '当前版本暂不提供下载功能。',
+          subtitle: '管理离线下载的保存位置和默认策略。',
           children: [
-            const _SettingsCard(
-              title: '下载暂未开放',
-              subtitle: '离线下载和本地媒体管理会在后续版本重新接入。',
-              leading: Icons.download_done_outlined,
-            ),
+            const _DownloadLocationSettingsCard(),
           ],
         ),
       _SettingsSection.appearance => const _SettingsPanel(
@@ -625,6 +693,131 @@ class _AboutLogoCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _DownloadLocationSettingsCard extends ConsumerWidget {
+  const _DownloadLocationSettingsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.watch(demoRepositoryProvider);
+    return FutureBuilder<String>(
+      future: repository.downloadDirectoryPath(),
+      builder: (context, snapshot) {
+        final directory = snapshot.data ?? '正在读取保存位置...';
+        return _SettingsCard(
+          title: '保存位置',
+          subtitle: directory,
+          leading: Icons.folder_open_rounded,
+          child: Wrap(
+            spacing: MeloSpacing.xs,
+            runSpacing: MeloSpacing.xs,
+            children: [
+              FilledButton.icon(
+                onPressed: () => _showDownloadDirectoryDialog(
+                  context,
+                  repository,
+                  directory: snapshot.data,
+                ),
+                icon: const Icon(Icons.edit_location_alt_rounded, size: 18),
+                label: const Text('修改位置'),
+              ),
+              OutlinedButton.icon(
+                onPressed: snapshot.hasData
+                    ? () async {
+                        try {
+                          await repository.revealDownloadDirectory();
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('无法打开保存位置')),
+                            );
+                          }
+                        }
+                      }
+                    : null,
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                label: const Text('打开文件夹'),
+              ),
+              OutlinedButton.icon(
+                onPressed: repository.customDownloadDirectory == null
+                    ? null
+                    : () async {
+                        await repository.setDownloadDirectory(null);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('已恢复默认保存位置')),
+                          );
+                        }
+                      },
+                icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                label: const Text('恢复默认'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showDownloadDirectoryDialog(
+    BuildContext context,
+    DemoRepository repository, {
+    required String? directory,
+  }) async {
+    final controller = TextEditingController(
+      text: repository.customDownloadDirectory ?? directory ?? '',
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('设置下载位置'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '文件夹路径',
+            hintText: r'C:\Music\MeloUnion',
+          ),
+          minLines: 1,
+          maxLines: 2,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(''),
+            child: const Text('恢复默认'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result == null || !context.mounted) return;
+
+    try {
+      await repository.setDownloadDirectory(result);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.trim().isEmpty ? '已恢复默认保存位置' : '已更新保存位置'),
+          ),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存位置不可用：$error')),
+        );
+      }
+    }
   }
 }
 

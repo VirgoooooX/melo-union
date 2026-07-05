@@ -8,6 +8,7 @@ final class MeloDataSnapshot {
     this.localMediaItems = const [],
     this.playbackQuality = AudioQuality.standard,
     this.volume = 1.0,
+    this.downloadDirectory,
     FavoritesOverrideRegistry? favoritesOverrides,
   }) : favoritesOverrides = favoritesOverrides ?? FavoritesOverrideRegistry();
 
@@ -16,5 +17,6 @@ final class MeloDataSnapshot {
   final List<LocalMediaItem> localMediaItems;
   final AudioQuality playbackQuality;
   final double volume;
+  final String? downloadDirectory;
   final FavoritesOverrideRegistry favoritesOverrides;
 }

@@ -4,14 +4,14 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Build
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
+import com.ryanheise.audioservice.AudioServiceActivity
 import kotlin.math.abs
 
-class MainActivity : FlutterActivity() {
+class MainActivity : AudioServiceActivity() {
     private companion object {
         const val STORAGE_CHANNEL_NAME = "melo_union/storage"
         const val CREDENTIALS_CHANNEL_NAME = "melo_union/provider_credentials"

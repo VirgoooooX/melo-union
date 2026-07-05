@@ -61,6 +61,50 @@ class DownloadCoordinator {
     }
   }
 
+  void updateProgress(ProviderTrackRef ref, double progress) {
+    final task = _tasks[ref];
+    if (task == null || task.status != DownloadStatus.downloading) return;
+    _updateTask(task.copyWith(
+      progress: progress.clamp(0.0, 0.99).toDouble(),
+    ));
+  }
+
+  void completeTask({
+    required ProviderTrackRef ref,
+    required String filePath,
+    required int fileSize,
+  }) {
+    final task = _tasks[ref];
+    if (task == null) return;
+    final item = LocalMediaItem(
+      sourceRef: ref,
+      title: task.track.title,
+      artists: task.track.artists,
+      duration: task.track.duration,
+      filePath: filePath,
+      fileSize: fileSize,
+      downloadedAt: DateTime.now().toUtc(),
+    );
+    _localLibrary[ref] = item;
+    _updateTask(task.copyWith(
+      status: DownloadStatus.completed,
+      progress: 1.0,
+      savedFilePath: filePath,
+      ticket: null,
+      error: null,
+    ));
+  }
+
+  void failTask(ProviderTrackRef ref, Object error) {
+    final task = _tasks[ref];
+    if (task == null) return;
+    _updateTask(task.copyWith(
+      status: DownloadStatus.failed,
+      error: error.toString(),
+      ticket: null,
+    ));
+  }
+
   void pauseTask(ProviderTrackRef ref) {
     final task = _tasks[ref];
     if (task == null) return;

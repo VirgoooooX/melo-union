@@ -542,6 +542,51 @@ void main() {
       );
     });
 
+    test('normalizes QQ liked-at records by song id before song mid', () {
+      final qqProviderId = ProviderId('qq_music');
+      final oldRef = ProviderTrackRef(
+        providerId: qqProviderId,
+        trackId: 'old_song_mid',
+        extraIds: const {
+          'song_id': '590860903',
+          'song_mid': 'old_song_mid',
+        },
+      );
+      final reimportedRef = ProviderTrackRef(
+        providerId: qqProviderId,
+        trackId: 'new_song_mid',
+        extraIds: const {
+          'song_id': '590860903',
+          'song_mid': 'new_song_mid',
+        },
+      );
+      final existingEstimate = DateTime.utc(2026, 6, 30, 11);
+
+      final registry = FavoritesOverrideRegistry()
+        ..recordLikedAt(
+          oldRef,
+          LikedAtMetadata(
+            likedAt: existingEstimate,
+            source: LikedAtMetadata.sourceQqImport,
+            precision: LikedAtMetadata.precisionUnknown,
+          ),
+        );
+
+      expect(registry.likedAtFor(reimportedRef)?.likedAt, existingEstimate);
+
+      registry.recordLikedAt(
+        reimportedRef,
+        LikedAtMetadata(
+          likedAt: DateTime.utc(2026, 7, 1, 7),
+          source: LikedAtMetadata.sourceQqImport,
+          precision: LikedAtMetadata.precisionUnknown,
+        ),
+      );
+
+      expect(registry.likedAtTracking, hasLength(1));
+      expect(registry.likedAtTracking.keys.single, reimportedRef);
+    });
+
     test('reuses normalized QQ estimate when current ref shape changes',
         () async {
       final qqProviderId = ProviderId('qq_music');

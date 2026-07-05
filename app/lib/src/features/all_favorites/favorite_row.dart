@@ -161,11 +161,13 @@ class _MobileFavoriteRow extends ConsumerWidget {
     required this.index,
     required this.track,
     required this.providerId,
+    required this.onPlay,
   });
 
   final int index;
   final UnifiedFavoriteTrack track;
   final String? providerId;
+  final Future<void> Function() onPlay;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -189,7 +191,13 @@ class _MobileFavoriteRow extends ConsumerWidget {
         .artwork;
 
     return MeloTapFeedback(
-      onTap: () => repository.playOrToggleUnifiedTrack(track),
+      onTap: () {
+        if (selected) {
+          unawaited(repository.playOrToggleUnifiedTrack(track));
+        } else {
+          unawaited(onPlay());
+        }
+      },
       selected: selected,
       borderRadius: BorderRadius.zero,
       child: Padding(
@@ -268,7 +276,7 @@ class _MobileFavoriteRow extends ConsumerWidget {
   }
 }
 
-enum _MobileFavoriteAction { favorite, queue, playlist }
+enum _MobileFavoriteAction { favorite, queue, download, playlist }
 
 class _MobileFavoriteActionsButton extends ConsumerWidget {
   const _MobileFavoriteActionsButton({
@@ -292,10 +300,10 @@ class _MobileFavoriteActionsButton extends ConsumerWidget {
       offset: const Offset(0, 42),
       shape: const RoundedRectangleBorder(borderRadius: MeloRadii.md),
       popUpAnimationStyle: const AnimationStyle(
-        duration: Duration(milliseconds: 80),
-        reverseDuration: Duration(milliseconds: 60),
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
+        duration: Duration.zero,
+        reverseDuration: Duration.zero,
+        curve: Curves.linear,
+        reverseCurve: Curves.linear,
       ),
       onSelected: (action) async {
         switch (action) {
@@ -320,6 +328,35 @@ class _MobileFavoriteActionsButton extends ConsumerWidget {
             MeloSnackbar.show(
               context: context,
               message: '已添加到播放队列末尾。',
+            );
+            break;
+          case _MobileFavoriteAction.download:
+            final quality = await _chooseMobileDownloadQuality(context);
+            if (quality == null || !context.mounted) return;
+            MeloSnackbar.show(
+              context: context,
+              message: '开始下载：${primary.title}',
+            );
+            unawaited(
+              repository.downloadTrack(primary, quality: quality).then(
+                (status) {
+                  if (!context.mounted) return;
+                  MeloSnackbar.show(
+                    context: context,
+                    message: switch (status) {
+                      DownloadStatus.completed => '已下载到本地。',
+                      DownloadStatus.resolving ||
+                      DownloadStatus.downloading =>
+                        '正在下载：${primary.title}',
+                      DownloadStatus.queued => '已开始下载。',
+                      DownloadStatus.paused => '下载已暂停。',
+                      DownloadStatus.failed => '下载失败，请在下载页重试。',
+                      DownloadStatus.cancelled => '下载已取消。',
+                      null => '当前来源暂不支持下载。',
+                    },
+                  );
+                },
+              ),
             );
             break;
           case _MobileFavoriteAction.playlist:
@@ -348,6 +385,14 @@ class _MobileFavoriteActionsButton extends ConsumerWidget {
             label: '加入播放队列',
           ),
         ),
+        if (repository.canDownloadTrack(primary))
+          const PopupMenuItem(
+            value: _MobileFavoriteAction.download,
+            child: _MobileActionItem(
+              icon: Icons.download_rounded,
+              label: '下载',
+            ),
+          ),
         const PopupMenuItem(
           value: _MobileFavoriteAction.playlist,
           child: _MobileActionItem(
@@ -359,6 +404,39 @@ class _MobileFavoriteActionsButton extends ConsumerWidget {
     );
   }
 }
+
+Future<AudioQuality?> _chooseMobileDownloadQuality(BuildContext context) {
+  return showDialog<AudioQuality>(
+    context: context,
+    animationStyle: const AnimationStyle(
+      duration: Duration.zero,
+      reverseDuration: Duration.zero,
+    ),
+    builder: (context) => SimpleDialog(
+      title: const Text('选择下载音质'),
+      children: [
+        for (final quality in AudioQuality.values)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, quality),
+            child: Row(
+              children: [
+                const Icon(Icons.high_quality_rounded, size: 18),
+                const SizedBox(width: 10),
+                Text(_favoriteAudioQualityLabel(quality)),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+String _favoriteAudioQualityLabel(AudioQuality quality) => switch (quality) {
+      AudioQuality.low => '标准',
+      AudioQuality.standard => '较高',
+      AudioQuality.high => '极高',
+      AudioQuality.lossless => '无损',
+    };
 
 class _MobileActionItem extends StatelessWidget {
   const _MobileActionItem({

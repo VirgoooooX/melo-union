@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'src/app.dart';
@@ -21,6 +22,14 @@ class MeloHttpOverrides extends HttpOverrides {
 Future<void> main() async {
   HttpOverrides.global = MeloHttpOverrides();
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.melounion.app.channel.audio',
+      androidNotificationChannelName: 'MeloUnion 播放',
+      androidNotificationOngoing: true,
+    );
+  }
 
   if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
     await windowManager.ensureInitialized();

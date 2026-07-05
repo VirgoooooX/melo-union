@@ -27,6 +27,7 @@ dependencies:
     path: ../packages/provider_contract
   qr_flutter: ^4.1.0
   just_audio: ^0.9.43
+  just_audio_background: ^0.0.1-beta.17
   just_audio_windows: ^0.2.2
 dev_dependencies:
   flutter_lints: ^5.0.0

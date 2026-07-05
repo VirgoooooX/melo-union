@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:music_domain/music_domain.dart';
@@ -52,6 +53,8 @@ class MeloInteractiveRow extends StatefulWidget {
 
 class _MeloInteractiveRowState extends State<MeloInteractiveRow> {
   bool _hovered = false;
+  DateTime? _lastPrimaryDownAt;
+  Offset? _lastPrimaryDownPosition;
 
   @override
   Widget build(BuildContext context) {
@@ -63,31 +66,63 @@ class _MeloInteractiveRowState extends State<MeloInteractiveRow> {
     final leftAccent =
         widget.selected ? MeloColors.primary500 : Colors.transparent;
 
+    final row = AnimatedContainer(
+      duration: Duration.zero,
+      curve: Curves.easeOutCubic,
+      height: widget.height,
+      padding: widget.padding,
+      decoration: BoxDecoration(
+        color: background,
+        border: Border(
+          left: BorderSide(color: leftAccent, width: 3),
+        ),
+      ),
+      child: widget.builder(context, _hovered),
+    );
+
+    Widget interactiveRow = row;
+    if (widget.onTap != null) {
+      interactiveRow = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: interactiveRow,
+      );
+    } else if (widget.onDoubleTap != null) {
+      interactiveRow = Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: _handlePointerDown,
+        child: interactiveRow,
+      );
+    }
+
     return MouseRegion(
       cursor: widget.onTap == null && widget.onDoubleTap == null
           ? SystemMouseCursors.basic
           : SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        onDoubleTap: widget.onDoubleTap,
-        child: AnimatedContainer(
-          duration: Duration.zero,
-          curve: Curves.easeOutCubic,
-          height: widget.height,
-          padding: widget.padding,
-          decoration: BoxDecoration(
-            color: background,
-            border: Border(
-              left: BorderSide(color: leftAccent, width: 3),
-            ),
-          ),
-          child: widget.builder(context, _hovered),
-        ),
-      ),
+      child: interactiveRow,
     );
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    final onDoubleTap = widget.onDoubleTap;
+    if (onDoubleTap == null || event.buttons != kPrimaryButton) return;
+
+    final now = DateTime.now();
+    final previousAt = _lastPrimaryDownAt;
+    final previousPosition = _lastPrimaryDownPosition;
+    _lastPrimaryDownAt = now;
+    _lastPrimaryDownPosition = event.localPosition;
+    if (previousAt == null || previousPosition == null) return;
+
+    final elapsed = now.difference(previousAt);
+    final distance = (event.localPosition - previousPosition).distance;
+    if (elapsed <= const Duration(milliseconds: 320) && distance <= 12) {
+      _lastPrimaryDownAt = null;
+      _lastPrimaryDownPosition = null;
+      onDoubleTap();
+    }
   }
 }
 
@@ -185,19 +220,33 @@ class _MeloTrackCoverState extends State<MeloTrackCover> {
   Widget build(BuildContext context) {
     final artwork = widget.artwork;
     if (artwork != null && artwork.toString().isNotEmpty) {
+      final desktopLayout = MediaQuery.sizeOf(context).width >= 960;
       final displayPixels =
           (widget.size * MediaQuery.devicePixelRatioOf(context)).round();
-      final cacheSize = (displayPixels * 1.6).round().clamp(128, 320);
-      final requestUri = _artworkRequestUri(artwork, cacheSize);
+      final cacheSize = (displayPixels * (desktopLayout ? 3.0 : 1.6))
+          .round()
+          .clamp(desktopLayout ? 144 : 128, desktopLayout ? 256 : 320)
+          .toInt();
+      final requestUri = _meloHighResolutionArtworkUri(
+        artwork,
+        desktopLayout ? 640 : cacheSize,
+        highResolution: desktopLayout,
+      );
+      final ImageProvider<Object> baseProvider = desktopLayout
+          ? MeloFileCachedNetworkImageProvider(
+              requestUri.toString(),
+              headers: meloArtworkHeaders,
+            )
+          : NetworkImage(
+              requestUri.toString(),
+              headers: meloArtworkHeaders,
+            );
       final imageProvider = ScrollAwareImageProvider<Object>(
         context: _scrollAwareContext,
         imageProvider: ResizeImage.resizeIfNeeded(
           cacheSize,
           cacheSize,
-          MeloFileCachedNetworkImageProvider(
-            requestUri.toString(),
-            headers: meloArtworkHeaders,
-          ),
+          baseProvider,
         ),
       );
       return Container(
@@ -209,13 +258,14 @@ class _MeloTrackCoverState extends State<MeloTrackCover> {
         ),
         child: ClipRRect(
           borderRadius: MeloRadii.sm,
-          clipBehavior: Clip.hardEdge,
+          clipBehavior: Clip.antiAlias,
           child: Image(
             image: imageProvider,
             width: widget.size,
             height: widget.size,
             fit: BoxFit.cover,
-            filterQuality: FilterQuality.medium,
+            filterQuality:
+                desktopLayout ? FilterQuality.high : FilterQuality.medium,
             gaplessPlayback: true,
             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
               if (wasSynchronouslyLoaded || frame != null) {
@@ -256,20 +306,6 @@ class _MeloTrackCoverState extends State<MeloTrackCover> {
         color: Colors.white,
         size: widget.isActive ? widget.size * .42 : widget.size * .48,
       ),
-    );
-  }
-
-  Uri _artworkRequestUri(Uri artwork, int targetPixels) {
-    final host = artwork.host.toLowerCase();
-    if (!host.endsWith('music.126.net')) {
-      return artwork;
-    }
-    final thumbnailSize = targetPixels.clamp(160, 320);
-    return artwork.replace(
-      queryParameters: {
-        ...artwork.queryParameters,
-        'param': '${thumbnailSize}y$thumbnailSize',
-      },
     );
   }
 }
@@ -620,24 +656,41 @@ class MeloPlaylistCover extends StatelessWidget {
     if (cover != null && cover!.toString().isNotEmpty) {
       return LayoutBuilder(
         builder: (context, constraints) {
+          final desktopLayout = MediaQuery.sizeOf(context).width >= 960;
           final pixelRatio = MediaQuery.devicePixelRatioOf(context);
-          final cacheWidth = constraints.maxWidth.isFinite
-              ? (constraints.maxWidth * pixelRatio).round()
+          final decodedWidth = constraints.maxWidth.isFinite
+              ? (constraints.maxWidth *
+                      pixelRatio *
+                      (desktopLayout ? 6.0 : 1.0))
+                  .round()
+                  .clamp(desktopLayout ? 768 : 128, desktopLayout ? 1200 : 480)
+                  .toInt()
               : null;
-          final cacheHeight = constraints.maxHeight.isFinite
-              ? (constraints.maxHeight * pixelRatio).round()
-              : cacheWidth;
+          final decodedHeight = constraints.maxHeight.isFinite
+              ? (constraints.maxHeight *
+                      pixelRatio *
+                      (desktopLayout ? 6.0 : 1.0))
+                  .round()
+                  .clamp(desktopLayout ? 768 : 128, desktopLayout ? 1200 : 480)
+                  .toInt()
+              : decodedWidth;
+          final imageUri = _meloHighResolutionArtworkUri(
+            cover!,
+            desktopLayout ? 1000 : decodedWidth ?? 480,
+            highResolution: desktopLayout,
+          );
           return ClipRRect(
             borderRadius: MeloRadii.md,
             child: Image.network(
-              cover!.toString(),
+              imageUri.toString(),
               width: double.infinity,
               height: double.infinity,
               fit: BoxFit.cover,
               headers: meloArtworkHeaders,
-              cacheWidth: cacheWidth,
-              cacheHeight: cacheHeight,
-              filterQuality: FilterQuality.medium,
+              cacheWidth: decodedWidth,
+              cacheHeight: decodedHeight,
+              filterQuality:
+                  desktopLayout ? FilterQuality.high : FilterQuality.medium,
               errorBuilder: (_, __, ___) => _placeholder(),
             ),
           );
@@ -662,6 +715,34 @@ class MeloPlaylistCover extends StatelessWidget {
       child: const Icon(Icons.queue_music_rounded, color: Colors.white),
     );
   }
+}
+
+Uri _meloHighResolutionArtworkUri(
+  Uri artwork,
+  int targetPixels, {
+  required bool highResolution,
+}) {
+  final host = artwork.host.toLowerCase();
+  if (host.endsWith('music.126.net')) {
+    final thumbnailSize =
+        targetPixels.clamp(160, highResolution ? 1000 : 320).toInt();
+    return artwork.replace(
+      queryParameters: {
+        ...artwork.queryParameters,
+        'param': '${thumbnailSize}y$thumbnailSize',
+      },
+    );
+  }
+  if (highResolution &&
+      (host.endsWith('gtimg.cn') || host.endsWith('qq.com'))) {
+    final size = targetPixels > 900 ? 1000 : 800;
+    final upgraded = artwork.toString().replaceFirst(
+          RegExp(r'T002R\d+x\d+M000'),
+          'T002R${size}x${size}M000',
+        );
+    return Uri.parse(upgraded);
+  }
+  return artwork;
 }
 
 String meloProviderLabel(ProviderId id) {
@@ -864,10 +945,10 @@ class MeloTrackMoreMenu extends ConsumerWidget {
       offset: const Offset(0, 42),
       shape: const RoundedRectangleBorder(borderRadius: MeloRadii.md),
       popUpAnimationStyle: const AnimationStyle(
-        duration: Duration(milliseconds: 80),
-        reverseDuration: Duration(milliseconds: 60),
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
+        duration: Duration.zero,
+        reverseDuration: Duration.zero,
+        curve: Curves.linear,
+        reverseCurve: Curves.linear,
       ),
       onSelected: (action) async {
         if (action == _TrackMenuAction.playNext) {
@@ -876,6 +957,10 @@ class MeloTrackMoreMenu extends ConsumerWidget {
             context: context,
             message: '已添加到播放队列末尾。',
           );
+          return;
+        }
+        if (action == _TrackMenuAction.download) {
+          await _downloadTrackFromMenu(context, repository, track);
           return;
         }
         if (action == _TrackMenuAction.addToPlaylist) {
@@ -895,6 +980,14 @@ class MeloTrackMoreMenu extends ConsumerWidget {
             label: '加入播放队列',
           ),
         ),
+        if (repository.canDownloadTrack(track))
+          const PopupMenuItem(
+            value: _TrackMenuAction.download,
+            child: _MeloTrackMenuItem(
+              icon: Icons.download_rounded,
+              label: '下载',
+            ),
+          ),
         PopupMenuItem(
           value: _TrackMenuAction.addToPlaylist,
           child: const _MeloTrackMenuItem(
@@ -907,7 +1000,92 @@ class MeloTrackMoreMenu extends ConsumerWidget {
   }
 }
 
-enum _TrackMenuAction { playNext, addToPlaylist }
+enum _TrackMenuAction { playNext, download, addToPlaylist }
+
+class MeloTrackDownloadButton extends ConsumerWidget {
+  const MeloTrackDownloadButton({
+    required this.track,
+    this.tooltip = '下载',
+    super.key,
+  });
+
+  final SourceTrack track;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.read(demoRepositoryProvider);
+    if (!repository.canDownloadTrack(track)) {
+      return const SizedBox.shrink();
+    }
+    return IconButton(
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      onPressed: () => _downloadTrackFromMenu(context, repository, track),
+      icon: const Icon(Icons.download_rounded),
+    );
+  }
+}
+
+Future<void> _downloadTrackFromMenu(
+  BuildContext context,
+  DemoRepository repository,
+  SourceTrack track,
+) async {
+  final quality = await _chooseDownloadQuality(context);
+  if (quality == null || !context.mounted) return;
+  MeloSnackbar.show(context: context, message: '开始下载：${track.title}');
+  unawaited(
+    repository.downloadTrack(track, quality: quality).then((status) {
+      if (!context.mounted) return;
+      final message = switch (status) {
+        DownloadStatus.completed => '已下载到本地。',
+        DownloadStatus.resolving ||
+        DownloadStatus.downloading =>
+          '正在下载：${track.title}',
+        DownloadStatus.queued => '已开始下载。',
+        DownloadStatus.paused => '下载已暂停。',
+        DownloadStatus.failed => '下载失败，请在下载页重试。',
+        DownloadStatus.cancelled => '下载已取消。',
+        null => '当前来源暂不支持下载。',
+      };
+      MeloSnackbar.show(context: context, message: message);
+    }),
+  );
+}
+
+Future<AudioQuality?> _chooseDownloadQuality(BuildContext context) {
+  return showDialog<AudioQuality>(
+    context: context,
+    animationStyle: const AnimationStyle(
+      duration: Duration.zero,
+      reverseDuration: Duration.zero,
+    ),
+    builder: (context) => SimpleDialog(
+      title: const Text('选择下载音质'),
+      children: [
+        for (final quality in AudioQuality.values)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, quality),
+            child: Row(
+              children: [
+                const Icon(Icons.high_quality_rounded, size: 18),
+                const SizedBox(width: 10),
+                Text(_audioQualityLabel(quality)),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+String _audioQualityLabel(AudioQuality quality) => switch (quality) {
+      AudioQuality.low => '标准',
+      AudioQuality.standard => '较高',
+      AudioQuality.high => '极高',
+      AudioQuality.lossless => '无损',
+    };
 
 class MeloAddToPlaylistDialog extends ConsumerWidget {
   const MeloAddToPlaylistDialog({required this.track, super.key});
@@ -1113,7 +1291,14 @@ class _MeloTrackMenuItem extends StatelessWidget {
         children: [
           Icon(icon, size: 18),
           const SizedBox(width: 10),
-          Text(label),
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       );
 }
