@@ -525,6 +525,7 @@ class _DesktopFullScreenLayout extends StatelessWidget {
         final drawerWidth = constraints.maxWidth < 1180
             ? constraints.maxWidth * .42
             : constraints.maxWidth * .34;
+        final recordSize = (constraints.maxHeight - 410).clamp(160.0, 360.0);
         return Stack(
           children: [
             Padding(
@@ -539,6 +540,7 @@ class _DesktopFullScreenLayout extends StatelessWidget {
                         child: _DesktopAlbumStage(
                           track: track,
                           repository: repository,
+                          recordSize: recordSize,
                         ),
                       ),
                     ),
@@ -601,10 +603,12 @@ class _DesktopAlbumStage extends StatelessWidget {
   const _DesktopAlbumStage({
     required this.track,
     required this.repository,
+    required this.recordSize,
   });
 
   final SourceTrack? track;
   final DemoRepository repository;
+  final double recordSize;
 
   @override
   Widget build(BuildContext context) {
@@ -623,62 +627,68 @@ class _DesktopAlbumStage extends StatelessWidget {
     }
 
     final presentation = meloProviderPresentation(current.ref.providerId);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GlassVinylRecord(
-          size: 360,
-          isPlaying: repository.isPlaybackActive,
-          artwork: _fullscreenArtwork(current),
-        ),
-        const SizedBox(height: 18),
-        Text(
-          current.title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: Colors.white,
-                fontSize: 34,
-                fontWeight: FontWeight.w900,
-                height: 1.08,
-                letterSpacing: 0,
-              ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          current.artists.join(' / '),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.white.withValues(alpha: .58),
-                fontWeight: FontWeight.w700,
-              ),
-        ),
-        const SizedBox(height: MeloSpacing.md),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: MeloSpacing.xs,
-          runSpacing: MeloSpacing.xs,
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _GlassPill(label: presentation.shortName),
-            _GlassPill(label: _qualityLabel(repository.playbackQuality)),
-            if (current.isFavorited)
-              const _GlassPill(
-                label: '已收藏',
-                icon: Icons.favorite_rounded,
-                accent: MeloColors.favorite,
-              ),
+            GlassVinylRecord(
+              size: recordSize,
+              isPlaying: repository.isPlaybackActive,
+              artwork: _fullscreenArtwork(current),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              current.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
+                    height: 1.08,
+                    letterSpacing: 0,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              current.artists.join(' / '),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: .58),
+                    fontWeight: FontWeight.w700,
+                    ),
+            ),
+            const SizedBox(height: MeloSpacing.md),
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: MeloSpacing.xs,
+              runSpacing: MeloSpacing.xs,
+              children: [
+                _MobileProviderBadge(providerId: current.ref.providerId),
+                _GlassPill(label: _qualityLabel(repository.playbackQuality)),
+                if (current.isFavorited)
+                  const _GlassPill(
+                    label: '已收藏',
+                    icon: Icons.favorite_rounded,
+                    accent: MeloColors.favorite,
+                  ),
+              ],
+            ),
+            const SizedBox(height: MeloSpacing.lg),
+            _FullscreenProgress(repository: repository),
+            const SizedBox(height: MeloSpacing.md),
+            _FullscreenTransport(repository: repository, track: current),
+            const SizedBox(height: MeloSpacing.sm),
+            _SecondaryControls(repository: repository, track: current),
           ],
         ),
-        const SizedBox(height: MeloSpacing.lg),
-        _FullscreenProgress(repository: repository),
-        const SizedBox(height: MeloSpacing.md),
-        _FullscreenTransport(repository: repository, track: current),
-        const SizedBox(height: MeloSpacing.sm),
-        _SecondaryControls(repository: repository, track: current),
-      ],
+      ),
     );
   }
 }
@@ -996,10 +1006,11 @@ class _PrimaryPlayerPanel extends StatelessWidget {
         const SizedBox(height: MeloSpacing.md),
         Wrap(
           alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
           spacing: MeloSpacing.xs,
           runSpacing: MeloSpacing.xs,
           children: [
-            _GlassPill(label: presentation.shortName),
+            _MobileProviderBadge(providerId: track!.ref.providerId),
             _GlassPill(label: _qualityLabel(repository.playbackQuality)),
             if (track!.isFavorited)
               const _GlassPill(

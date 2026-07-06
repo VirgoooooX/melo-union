@@ -436,21 +436,43 @@ final class KugouLibraryApi {
     Map<String, Object?> transParam,
     List<Object?> relateGoods,
   ) {
-    final candidates = <String>[
+    // Kugou exposes one "song" as several *file variants* distinguished by
+    // hash: FileHash/hash_128 (128k mp3), HQFileHash/ogg_320 (320k),
+    // SQFileHash (flac), ResFileHash (hi-res). The hash identifies the exact
+    // file; the /v5/url `quality` param is only a hint. Sending an SQ hash
+    // with quality=128 asks the server to authorize a VIP-only lossless file
+    // at a 128k tier — Kugou rejects that with error_code 20006.
+    //
+    // So prefer the universally-playable STANDARD hash first. Only fall back
+    // to higher tiers when no standard hash exists. This matches the playback
+    // coordinator's default (standard = 128k) and avoids silently picking a
+    // VIP-only file for a free account.
+    final standardCandidates = <String>[
+      _stringValue(map['FileHash'] ?? map['file_hash']),
+      _stringValue(transParam['ogg_128_hash']),
+      _stringValue(map['hash_128']),
+      _stringValue(map['Hash'] ?? map['hash'] ?? map['HASH']),
+    ];
+    for (final hash in standardCandidates) {
+      if (_isValidHash(hash)) return hash;
+    }
+
+    final highTierCandidates = <String>[
       _stringValue(map['SQFileHash']),
       _stringValue(map['HQFileHash']),
       _stringValue(map['ResFileHash']),
       _stringValue(transParam['ogg_320_hash']),
-      _stringValue(map['Hash'] ?? map['hash'] ?? map['HASH']),
-      _stringValue(map['FileHash'] ?? map['file_hash']),
-      _stringValue(transParam['ogg_128_hash']),
-      _stringValue(map['hash_128']),
     ];
+    for (final hash in highTierCandidates) {
+      if (_isValidHash(hash)) return hash;
+    }
+
     for (final item in relateGoods.whereType<Map<Object?, Object?>>()) {
       final relate = _stringMap(item);
-      candidates.add(_stringValue(relate['hash']));
+      final hash = _stringValue(relate['hash']);
+      if (_isValidHash(hash)) return hash;
     }
-    return candidates.firstWhere(_isValidHash, orElse: () => '');
+    return '';
   }
 
   bool _isValidHash(String value) =>

@@ -507,6 +507,21 @@ class KugouApiClient {
       });
       _logger.logRequest('GET', uri, requestHeaders);
 
+      _logGatewayDiagnostics(
+        path: path,
+        strategy: 'musiclib',
+        dfid: dfid,
+        mid: mid,
+        uuid: '-',
+        userId: userId,
+        token: token,
+        cookieKeys: session == null
+            ? const []
+            : _kugouGatewayCookieKeys(session, dfid: dfid, mid: mid),
+        requestParams: requestParams,
+        requestData: const {},
+      );
+
       final response = await _client.get(uri, headers: requestHeaders);
       _logger.logResponse(response.statusCode, response.body);
       return _handleResponse(response);
@@ -635,7 +650,9 @@ class KugouApiClient {
     required Map<String, Object?> requestParams,
     required Map<String, Object?> requestData,
   }) {
-    if (!path.contains('get_all_list') && !path.contains('get_list_all_file')) {
+    if (!path.contains('get_all_list') &&
+        !path.contains('get_list_all_file') &&
+        !path.contains('/v5/url')) {
       return;
     }
     // ignore: avoid_print

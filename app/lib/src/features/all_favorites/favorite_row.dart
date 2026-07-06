@@ -101,7 +101,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                   runSpacing: 4,
                   children: [
                     for (final item in variants)
-                      MeloSourceBadge(providerId: item.ref.providerId),
+                      MeloPlatformIcon(providerId: item.ref.providerId),
                   ],
                 ),
               ),

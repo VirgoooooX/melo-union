@@ -169,8 +169,9 @@ class _NowPlayingCard extends ConsumerWidget {
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    _ProviderPill(presentation: presentation),
+                    MeloPlatformIcon(providerId: track.ref.providerId),
                     if (track.isFavorited)
                       const _StatusPill(
                         icon: Icons.favorite_rounded,

@@ -52,7 +52,11 @@ final class KugouMediaApi implements KugouMediaResolver {
         try {
           return await _resolveLegacyPlayInfo(hash: hash);
         } on ProviderException {
-          return _resolveV5Url(track: track, hash: hash);
+          return _resolveV5Url(
+            track: track,
+            hash: hash,
+            requestedQuality: requestedQuality,
+          );
         }
       }
       if (errCode != 0 || playUrl.isEmpty) {
@@ -146,12 +150,14 @@ final class KugouMediaApi implements KugouMediaResolver {
   Future<KugouMediaResolution> _resolveV5Url({
     required ProviderTrackRef track,
     required String hash,
+    required AudioQuality requestedQuality,
   }) async {
     final normalizedHash = hash.toLowerCase();
     final albumId = track.extraIds['albumId'] ?? '0';
     final albumAudioId =
         track.extraIds['albumAudioId'] ?? track.extraIds['audioId'] ?? '0';
 
+    final kugouQuality = _kugouQualityFor(requestedQuality);
     final response = await _client.androidGatewayGet(
       '/v5/url',
       authenticated: true,
@@ -167,7 +173,7 @@ final class KugouMediaApi implements KugouMediaResolver {
         'ssa_flag': 'is_fromtrack',
         'version': 11436,
         'page_id': 967177915,
-        'quality': 'flac',
+        'quality': kugouQuality,
         'album_audio_id': albumAudioId.isEmpty ? '0' : albumAudioId,
         'behavior': 'play',
         'pid': 411,
@@ -182,10 +188,26 @@ final class KugouMediaApi implements KugouMediaResolver {
     );
     final playUrl = _pickKugouResponseUrl(response);
     if (playUrl.isEmpty) {
+      // error_code 20006 = the requested quality is not available for this
+      // account/track (typically VIP-only FLAC on a free account). Per doc
+      // §6.2 we do not silently downgrade; surface the condition so the UI
+      // can tell the user their requested tier is unavailable.
+      final errCode = response['error_code'] ??
+          response['errcode'] ??
+          response['err_code'] ??
+          0;
+      if (errCode.toString() == '20006') {
+        throw ProviderException(
+          providerId: _providerId,
+          message:
+              'QualityUnavailable: Kugou rejected quality=$kugouQuality for '
+              'this track (error_code: 20006). Try a lower quality tier.',
+        );
+      }
       throw ProviderException(
         providerId: _providerId,
         message:
-            'MediaUnavailable: Kugou v5 url is not available (error_code: ${response['error_code'] ?? response['errcode'] ?? 0}).',
+            'MediaUnavailable: Kugou v5 url is not available (error_code: $errCode).',
       );
     }
 
@@ -214,6 +236,23 @@ final class KugouMediaApi implements KugouMediaResolver {
     if (bitrate >= 320) return AudioQuality.high;
     if (bitrate >= 192) return AudioQuality.standard;
     return AudioQuality.low;
+  }
+
+  /// Maps MeloUnion's requested quality tier to the Kugou /v5/url `quality`
+  /// vocabulary. Kugou accepts: `128`, `320`, `flac`, `high`, `super`, `sq`.
+  /// We request the tier that matches user intent rather than always asking
+  /// for FLAC — asking a free account for FLAC yields error_code 20006.
+  String _kugouQualityFor(AudioQuality requested) {
+    switch (requested) {
+      case AudioQuality.lossless:
+        return 'flac';
+      case AudioQuality.high:
+        return '320';
+      case AudioQuality.standard:
+        return '128';
+      case AudioQuality.low:
+        return '128';
+    }
   }
 
   String _firstUrl(Object? value) {
