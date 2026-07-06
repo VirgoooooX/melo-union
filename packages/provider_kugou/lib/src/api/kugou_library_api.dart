@@ -320,6 +320,24 @@ final class KugouLibraryApi {
           map['ID'] ??
           map['id'],
     );
+    final fileHash = _stringValue(
+      map['file_hash'] ?? map['origin_hash'] ?? map['FileHash'] ?? map['hash'],
+    );
+    final sqHash = _stringValue(
+      map['sq_hash'] ?? map['sqhash'] ?? map['SQFileHash'],
+    );
+    final hqHash = _stringValue(
+      map['hq_hash'] ?? map['320hash'] ?? map['HQFileHash'],
+    );
+    final resHash = _stringValue(
+      map['res_hash'] ?? map['ResFileHash'],
+    );
+    final ogg320Hash = _stringValue(
+      transParam['ogg_320_hash'] ?? map['ogg_320_hash'],
+    );
+    final ogg128Hash = _stringValue(
+      transParam['ogg_128_hash'] ?? map['ogg_128_hash'],
+    );
 
     return KugouRemoteTrack(
       hash: hash,
@@ -343,6 +361,12 @@ final class KugouLibraryApi {
         _stringValue(
             map['mixsongid'] ?? map['mix_song_id'] ?? map['MixSongID']),
       ),
+      fileHash: _emptyToNull(fileHash),
+      sqHash: _emptyToNull(sqHash),
+      hqHash: _emptyToNull(hqHash),
+      resHash: _emptyToNull(resHash),
+      ogg320Hash: _emptyToNull(ogg320Hash),
+      ogg128Hash: _emptyToNull(ogg128Hash),
       favoriteFileId: _emptyToNull(
         _stringValue(
           map['fileid'] ??
@@ -354,7 +378,12 @@ final class KugouLibraryApi {
       ),
       explicitlyBlocked: _intValue(map['privilege']) == 0,
       favoriteTime: _dateValue(
-        map['addtime'] ?? map['add_time'] ?? map['time'] ?? map['ctime'],
+        map['collecttime'] ??
+            map['collect_time'] ??
+            map['addtime'] ??
+            map['add_time'] ??
+            map['time'] ??
+            map['ctime'],
       ),
       artwork: _uriValue(
         _stringValue(
@@ -376,7 +405,6 @@ final class KugouLibraryApi {
       final message = _stringValue(
         response['error_msg'] ?? response['msg'] ?? response['message'],
       );
-      print('[KugouLibraryApi] Error response: $response');
       throw ProviderException(
         providerId: _providerId,
         message: message.isEmpty

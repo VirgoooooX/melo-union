@@ -7,6 +7,7 @@ final class KugouTrackMapper {
   final ProviderId providerId;
 
   SourceTrack map(KugouRemoteTrack remote, {bool isFavorited = false}) {
+    final favorited = isFavorited || remote.favoriteFileId != null;
     return SourceTrack(
       ref: ProviderTrackRef(
         providerId: providerId,
@@ -18,6 +19,18 @@ final class KugouTrackMapper {
             'albumAudioId': remote.albumAudioId!,
           if (remote.mixSongId != null && remote.mixSongId!.isNotEmpty)
             'mixSongId': remote.mixSongId!,
+          if (remote.fileHash != null && remote.fileHash!.isNotEmpty)
+            'fileHash': remote.fileHash!,
+          if (remote.sqHash != null && remote.sqHash!.isNotEmpty)
+            'sqHash': remote.sqHash!,
+          if (remote.hqHash != null && remote.hqHash!.isNotEmpty)
+            'hqHash': remote.hqHash!,
+          if (remote.resHash != null && remote.resHash!.isNotEmpty)
+            'resHash': remote.resHash!,
+          if (remote.ogg320Hash != null && remote.ogg320Hash!.isNotEmpty)
+            'ogg320Hash': remote.ogg320Hash!,
+          if (remote.ogg128Hash != null && remote.ogg128Hash!.isNotEmpty)
+            'ogg128Hash': remote.ogg128Hash!,
           if (remote.favoriteFileId != null &&
               remote.favoriteFileId!.isNotEmpty)
             'favoriteFileId': remote.favoriteFileId!,
@@ -28,13 +41,21 @@ final class KugouTrackMapper {
       duration: remote.duration,
       album: remote.album,
       artwork: remote.artwork,
-      isFavorited: isFavorited || remote.favoriteFileId != null,
+      isFavorited: favorited,
       isPlayable: remote.explicitlyBlocked != true,
       isDownloadable: remote.explicitlyBlocked !=
           true, // Can be downloaded if playable and not blocked
       likedAt: remote.favoriteTime,
-      likedAtSource: remote.favoriteTime == null ? 'unknown' : 'sync_detected',
-      likedAtPrecision: remote.favoriteTime == null ? 'unknown' : 'approximate',
+      likedAtSource: remote.favoriteTime != null
+          ? 'kugou_raw'
+          : favorited
+              ? 'kugou_import'
+              : null,
+      likedAtPrecision: remote.favoriteTime != null
+          ? 'exact'
+          : favorited
+              ? 'unknown'
+              : null,
     );
   }
 }

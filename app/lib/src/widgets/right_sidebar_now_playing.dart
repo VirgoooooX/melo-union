@@ -114,7 +114,6 @@ class _NowPlayingCard extends ConsumerWidget {
                   .bodyMedium
                   ?.copyWith(color: MeloColors.textSecondary, height: 1.5)));
     }
-    final presentation = meloProviderPresentation(track.ref.providerId);
     return _Panel(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -204,20 +203,6 @@ class _Panel extends StatelessWidget {
       );
 }
 
-class _ProviderPill extends StatelessWidget {
-  const _ProviderPill({required this.presentation});
-  final MeloProviderPresentation presentation;
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-            color: presentation.backgroundColor, borderRadius: MeloRadii.sm),
-        child: Text(presentation.shortName,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: presentation.foregroundColor,
-                fontWeight: FontWeight.w700)),
-      );
-}
 
 class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.icon, required this.label});

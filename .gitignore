@@ -17,7 +17,7 @@ android/key.properties
 .playwright-mcp
 # Windows
 windows/flutter/ephemeral/
-
+docs
 # IDE
 .idea/
 .vscode/

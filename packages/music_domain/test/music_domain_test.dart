@@ -718,6 +718,107 @@ void main() {
       );
       expect(result.tracks.single.variants.single.likedAt, exact);
     });
+
+    test('estimates Kugou imported favorites when raw collecttime is absent',
+        () async {
+      final kugouProviderId = ProviderId('kugou');
+      final ref = ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: 'kugou_hash',
+        extraIds: const {'favoriteFileId': '1'},
+      );
+      final overrides = FavoritesOverrideRegistry();
+      final kugouProvider = FakeMusicProvider(
+        descriptor: ProviderDescriptor(
+          id: kugouProviderId,
+          displayName: 'Kugou',
+          capabilities: const {
+            ProviderCapability.authenticate,
+            ProviderCapability.readFavorites,
+          },
+        ),
+        seedTracks: [
+          SourceTrack(
+            ref: ref,
+            title: 'Blue Lotus',
+            artists: const ['Xu Wei'],
+            duration: const Duration(minutes: 4),
+            isFavorited: true,
+            likedAtSource: LikedAtMetadata.sourceKugouImport,
+            likedAtPrecision: LikedAtMetadata.precisionUnknown,
+          ),
+        ],
+      );
+
+      final result =
+          await const UnifiedFavoritesService().buildAllFavoritesWithResult(
+        StaticProviderRegistry([kugouProvider]),
+        overrides: overrides,
+      );
+
+      final metadata = overrides.likedAtFor(ref);
+      expect(metadata?.likedAt, isNotNull);
+      expect(metadata?.source, LikedAtMetadata.sourceKugouImport);
+      expect(metadata?.precision, LikedAtMetadata.precisionUnknown);
+      expect(result.tracks.single.variants.single.likedAt, metadata?.likedAt);
+    });
+
+    test('promotes Kugou raw collecttime over a previous estimate', () async {
+      final kugouProviderId = ProviderId('kugou');
+      final oldRef = ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: 'kugou_hash',
+      );
+      final currentRef = ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: 'kugou_hash',
+        extraIds: const {'favoriteFileId': '1'},
+      );
+      final estimate = DateTime.utc(2026, 7, 1, 8);
+      final raw = DateTime.utc(2026, 7, 6, 12);
+      final overrides = FavoritesOverrideRegistry()
+        ..recordLikedAt(
+          oldRef,
+          LikedAtMetadata(
+            likedAt: estimate,
+            source: LikedAtMetadata.sourceKugouImport,
+            precision: LikedAtMetadata.precisionUnknown,
+          ),
+        );
+      final kugouProvider = FakeMusicProvider(
+        descriptor: ProviderDescriptor(
+          id: kugouProviderId,
+          displayName: 'Kugou',
+          capabilities: const {
+            ProviderCapability.authenticate,
+            ProviderCapability.readFavorites,
+          },
+        ),
+        seedTracks: [
+          SourceTrack(
+            ref: currentRef,
+            title: 'Blue Lotus',
+            artists: const ['Xu Wei'],
+            duration: const Duration(minutes: 4),
+            isFavorited: true,
+            likedAt: raw,
+            likedAtSource: LikedAtMetadata.sourceKugouRaw,
+            likedAtPrecision: LikedAtMetadata.precisionExact,
+          ),
+        ],
+      );
+
+      final result =
+          await const UnifiedFavoritesService().buildAllFavoritesWithResult(
+        StaticProviderRegistry([kugouProvider]),
+        overrides: overrides,
+      );
+
+      expect(overrides.likedAtFor(oldRef)?.likedAt, raw);
+      expect(overrides.likedAtFor(currentRef)?.source,
+          LikedAtMetadata.sourceKugouRaw);
+      expect(result.tracks.single.variants.single.likedAt, raw);
+    });
   });
 
   group('DownloadCoordinator', () {

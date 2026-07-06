@@ -174,13 +174,9 @@ final class KugouCatalogApi {
   }
 
   KugouRemoteTrack _trackFromMap(Map<String, Object?> map) {
-    final hash = _stringValue(
-      map['FileHash'] ??
-          map['HQFileHash'] ??
-          map['hash'] ??
-          map['HASH'] ??
-          map['hash_128'],
-    );
+    final transParam = _jsonMap(map['trans_param']);
+    final relateGoods = _listValue(map['relate_goods']);
+    final hash = _bestPlayableHash(map, transParam, relateGoods);
     final title = _stringValue(
       map['SongName'] ??
           map['songname'] ??
@@ -199,6 +195,29 @@ final class KugouCatalogApi {
     final albumAudioId = _stringValue(
       map['AlbumAudioID'] ?? map['album_audio_id'] ?? map['audio_id'],
     );
+    final fileHash = _firstValidHash([
+      _stringValue(map['FileHash'] ?? map['file_hash']),
+      _relateGoodsHash(relateGoods, (bitrate) => bitrate > 0 && bitrate < 320),
+      _stringValue(map['origin_hash'] ?? map['hash_128'] ?? map['hash']),
+    ]);
+    final sqHash = _firstValidHash([
+      _stringValue(map['SQFileHash'] ?? map['sqhash'] ?? map['sq_hash']),
+      _relateGoodsHash(relateGoods, (bitrate) => bitrate >= 700),
+    ]);
+    final hqHash = _firstValidHash([
+      _stringValue(map['HQFileHash'] ?? map['320hash'] ?? map['hq_hash']),
+      _relateGoodsHash(
+          relateGoods, (bitrate) => bitrate >= 320 && bitrate < 700),
+    ]);
+    final resHash = _stringValue(
+      map['ResFileHash'] ?? map['res_hash'],
+    );
+    final ogg320Hash = _stringValue(
+      transParam['ogg_320_hash'] ?? map['ogg_320_hash'],
+    );
+    final ogg128Hash = _stringValue(
+      transParam['ogg_128_hash'] ?? map['ogg_128_hash'],
+    );
     final privilege = _intValue(map['Privilege'] ?? map['privilege']);
 
     return KugouRemoteTrack(
@@ -215,6 +234,12 @@ final class KugouCatalogApi {
       albumId: albumId.isEmpty ? null : albumId,
       albumAudioId: albumAudioId.isEmpty ? null : albumAudioId,
       mixSongId: _emptyToNull(_stringValue(map['MixSongID'])),
+      fileHash: _emptyToNull(fileHash),
+      sqHash: _emptyToNull(sqHash),
+      hqHash: _emptyToNull(hqHash),
+      resHash: _emptyToNull(resHash),
+      ogg320Hash: _emptyToNull(ogg320Hash),
+      ogg128Hash: _emptyToNull(ogg128Hash),
       explicitlyBlocked: privilege == 0,
       artwork: _imageUri(
         _stringValue(
@@ -237,7 +262,68 @@ final class KugouCatalogApi {
     return value.map((key, value) => MapEntry(key.toString(), value));
   }
 
+  String _bestPlayableHash(
+    Map<String, Object?> map,
+    Map<String, Object?> transParam,
+    List<Object?> relateGoods,
+  ) {
+    final standardCandidates = <String>[
+      _stringValue(map['FileHash'] ?? map['file_hash']),
+      _relateGoodsHash(relateGoods, (bitrate) => bitrate > 0 && bitrate < 320),
+      _stringValue(transParam['ogg_128_hash'] ?? map['ogg_128_hash']),
+      _stringValue(map['hash_128']),
+      _stringValue(map['Hash'] ?? map['hash'] ?? map['HASH']),
+    ];
+    for (final hash in standardCandidates) {
+      if (_isValidHash(hash)) return hash;
+    }
+
+    final highTierCandidates = <String>[
+      _stringValue(map['SQFileHash'] ?? map['sqhash'] ?? map['sq_hash']),
+      _stringValue(map['HQFileHash'] ?? map['320hash'] ?? map['hq_hash']),
+      _stringValue(map['ResFileHash'] ?? map['res_hash']),
+      _stringValue(transParam['ogg_320_hash'] ?? map['ogg_320_hash']),
+    ];
+    for (final hash in highTierCandidates) {
+      if (_isValidHash(hash)) return hash;
+    }
+    for (final item in relateGoods.whereType<Map<Object?, Object?>>()) {
+      final relate = _stringMap(item);
+      final hash = _stringValue(relate['hash']);
+      if (_isValidHash(hash)) return hash;
+    }
+    return _stringValue(map['Hash'] ?? map['hash'] ?? map['HASH']);
+  }
+
+  bool _isValidHash(String value) {
+    return RegExp(r'^[a-fA-F0-9]{32}$').hasMatch(value) &&
+        value != '00000000000000000000000000000000';
+  }
+
   String _stringValue(Object? value) => value?.toString() ?? '';
+
+  List<Object?> _listValue(Object? value) =>
+      value is List ? value.cast<Object?>() : const [];
+
+  String _firstValidHash(List<String> values) {
+    for (final value in values) {
+      if (_isValidHash(value)) return value;
+    }
+    return '';
+  }
+
+  String _relateGoodsHash(
+    List<Object?> relateGoods,
+    bool Function(int bitrate) matches,
+  ) {
+    for (final item in relateGoods.whereType<Map<Object?, Object?>>()) {
+      final relate = _stringMap(item);
+      final hash = _stringValue(relate['hash']);
+      final bitrate = _intValue(relate['bitrate']) ?? 0;
+      if (_isValidHash(hash) && matches(bitrate)) return hash;
+    }
+    return '';
+  }
 
   String? _emptyToNull(String value) => value.isEmpty ? null : value;
 

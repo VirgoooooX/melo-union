@@ -77,26 +77,28 @@ final class UnifiedFavoritesService {
 
     final groups = <_FavoriteGroup>[];
 
-    // Sync QQ / external-source liked-at to the registry:
+    // Sync external-source liked-at to the registry:
     //   Real exact likedAt from track -> update registry with exact precision.
     //   No likedAt -> fallback to sync detection estimation.
     if (overrides != null) {
       overrides.normalizeLikedAtTracking();
       for (final snapshot in snapshots) {
         final tracksToEstimate = <SourceTrack>[];
+        String? importSource;
         for (final track in snapshot.tracks) {
-          if (track.likedAtSource == 'qq_import') {
+          final source = track.likedAtSource;
+          if (_isExternalImportSource(source)) {
             final existing = overrides.likedAtFor(track.ref);
             if (track.likedAt != null) {
-              // If we have a real precise likedAt from QQ Music, we can update or set it.
-              // Overwrite if not in registry, or if it is in registry but was estimated (precision != exact).
+              // If we have a real precise likedAt from the provider, update or set it.
+              // Overwrite if missing, or if the registry only had an estimate.
               if (existing == null ||
                   existing.precision != LikedAtMetadata.precisionExact) {
                 overrides.recordLikedAt(
                   track.ref,
                   LikedAtMetadata(
                     likedAt: track.likedAt!,
-                    source: LikedAtMetadata.sourceQqImport,
+                    source: source!,
                     precision: LikedAtMetadata.precisionExact,
                   ),
                 );
@@ -105,18 +107,19 @@ final class UnifiedFavoritesService {
               // Fallback: estimate if not in registry.
               if (existing == null) {
                 tracksToEstimate.add(track);
+                importSource ??= source;
               }
             }
           }
         }
-        if (tracksToEstimate.isEmpty) continue;
+        if (tracksToEstimate.isEmpty || importSource == null) continue;
 
         // Determine span: from last sync to now.
-        // The last sync time ≈ the newest registry entry's likedAt for QQ.
+        // The last sync time ≈ newest registry entry for the same import source.
         final now = DateTime.now().toUtc();
         DateTime? lastSync;
         for (final entry in overrides.likedAtTracking.entries) {
-          if (entry.value.source == LikedAtMetadata.sourceQqImport &&
+          if (entry.value.source == importSource &&
               entry.value.likedAt != null) {
             if (lastSync == null || entry.value.likedAt!.isAfter(lastSync)) {
               lastSync = entry.value.likedAt;
@@ -132,7 +135,7 @@ final class UnifiedFavoritesService {
               tracksToEstimate[i].ref,
               LikedAtMetadata(
                 likedAt: now,
-                source: LikedAtMetadata.sourceQqImport,
+                source: importSource,
                 precision: LikedAtMetadata.precisionUnknown,
               ),
             );
@@ -147,7 +150,7 @@ final class UnifiedFavoritesService {
               tracksToEstimate[i].ref,
               LikedAtMetadata(
                 likedAt: now.subtract(interval * i),
-                source: LikedAtMetadata.sourceQqImport,
+                source: importSource,
                 precision: LikedAtMetadata.precisionUnknown,
               ),
             );
@@ -253,6 +256,12 @@ final class UnifiedFavoritesService {
     return _normalize(left.title) == _normalize(right.title) &&
         leftArtists == rightArtists &&
         durationDelta <= 2;
+  }
+
+  static bool _isExternalImportSource(String? source) {
+    return source == LikedAtMetadata.sourceQqImport ||
+        source == LikedAtMetadata.sourceKugouImport ||
+        source == LikedAtMetadata.sourceKugouRaw;
   }
 
   static String _normalizedArtists(List<String> artists) {

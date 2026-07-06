@@ -17,6 +17,8 @@ final class LikedAtMetadata {
   /// - `'sync_detected'`: first time this track appeared in a pullFavorites diff
   /// - `'unknown'`: imported from external source, no reliable timestamp
   /// - `'qq_import'`: specifically imported from QQ (separate from generic unknown)
+  /// - `'kugou_import'`: imported from Kugou without a reliable raw timestamp
+  /// - `'kugou_raw'`: Kugou's native `collecttime` field (exact second timestamp)
   /// - `'netease_raw'`: Netease's native `at` field (exact millisecond timestamp)
   final String source;
 
@@ -30,6 +32,8 @@ final class LikedAtMetadata {
   static const sourceSyncDetected = 'sync_detected';
   static const sourceUnknown = 'unknown';
   static const sourceQqImport = 'qq_import';
+  static const sourceKugouImport = 'kugou_import';
+  static const sourceKugouRaw = 'kugou_raw';
   static const sourceNeteaseRaw = 'netease_raw';
 
   static const precisionExact = 'exact';
@@ -215,6 +219,12 @@ class FavoritesOverrideRegistry {
         return result;
       }
     }
+    if (ref.providerId.value == 'kugou') {
+      final trackId = ref.trackId.trim();
+      if (trackId.isNotEmpty) {
+        return {'${ref.providerId.value}:track_id:$trackId'};
+      }
+    }
     return {'${ref.providerId.value}:${ref.trackId}:${_extraIdsKey(ref)}'};
   }
 
@@ -271,7 +281,8 @@ class FavoritesOverrideRegistry {
       return 500;
     }
     if (metadata.precision == LikedAtMetadata.precisionExact && hasTime) {
-      if (metadata.source == LikedAtMetadata.sourceQqImport) {
+      if (metadata.source == LikedAtMetadata.sourceQqImport ||
+          metadata.source == LikedAtMetadata.sourceKugouRaw) {
         return 400;
       }
       return 350;

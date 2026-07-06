@@ -9,7 +9,6 @@ import 'package:window_manager/window_manager.dart';
 
 import '../bootstrap/demo_repository.dart';
 import '../design/melo_tokens.dart';
-import '../presentation/provider_presentation.dart';
 import 'glass_vinyl_record.dart';
 import 'lyrics_provider.dart';
 import 'melo_components.dart';
@@ -626,7 +625,6 @@ class _DesktopAlbumStage extends StatelessWidget {
       );
     }
 
-    final presentation = meloProviderPresentation(current.ref.providerId);
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
       child: SingleChildScrollView(
@@ -857,7 +855,6 @@ class _PrimaryPlayerPanel extends StatelessWidget {
       );
     }
 
-    final presentation = meloProviderPresentation(track!.ref.providerId);
     final artworkSize =
         compact ? coverSize.clamp(220, 318).toDouble() : coverSize;
     final artworkHeight = compact ? artworkSize + 78 : artworkSize + 116;

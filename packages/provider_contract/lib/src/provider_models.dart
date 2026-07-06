@@ -75,7 +75,8 @@ final class SourceTrack {
   final DateTime? likedAt;
 
   /// Origin of the liked-at value:
-  ///   'app_action' | 'sync_detected' | 'qq_import' | 'unknown' | null
+  ///   'app_action' | 'sync_detected' | 'qq_import' | 'kugou_import' |
+  ///   'kugou_raw' | 'netease_raw' | 'unknown' | null
   final String? likedAtSource;
 
   /// Precision of the liked-at timestamp:
@@ -110,8 +111,7 @@ final class SourceTrack {
       isPlayable: isPlayable ?? this.isPlayable,
       isDownloadable: isDownloadable ?? this.isDownloadable,
       likedAt: clearLikedAt ? null : likedAt ?? this.likedAt,
-      likedAtSource:
-          clearLikedAt ? null : likedAtSource ?? this.likedAtSource,
+      likedAtSource: clearLikedAt ? null : likedAtSource ?? this.likedAtSource,
       likedAtPrecision:
           clearLikedAt ? null : likedAtPrecision ?? this.likedAtPrecision,
     );

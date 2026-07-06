@@ -11,12 +11,6 @@ final class KugouQrLoginServiceImpl implements KugouQrLoginService {
 
   @override
   Future<KugouQrLoginSession> createQrLoginSession() async {
-    // ignore: avoid_print
-    print('[KugouQrLogin] createQrLoginSession');
-
-    // Anonymous QR context — no token, no userid, no device preregistration.
-    // MakcRe and music-lib references confirm the QR endpoint accepts
-    // unauthenticated requests with just device identity fields.
     final response = await _apiClient.webGet(
       Uri.parse('https://login-user.kugou.com/v2/qrcode'),
       extraParams: {
@@ -28,10 +22,6 @@ final class KugouQrLoginServiceImpl implements KugouQrLoginService {
         'srcappid': 2919,
       },
     );
-
-    // ignore: avoid_print
-    print(
-        '[KugouQrLogin] /v2/qrcode status=${response['status']} error_code=${response['error_code']}');
 
     if (response['status'] == 1 || response['error_code'] == 0) {
       final data = response['data'] is Map

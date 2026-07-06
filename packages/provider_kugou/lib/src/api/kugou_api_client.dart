@@ -48,6 +48,9 @@ class KugouApiClient {
       final clientTime = DateTime.now().millisecondsSinceEpoch ~/
           Duration.millisecondsPerSecond;
       final session = await _sessionManager.getSession();
+      final dfid = _normalizedDeviceValue(details.fingerprint);
+      final token = _normalizedKugouToken(session?.token ?? '');
+      final userId = session?.userId ?? '';
 
       final hardwareInfo = {
         'availableRamSize': 4983533568,
@@ -85,20 +88,19 @@ class KugouApiClient {
       final encrypted = kugouEncryptRegisterPayload(hardwareInfo);
       final p = kugouRsaPkcs1Hex({
         'aes': encrypted.aesSeed,
-        'uid': session?.userId ?? '',
-        'token': session?.token ?? '',
+        'uid': userId,
+        'token': token,
       });
 
       final params = <String, Object?>{
-        'dfid': '-',
-        'mid': KugouSessionManager.calculateKugouMid('-'),
+        'dfid': dfid,
+        'mid': details.mid,
         'uuid': '-',
         'appid': _androidAppId,
         'clientver': _androidClientVersion,
         'clienttime': clientTime,
-        if (session?.token case final t? when t.isNotEmpty)
-          'token': _normalizedKugouToken(t),
-        if (session?.userId case final u? when u.isNotEmpty) 'userid': u,
+        if (token.isNotEmpty) 'token': token,
+        if (userId.isNotEmpty) 'userid': userId,
         'part': 1,
         'platid': 1,
         'p': p,
@@ -118,15 +120,27 @@ class KugouApiClient {
         headers: {
           'User-Agent': 'Android15-1070-11083-46-0-DiscoveryDRADProtocol-wifi',
           'Content-Type': 'text/plain',
-          'dfid': '-',
+          'dfid': dfid,
           'clienttime': clientTime.toString(),
-          'mid': params['mid'].toString(),
+          'mid': details.mid,
           'kg-rc': '1',
           'kg-thash': '5d816a0',
           'kg-rec': '1',
           'kg-rf': 'B9EDA08A64250DEFFBCADDEE00F8F25F',
           ..._randomChinaIpHeaders(),
-          if (session != null) 'Cookie': _buildKugouGatewayCookie(session),
+          'Cookie': session == null
+              ? _buildKugouDeviceCookie(
+                  guid: details.installGuid,
+                  mid: details.mid,
+                  mac: details.installMac,
+                  dev: details.installDev,
+                  dfid: dfid,
+                )
+              : _buildKugouGatewayCookie(
+                  session,
+                  dfid: dfid,
+                  mid: details.mid,
+                ),
         },
         body: encrypted.base64Body,
       );
@@ -151,9 +165,6 @@ class KugouApiClient {
         encrypted.key,
         encrypted.iv,
       );
-      // ignore: avoid_print
-      print(
-          '[KugouApiClient] registerWebDevice status=${decoded['status']} code=${decoded['error_code']}');
       if (decoded['status'] == 1) {
         final data = decoded['data'] is Map
             ? decoded['data'] as Map<String, dynamic>
@@ -199,37 +210,34 @@ class KugouApiClient {
         ...extraParams,
       };
 
-      // Parameter consistency diagnostics.
-      // ignore: avoid_print
-      print('[KugouApiClient] webGet ${baseUri.path}');
-      // ignore: avoid_print
-      print('[KugouApiClient]   signingKeys=[${params.keys.join(', ')}]');
-      // ignore: avoid_print
-      print(
-          '[KugouApiClient]   clienttimePresent=${params.containsKey('clienttime')}'
-          ' appIdPresent=${params.containsKey('appid')}'
-          ' clientVersionPresent=${params.containsKey('clientver')}'
-          ' midPresent=${params.containsKey('mid')}'
-          ' uuidPresent=${params.containsKey('uuid')}'
-          ' dfidPresent=${params.containsKey('dfid')}');
-
-      // Compute signature BEFORE adding it so the diagnostic shows exact
-      // signing input.
       final signature = _signatureWebParams(params);
-      // ignore: avoid_print
-      print('[KugouApiClient]   signature=$signature');
       params['signature'] = signature;
-
-      // Sanity: the final query keys should be signing keys + signature.
-      // ignore: avoid_print
-      print('[KugouApiClient]   sendingKeys=[${params.keys.join(', ')}]');
 
       final uri = baseUri.replace(queryParameters: {
         for (final entry in params.entries) entry.key: entry.value.toString(),
       });
-      _logger.logRequest('GET', uri, null);
+      final headers = {
+        'User-Agent': 'Android15-1070-11083-46-0-DiscoveryDRADProtocol-wifi',
+        'Accept': 'application/json, text/plain, */*',
+        'dfid': params['dfid'].toString(),
+        'clienttime': clientTime.toString(),
+        'mid': params['mid'].toString(),
+        'kg-rc': '1',
+        'kg-thash': '5d816a0',
+        'kg-rec': '1',
+        'kg-rf': 'B9EDA08A64250DEFFBCADDEE00F8F25F',
+        'Cookie': _buildKugouDeviceCookie(
+          guid: details.installGuid,
+          mid: details.mid,
+          mac: details.installMac,
+          dev: details.installDev,
+          dfid: details.fingerprint,
+        ),
+        ..._randomChinaIpHeaders(),
+      };
+      _logger.logRequest('GET', uri, headers);
 
-      final response = await _client.get(uri);
+      final response = await _client.get(uri, headers: headers);
       _logger.logResponse(response.statusCode, response.body);
 
       return _handleResponse(response);
@@ -247,9 +255,14 @@ class KugouApiClient {
     Uri uri, {
     Map<String, String>? headers,
     bool authenticated = false,
+    bool attachSessionCookie = false,
   }) async {
     return _gate.run(() async {
-      final requestHeaders = await _buildHeaders(headers, authenticated);
+      final requestHeaders = await _buildHeaders(
+        headers,
+        authenticated,
+        attachSessionCookie: attachSessionCookie,
+      );
       _logger.logRequest('GET', uri, requestHeaders);
 
       final response = await _client.get(uri, headers: requestHeaders);
@@ -305,6 +318,89 @@ class KugouApiClient {
     });
   }
 
+  Future<Map<String, dynamic>> songinfoV2Get({
+    String? hash,
+    String? encodeAlbumAudioId,
+  }) async {
+    return _gate.run(() async {
+      final session = await _sessionManager.getOrRefreshSession();
+      if (session == null) {
+        throw AuthenticationRequiredException(
+          providerId: ProviderId('kugou'),
+          message: 'Kugou session has expired or is invalid.',
+        );
+      }
+
+      final cookies = _buildSonginfoCookieMap(session);
+      final webToken = cookies['t']?.trim() ?? '';
+      final webUserId = cookies['KugooID']?.trim() ?? '';
+      if (webToken.isEmpty || webUserId.isEmpty) {
+        throw ProviderException(
+          providerId: ProviderId('kugou'),
+          message:
+              'MediaUnavailable: Kugou songinfo v2 requires cookie t and KugooID.',
+        );
+      }
+
+      final normalizedHash = hash?.trim().toLowerCase() ?? '';
+      final normalizedEncodeAlbumAudioId = encodeAlbumAudioId?.trim() ?? '';
+      if (normalizedHash.isEmpty && normalizedEncodeAlbumAudioId.isEmpty) {
+        throw ProviderException(
+          providerId: ProviderId('kugou'),
+          message: 'MediaUnavailable: Kugou songinfo v2 requires a song id.',
+        );
+      }
+
+      final params = <String, Object?>{
+        'srcappid': '2919',
+        'clientver': '20000',
+        'clienttime': DateTime.now().millisecondsSinceEpoch,
+        'mid': _firstNonEmpty([
+          cookies['mid'],
+          cookies['kg_mid'],
+          session.mid,
+        ]),
+        'uuid': _firstNonEmpty([
+          cookies['uuid'],
+          cookies['mid'],
+          cookies['kg_mid'],
+          session.mid,
+        ]),
+        'dfid': _firstNonEmpty([
+          cookies['dfid'],
+          cookies['kg_dfid'],
+          session.deviceFingerprint,
+        ]),
+        'appid': '1014',
+        'platid': '4',
+        'token': webToken,
+        'userid': webUserId,
+        if (normalizedHash.isNotEmpty) 'hash': normalizedHash,
+        if (normalizedEncodeAlbumAudioId.isNotEmpty)
+          'encode_album_audio_id': normalizedEncodeAlbumAudioId,
+      };
+      params['signature'] = _signatureWebParams(params);
+      final uri = Uri.parse('https://wwwapi.kugou.com/play/songinfo').replace(
+        queryParameters: {
+          for (final entry in params.entries) entry.key: entry.value.toString(),
+        },
+      );
+      final requestHeaders = {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+        'Referer': 'https://www.kugou.com/',
+        'Accept': 'application/json, text/plain, */*',
+        'Cookie': _joinCookieMap(cookies),
+        ..._randomChinaIpHeaders(),
+      };
+      _logger.logRequest('GET', uri, requestHeaders);
+
+      final response = await _client.get(uri, headers: requestHeaders);
+      _logger.logResponse(response.statusCode, response.body);
+      return _handleResponse(response);
+    });
+  }
+
   Future<Map<String, dynamic>> androidGatewayPost(
     String path, {
     required Map<String, Object?> data,
@@ -312,9 +408,18 @@ class KugouApiClient {
     Map<String, String>? headers,
     bool authenticated = false,
     bool includeAuthInBody = false,
+    Uri? endpoint,
     Map<String, Object?> Function(
             String userId, String token, Map<String, Object?> data)?
         bodyBuilder,
+    Map<String, Object?> Function(
+      String userId,
+      String token,
+      String mid,
+      String vipToken,
+      String vipType,
+      Map<String, Object?> data,
+    )? deviceBodyBuilder,
   }) async {
     return _gate.run(() async {
       final session = authenticated
@@ -329,23 +434,33 @@ class KugouApiClient {
 
       final clientTime = DateTime.now().millisecondsSinceEpoch ~/
           Duration.millisecondsPerSecond;
-      final dfid = _normalizedDeviceValue(session?.deviceFingerprint);
+      final dfid = _gatewayDfidForPath(path, session?.deviceFingerprint);
       final token = _normalizedKugouToken(session?.token ?? '');
       final userId = session?.userId ?? '0';
-      final requestData = bodyBuilder != null
-          ? bodyBuilder(userId, token, data)
-          : <String, Object?>{
-              ...data,
-              if (includeAuthInBody && userId != '0') 'userid': userId,
-              if (includeAuthInBody && token.isNotEmpty) 'token': token,
-            };
-      final body = jsonEncode(requestData);
+      final vipToken = session?.vipToken?.trim() ?? '';
+      final vipType = session?.vipType?.trim() ?? '';
 
       Future<Map<String, dynamic>> sendWithDevice({
-        required String strategy,
         required String mid,
         required String uuid,
       }) async {
+        final requestData = deviceBodyBuilder != null
+            ? deviceBodyBuilder(
+                userId,
+                token,
+                mid,
+                vipToken,
+                vipType,
+                data,
+              )
+            : bodyBuilder != null
+                ? bodyBuilder(userId, token, data)
+                : <String, Object?>{
+                    ...data,
+                    if (includeAuthInBody && userId != '0') 'userid': userId,
+                    if (includeAuthInBody && token.isNotEmpty) 'token': token,
+                  };
+        final body = jsonEncode(requestData);
         final requestParams = <String, Object?>{...params};
         if (userId != '0') {
           requestParams.putIfAbsent('userid', () => userId);
@@ -364,7 +479,8 @@ class KugouApiClient {
           body,
         );
 
-        final uri = Uri.parse('https://gateway.kugou.com$path').replace(
+        final uri =
+            (endpoint ?? Uri.parse('https://gateway.kugou.com$path')).replace(
           queryParameters: {
             for (final entry in requestParams.entries)
               entry.key: entry.value.toString(),
@@ -390,20 +506,6 @@ class KugouApiClient {
               mid: mid,
             ),
         });
-        _logGatewayDiagnostics(
-          path: path,
-          strategy: strategy,
-          dfid: dfid,
-          mid: mid,
-          uuid: uuid,
-          userId: userId,
-          token: token,
-          cookieKeys: session == null
-              ? const []
-              : _kugouGatewayCookieKeys(session, dfid: dfid, mid: mid),
-          requestParams: requestParams,
-          requestData: requestData,
-        );
         _logger.logRequest('POST', uri, requestHeaders);
 
         final response = await _client.post(
@@ -417,22 +519,9 @@ class KugouApiClient {
       }
 
       final musicLibMid = _resolveGatewayMid(session, dfid);
-      final musicLibResponse = await sendWithDevice(
-        strategy: 'musiclib',
+      return sendWithDevice(
         mid: musicLibMid,
         uuid: '-',
-      );
-      if (!_shouldRetryWithCsharpDevice(path, musicLibResponse, dfid)) {
-        return musicLibResponse;
-      }
-
-      final csharpMid = KugouSessionManager.calculateKugouMid(dfid);
-      final csharpUuid =
-          KugouSessionManager.calculateKugouUuid(dfid, csharpMid);
-      return sendWithDevice(
-        strategy: 'csharp',
-        mid: csharpMid,
-        uuid: csharpUuid,
       );
     });
   }
@@ -458,79 +547,92 @@ class KugouApiClient {
 
       final clientTime = DateTime.now().millisecondsSinceEpoch ~/
           Duration.millisecondsPerSecond;
-      final dfid = _normalizedDeviceValue(session?.deviceFingerprint);
-      final mid = _resolveGatewayMid(session, dfid);
+      final dfid = _gatewayDfidForPath(path, session?.deviceFingerprint);
       final token = _normalizedKugouToken(session?.token ?? '');
       final userId = session?.userId ?? '0';
-      final requestParams = <String, Object?>{...params};
-      if (sessionParams != null) {
-        requestParams.addAll(sessionParams(userId, token, mid));
-      }
-      requestParams.putIfAbsent('dfid', () => dfid);
-      requestParams.putIfAbsent('mid', () => mid);
-      requestParams.putIfAbsent('uuid', () => '-');
-      requestParams.putIfAbsent('appid', () => _androidAppId);
-      requestParams.putIfAbsent('clientver', () => _androidClientVersion);
-      requestParams.putIfAbsent('clienttime', () => clientTime);
-      if (userId != '0') {
-        requestParams.putIfAbsent('userid', () => userId);
-      }
-      if (token.isNotEmpty) {
-        requestParams.putIfAbsent('token', () => token);
-      }
-      requestParams['signature'] = _signatureAndroidParams(requestParams, '');
 
-      final uri = Uri.parse('https://gateway.kugou.com$path').replace(
-        queryParameters: {
-          for (final entry in requestParams.entries)
-            entry.key: entry.value.toString(),
-        },
-      );
-      final requestHeaders = await _buildHeaders(headers, false);
-      requestHeaders.addAll({
-        'User-Agent': 'Android15-1070-11083-46-0-DiscoveryDRADProtocol-wifi',
-        'Accept': 'application/json, text/plain, */*',
-        'dfid': dfid,
-        'clienttime': clientTime.toString(),
-        'mid': mid,
-        'kg-rc': '1',
-        'kg-thash': '5d816a0',
-        'kg-rec': '1',
-        'kg-rf': 'B9EDA08A64250DEFFBCADDEE00F8F25F',
-        ..._randomChinaIpHeaders(),
-        if (session != null)
-          'Cookie': _buildKugouGatewayCookie(
-            session,
-            dfid: dfid,
-            mid: mid,
-          ),
-      });
-      _logger.logRequest('GET', uri, requestHeaders);
+      Future<Map<String, dynamic>> sendWithDevice({
+        required String mid,
+        required String uuid,
+      }) async {
+        final requestParams = <String, Object?>{...params};
+        if (sessionParams != null) {
+          requestParams.addAll(sessionParams(userId, token, mid));
+        }
+        requestParams.putIfAbsent('dfid', () => dfid);
+        requestParams.putIfAbsent('mid', () => mid);
+        requestParams.putIfAbsent('uuid', () => uuid);
+        requestParams.putIfAbsent('appid', () => _androidAppId);
+        requestParams.putIfAbsent('clientver', () => _androidClientVersion);
+        requestParams.putIfAbsent('clienttime', () => clientTime);
+        if (userId != '0') {
+          requestParams.putIfAbsent('userid', () => userId);
+        }
+        if (token.isNotEmpty) {
+          requestParams.putIfAbsent('token', () => token);
+        }
+        requestParams['signature'] = _signatureAndroidParams(requestParams, '');
 
-      _logGatewayDiagnostics(
-        path: path,
-        strategy: 'musiclib',
-        dfid: dfid,
-        mid: mid,
+        final uri = Uri.parse('https://gateway.kugou.com$path').replace(
+          queryParameters: {
+            for (final entry in requestParams.entries)
+              entry.key: entry.value.toString(),
+          },
+        );
+        final requestHeaders = await _buildHeaders(headers, false);
+        requestHeaders.addAll({
+          'User-Agent': 'Android15-1070-11083-46-0-DiscoveryDRADProtocol-wifi',
+          'Accept': 'application/json, text/plain, */*',
+          'dfid': dfid,
+          'clienttime': clientTime.toString(),
+          'mid': mid,
+          'kg-rc': '1',
+          'kg-thash': '5d816a0',
+          'kg-rec': '1',
+          'kg-rf': 'B9EDA08A64250DEFFBCADDEE00F8F25F',
+          ..._randomChinaIpHeaders(),
+          if (session != null)
+            'Cookie': _buildKugouGatewayCookie(
+              session,
+              dfid: dfid,
+              mid: mid,
+            ),
+        });
+        _logger.logRequest('GET', uri, requestHeaders);
+
+        final response = await _client.get(uri, headers: requestHeaders);
+        _logger.logResponse(response.statusCode, response.body);
+        return _handleResponse(response);
+      }
+
+      final musicLibMid = _resolveGatewayMid(session, dfid);
+      return sendWithDevice(
+        mid: musicLibMid,
         uuid: '-',
-        userId: userId,
-        token: token,
-        cookieKeys: session == null
-            ? const []
-            : _kugouGatewayCookieKeys(session, dfid: dfid, mid: mid),
-        requestParams: requestParams,
-        requestData: const {},
       );
-
-      final response = await _client.get(uri, headers: requestHeaders);
-      _logger.logResponse(response.statusCode, response.body);
-      return _handleResponse(response);
     });
   }
 
   String _normalizedDeviceValue(String? value) {
     final trimmed = value?.trim() ?? '';
     return trimmed.isEmpty ? '-' : trimmed;
+  }
+
+  String _gatewayDfidForPath(String path, String? sessionDfid) {
+    final normalized = _normalizedDeviceValue(sessionDfid);
+    if (normalized != '-') return normalized;
+    if (path.contains('/v5/url') || path.contains('/v6/priv_url')) {
+      return _randomKugouDfid();
+    }
+    return normalized;
+  }
+
+  String _randomKugouDfid() {
+    final random = Random.secure();
+    final seed = '${DateTime.now().microsecondsSinceEpoch}'
+        '-${random.nextInt(1 << 32)}-${random.nextInt(1 << 32)}';
+    final digest = crypto.md5.convert(utf8.encode(seed)).toString();
+    return digest.substring(0, 24).toUpperCase();
   }
 
   String _resolveGatewayMid(KugouSession? session, String dfid) {
@@ -548,19 +650,6 @@ class KugouApiClient {
       return KugouSessionManager.calculateKugouMid(installGuid);
     }
     return KugouSessionManager.calculateKugouMid('-');
-  }
-
-  bool _shouldRetryWithCsharpDevice(
-    String path,
-    Map<String, dynamic> response,
-    String dfid,
-  ) {
-    if (dfid == '-') return false;
-    if (!path.contains('get_all_list') && !path.contains('get_list_all_file')) {
-      return false;
-    }
-    return response['status'] == 0 &&
-        response['error_code']?.toString() == '20017';
   }
 
   String _buildKugouGatewayCookie(
@@ -591,13 +680,23 @@ class KugouApiClient {
     return keys.map((key) => '$key=${cookies[key] ?? ''}').join('; ');
   }
 
-  List<String> _kugouGatewayCookieKeys(
-    KugouSession session, {
-    required String dfid,
+  String _buildKugouDeviceCookie({
+    required String guid,
     required String mid,
+    required String mac,
+    required String dev,
+    required String dfid,
   }) {
-    final cookie = _buildKugouGatewayCookie(session, dfid: dfid, mid: mid);
-    return _parseCookieMap(cookie).keys.toList(growable: false)..sort();
+    final cookies = <String, String>{
+      'KUGOU_API_GUID': guid,
+      'KUGOU_API_MID': mid,
+      'KUGOU_API_MAC': mac,
+      'KUGOU_API_DEV': dev,
+      'dfid': _normalizedDeviceValue(dfid),
+    };
+    return cookies.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join('; ');
   }
 
   Map<String, String> _parseCookieMap(String? cookie) {
@@ -611,6 +710,42 @@ class KugouApiClient {
           trimmed.substring(separator + 1).trim();
     }
     return result;
+  }
+
+  Map<String, String> _buildSonginfoCookieMap(KugouSession session) {
+    return <String, String>{
+      ..._parseCookieMap(session.refreshMetadata?['cookie']),
+      if (session.installDev?.trim().isNotEmpty == true)
+        'KUGOU_API_DEV': session.installDev!.trim(),
+      if (session.installGuid?.trim().isNotEmpty == true)
+        'KUGOU_API_GUID': session.installGuid!.trim(),
+      if (session.installMac?.trim().isNotEmpty == true)
+        'KUGOU_API_MAC': session.installMac!.trim(),
+      if (session.mid.trim().isNotEmpty) 'KUGOU_API_MID': session.mid.trim(),
+      if (session.deviceFingerprint.trim().isNotEmpty)
+        'dfid': session.deviceFingerprint.trim(),
+      'userid': session.userId,
+      'token': _normalizedKugouToken(session.token),
+      if (session.vipToken?.trim().isNotEmpty == true)
+        'vip_token': session.vipToken!.trim(),
+      if (session.vipType?.trim().isNotEmpty == true)
+        'vip_type': session.vipType!.trim(),
+    };
+  }
+
+  String _joinCookieMap(Map<String, String> cookies) {
+    final keys = cookies.keys.toList()
+      ..removeWhere((key) => key.trim().isEmpty)
+      ..sort();
+    return keys.map((key) => '$key=${cookies[key] ?? ''}').join('; ');
+  }
+
+  String _firstNonEmpty(Iterable<String?> values) {
+    for (final value in values) {
+      final trimmed = value?.trim() ?? '';
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+    return '';
   }
 
   Map<String, String> _randomChinaIpHeaders() {
@@ -638,43 +773,11 @@ class KugouApiClient {
     return '${prefix[0]}.${prefix[1]}.${random.nextInt(254) + 1}.${random.nextInt(254) + 1}';
   }
 
-  void _logGatewayDiagnostics({
-    required String path,
-    required String strategy,
-    required String dfid,
-    required String mid,
-    required String uuid,
-    required String userId,
-    required String token,
-    required List<String> cookieKeys,
-    required Map<String, Object?> requestParams,
-    required Map<String, Object?> requestData,
-  }) {
-    if (!path.contains('get_all_list') &&
-        !path.contains('get_list_all_file') &&
-        !path.contains('/v5/url')) {
-      return;
-    }
-    // ignore: avoid_print
-    print('[KugouGateway] $path '
-        'strategy=$strategy '
-        'dfid=${_fingerprint(dfid)} midLen=${mid.length} uuidLen=${uuid.length} '
-        'userIdPresent=${userId != '0'} tokenLen=${token.length} '
-        'queryKeys=[${requestParams.keys.join(', ')}] '
-        'bodyKeys=[${requestData.keys.join(', ')}] '
-        'cookieKeys=[${cookieKeys.join(', ')}]');
-  }
-
-  String _fingerprint(String value) {
-    if (value == '-') return '-';
-    if (value.length <= 8) return '***';
-    return '${value.substring(0, 4)}***${value.substring(value.length - 4)}';
-  }
-
   Future<Map<String, String>> _buildHeaders(
     Map<String, String>? baseHeaders,
-    bool authenticated,
-  ) async {
+    bool authenticated, {
+    bool attachSessionCookie = false,
+  }) async {
     final headers = <String, String>{
       'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -682,29 +785,22 @@ class KugouApiClient {
       ...?baseHeaders,
     };
 
-    if (authenticated) {
-      final session = await _sessionManager.getOrRefreshSession();
-      if (session == null) {
+    if (authenticated || attachSessionCookie) {
+      final session = authenticated
+          ? await _sessionManager.getOrRefreshSession()
+          : await _sessionManager.getSession();
+      if (session == null && authenticated) {
         throw AuthenticationRequiredException(
           providerId: ProviderId('kugou'),
           message: 'Kugou session has expired or is invalid.',
         );
       }
-      final importedCookie = session.refreshMetadata?['cookie'];
-      if (importedCookie != null && importedCookie.trim().isNotEmpty) {
-        headers['Cookie'] = importedCookie.trim();
-      } else {
-        final cookies = [
-          'kg_mid=${session.mid}',
-          'kg_dfid=${session.deviceFingerprint}',
-          'KuGooToken=${session.token}',
-          if (session.vipToken != null) 'vip_token=${session.vipToken}',
-          if (session.vipType != null) 'vip_type=${session.vipType}',
-        ];
-        headers['Cookie'] = cookies.join('; ');
+      if (session != null) {
+        final token = _normalizedKugouToken(session.token);
+        headers['Cookie'] = _buildKugouGatewayCookie(session);
+        headers['token'] = token;
+        headers['userid'] = session.userId;
       }
-      headers['token'] = session.token;
-      headers['userid'] = session.userId;
     }
     return headers;
   }

@@ -8,6 +8,12 @@ final class KugouRemoteTrack {
     this.albumId,
     this.albumAudioId,
     this.mixSongId,
+    this.fileHash,
+    this.sqHash,
+    this.hqHash,
+    this.resHash,
+    this.ogg320Hash,
+    this.ogg128Hash,
     this.favoriteFileId,
     this.explicitlyBlocked,
     this.favoriteTime,
@@ -22,6 +28,12 @@ final class KugouRemoteTrack {
   final String? albumId;
   final String? albumAudioId;
   final String? mixSongId;
+  final String? fileHash;
+  final String? sqHash;
+  final String? hqHash;
+  final String? resHash;
+  final String? ogg320Hash;
+  final String? ogg128Hash;
   final String? favoriteFileId;
   final bool? explicitlyBlocked;
   final DateTime? favoriteTime;

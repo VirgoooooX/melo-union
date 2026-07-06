@@ -6,7 +6,7 @@ final class KugouRedactedLogger {
   }
 
   void logResponse(int statusCode, String body) {
-    // print('[KugouAPI] Response: HTTP $statusCode');
+    // Redacted logs for security. In production this would write to a logger stream.
   }
 
   Uri redactUri(Uri uri) {

@@ -26,7 +26,12 @@ final class KugouSessionManager {
   static String _defaultUuidGenerator() {
     final random = Random.secure();
     final values = List<int>.generate(16, (i) => random.nextInt(256));
-    return values.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    values[6] = (values[6] & 0x0f) | 0x40;
+    values[8] = (values[8] & 0x3f) | 0x80;
+    final hex = values.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
+        '${hex.substring(20)}';
   }
 
   static String _randomKugouString([int length = 16]) {
@@ -49,10 +54,6 @@ final class KugouSessionManager {
     final bigInt = hash.bytes.fold<BigInt>(
         BigInt.zero, (prev, byte) => (prev << 8) | BigInt.from(byte));
     return bigInt.toString();
-  }
-
-  static String calculateKugouUuid(String dfid, String mid) {
-    return md5.convert(utf8.encode('$dfid$mid')).toString();
   }
 
   Future<KugouSession?> getSession() async {
@@ -87,17 +88,13 @@ final class KugouSessionManager {
     if (session != null) {
       final installGuid =
           session.installGuid ?? _cachedInstallGuid ?? session.deviceId;
-      final dfidMid = normalized == '-' ? null : calculateKugouMid(normalized);
-      final sessionMid = session.mid.trim();
-      final nextMid =
-          sessionMid.isEmpty || (dfidMid != null && sessionMid == dfidMid)
-              ? calculateKugouMid(installGuid)
-              : session.mid;
       final updated = KugouSession(
         userId: session.userId,
         token: session.token,
         deviceId: session.deviceId.trim().isEmpty ? '-' : session.deviceId,
-        mid: nextMid,
+        mid: session.mid.trim().isEmpty
+            ? calculateKugouMid(installGuid)
+            : session.mid,
         deviceFingerprint: normalized,
         installGuid: installGuid,
         installMac: session.installMac ?? _cachedInstallMac,
@@ -190,7 +187,7 @@ final class KugouSessionManager {
     final session = await getSession();
     if (session != null) {
       final installGuid = session.installGuid ?? session.deviceId;
-      final installMac = session.installMac ?? _randomKugouString(32);
+      final installMac = session.installMac ?? _randomKugouString(12);
       final installDev = session.installDev ?? _randomKugouString();
       final fingerprint = session.deviceFingerprint.trim().isEmpty
           ? '-'
@@ -230,7 +227,7 @@ final class KugouSessionManager {
     }
 
     _cachedInstallGuid = _generateUuid();
-    _cachedInstallMac = _generateUuid();
+    _cachedInstallMac = _randomKugouString(12);
     _cachedInstallDev = _randomKugouString();
     _cachedFingerprint = '-';
     _cachedMid = calculateKugouMid(_cachedInstallGuid!);

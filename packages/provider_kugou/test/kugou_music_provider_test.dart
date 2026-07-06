@@ -9,7 +9,9 @@ import 'package:provider_kugou/src/api/kugou_library_api.dart';
 import 'package:provider_kugou/src/api/kugou_media_api.dart';
 import 'package:provider_kugou/src/auth/kugou_qr_login_service_impl.dart';
 import 'package:provider_kugou/src/auth/kugou_session_manager.dart';
+import 'package:provider_kugou/src/mapper/kugou_track_mapper.dart';
 import 'package:provider_kugou/src/model/kugou_media_resolution.dart';
+import 'package:provider_kugou/src/model/kugou_remote_track.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -96,55 +98,6 @@ void main() {
     expect(playlists.last.isFavoriteCollection, isFalse);
   });
 
-  test('Kugou library API retries private playlists with C# device ids',
-      () async {
-    final session = KugouSession(
-      userId: '12345',
-      token: 'mock_token',
-      deviceId: '-',
-      mid: 'mock_mid',
-      deviceFingerprint: 'mock_dfid',
-      installGuid: 'mock-guid',
-      installMac: 'mock-mac',
-      installDev: 'mock-dev',
-      updatedAt: DateTime.now(),
-    );
-    var calls = 0;
-    final api = KugouLibraryApi(
-      client: KugouApiClient(
-        sessionManager: KugouSessionManager(
-          secureStore: _MockSecureSessionStore()..session = session,
-          initialSession: session,
-        ),
-        client: _FakeClient((request) {
-          calls += 1;
-          if (calls == 1) {
-            expect(request.url.queryParameters['mid'], 'mock_mid');
-            expect(request.url.queryParameters['uuid'], '-');
-            return _jsonResponse('{"status":0,"error_code":20017}');
-          }
-
-          final expectedMid =
-              KugouSessionManager.calculateKugouMid('mock_dfid');
-          final expectedUuid =
-              KugouSessionManager.calculateKugouUuid('mock_dfid', expectedMid);
-          expect(request.url.queryParameters['mid'], expectedMid);
-          expect(request.url.queryParameters['uuid'], expectedUuid);
-          expect(request.headers['Cookie'],
-              contains('KUGOU_API_MID=$expectedMid'));
-          return _jsonResponse(
-            '{"status":1,"data":{"info":[{"listid":7,"listname":"我喜欢","songcount":2,"is_fav":1}]}}',
-          );
-        }),
-      ),
-      providerId: kugouProviderId,
-    );
-
-    final playlists = await api.getUserPlaylists();
-    expect(calls, 2);
-    expect(playlists.single.playlistId, '7');
-  });
-
   test('Kugou library API maps private playlist tracks', () async {
     // The track carries both a 128k FileHash and a lossless SQFileHash.
     // The mapper must prefer the standard FileHash so /v5/url can authorize
@@ -170,7 +123,7 @@ void main() {
           expect((request as http.Request).body, contains('"listid":"9"'));
           expect(request.body, contains('"show_relate_goods":1'));
           return _jsonResponse(
-            '{"status":1,"data":{"info":[{"Hash":"11111111111111111111111111111111","FileHash":"$playableHash","SQFileHash":"$sqHash","filename":"歌手 - 歌曲.mp3","timelen":241000,"albuminfo":{"id":123,"name":"专辑"},"album_audio_id":456,"fileid":"file-1","addtime":1783300000,"singerinfo":[{"name":"歌手"}],"trans_param":{"union_cover":"http://imge.kugou.com/stdmusic/{size}/song.jpg"}}]}}',
+            '{"status":1,"data":{"info":[{"Hash":"11111111111111111111111111111111","FileHash":"$playableHash","SQFileHash":"$sqHash","filename":"歌手 - 歌曲.mp3","timelen":241000,"albuminfo":{"id":123,"name":"专辑"},"album_audio_id":456,"fileid":"file-1","collecttime":1783300000,"singerinfo":[{"name":"歌手"}],"trans_param":{"union_cover":"http://imge.kugou.com/stdmusic/{size}/song.jpg"}}]}}',
           );
         }),
       ),
@@ -187,7 +140,59 @@ void main() {
     expect(tracks.single.albumAudioId, '456');
     expect(tracks.single.artwork.toString(), contains('/400/song.jpg'));
     expect(tracks.single.favoriteFileId, 'file-1');
+    expect(
+      tracks.single.favoriteTime,
+      DateTime.fromMillisecondsSinceEpoch(
+        1783300000 * 1000,
+        isUtc: true,
+      ),
+    );
     expect(tracks.single.duration, const Duration(milliseconds: 241000));
+  });
+
+  test('Kugou track mapper exposes raw and imported liked-at metadata', () {
+    final mapper = KugouTrackMapper(providerId: kugouProviderId);
+    final rawLikedAt = DateTime.utc(2026, 7, 6, 12);
+
+    final rawTrack = mapper.map(
+      KugouRemoteTrack(
+        hash: 'raw',
+        title: 'Raw',
+        artists: const ['Artist'],
+        duration: const Duration(minutes: 3),
+        favoriteFileId: '1',
+        favoriteTime: rawLikedAt,
+      ),
+      isFavorited: true,
+    );
+    expect(rawTrack.likedAt, rawLikedAt);
+    expect(rawTrack.likedAtSource, 'kugou_raw');
+    expect(rawTrack.likedAtPrecision, 'exact');
+
+    final importedTrack = mapper.map(
+      const KugouRemoteTrack(
+        hash: 'imported',
+        title: 'Imported',
+        artists: ['Artist'],
+        duration: Duration(minutes: 3),
+        favoriteFileId: '2',
+      ),
+      isFavorited: true,
+    );
+    expect(importedTrack.likedAt, isNull);
+    expect(importedTrack.likedAtSource, 'kugou_import');
+    expect(importedTrack.likedAtPrecision, 'unknown');
+
+    final searchTrack = mapper.map(
+      const KugouRemoteTrack(
+        hash: 'search',
+        title: 'Search',
+        artists: ['Artist'],
+        duration: Duration(minutes: 3),
+      ),
+    );
+    expect(searchTrack.likedAtSource, isNull);
+    expect(searchTrack.likedAtPrecision, isNull);
   });
 
   test(
@@ -248,10 +253,15 @@ void main() {
     final api = KugouApiClient(
       sessionManager: sessionManager,
       client: _FakeClient((request) {
-        expect(
-          request.headers['Cookie'],
-          'KugooID=12345; KuGoo=KugooID=12345&KugooPwd=token; mid=mid; kg_dfid_collect=dfid',
-        );
+        final cookie = request.headers['Cookie'] ?? '';
+        expect(cookie, contains('KugooID=12345'));
+        expect(cookie, contains('KuGoo=KugooID=12345&KugooPwd=token'));
+        expect(cookie, contains('mid=mid'));
+        expect(cookie, contains('kg_dfid_collect=dfid'));
+        expect(cookie, contains('KUGOU_API_MID=mid'));
+        expect(cookie, contains('dfid=dfid'));
+        expect(cookie, contains('userid=12345'));
+        expect(cookie, contains('token=token'));
         return http.Response(
           '{"ok":true}',
           200,
@@ -264,7 +274,51 @@ void main() {
         authenticated: true);
   });
 
+  test('Kugou device registration uses QR login device identity', () async {
+    const installGuid = '11111111-2222-4333-8444-555555555555';
+    final expectedMid = KugouSessionManager.calculateKugouMid(installGuid);
+    final session = KugouSession(
+      userId: '12345',
+      token: 'mock_token',
+      deviceId: '-',
+      mid: expectedMid,
+      deviceFingerprint: '-',
+      installGuid: installGuid,
+      installMac: 'MOCKMAC12345',
+      installDev: 'MOCKDEV123456789',
+      updatedAt: DateTime.now(),
+    );
+    final store = _MockSecureSessionStore()..session = session;
+    final api = KugouApiClient(
+      sessionManager: KugouSessionManager(
+        secureStore: store,
+        initialSession: session,
+      ),
+      client: _FakeClient((request) {
+        expect(request.url.host, 'userservice.kugou.com');
+        expect(request.url.path, '/risk/v2/r_register_dev');
+        expect(request.url.queryParameters['dfid'], '-');
+        expect(request.url.queryParameters['mid'], expectedMid);
+        expect(request.headers['mid'], expectedMid);
+        expect(
+            request.headers['Cookie'], contains('KUGOU_API_GUID=$installGuid'));
+        expect(
+            request.headers['Cookie'], contains('KUGOU_API_MID=$expectedMid'));
+        expect(request.headers['Cookie'], contains('token=mock_token'));
+        expect(request.headers['Cookie'], contains('userid=12345'));
+        return _jsonResponse('{"status":1,"data":{"dfid":"server_dfid"}}');
+      }),
+    );
+
+    await api.registerWebDevice();
+
+    expect(store.session?.deviceFingerprint, 'server_dfid');
+    expect(store.session?.mid, expectedMid);
+  });
+
   test('Kugou catalog maps public chart playlists and tracks', () async {
+    const playableHash = 'abcdef1234567890abcdef1234567890';
+    const sqHash = 'fedcba9876543210fedcba9876543210';
     final catalog = KugouCatalogApi(
       client: KugouApiClient(
         sessionManager: KugouSessionManager(
@@ -279,7 +333,7 @@ void main() {
           }
           if (request.url.path == '/rank/info/') {
             return http.Response(
-              '{"songs":{"list":[{"hash":"ABC","filename":"Singer - Song","duration":251,"album_id":42,"album_audio_id":99}]}}',
+              '{"songs":{"list":[{"hash":"11111111111111111111111111111111","FileHash":"$playableHash","SQFileHash":"$sqHash","filename":"Singer - Song","duration":251,"album_id":42,"album_audio_id":99}]}}',
               200,
             );
           }
@@ -294,7 +348,8 @@ void main() {
     expect(charts.single.cover.toString(), contains('/400/cover.png'));
 
     final tracks = await catalog.getChartTracks('8888');
-    expect(tracks.single.hash, 'ABC');
+    expect(tracks.single.hash, playableHash);
+    expect(tracks.single.sqHash, sqHash);
     expect(tracks.single.title, 'Song');
     expect(tracks.single.artists, ['Singer']);
     expect(tracks.single.duration, const Duration(seconds: 251));
@@ -455,9 +510,64 @@ void main() {
     expect(resolution.url.toString(), 'https://sharefs.kugou.com/private.mp3');
   });
 
-  test(
-      'Kugou v5/url maps requestedQuality to Kugou quality '
-      '(regression: hardcoded flac -> 20006 for free accounts)', () async {
+  test('Kugou v5/url uses temporary dfid when session dfid is missing',
+      () async {
+    const hash = 'abcdef1234567890abcdef1234567890';
+    final session = KugouSession(
+      userId: '12345',
+      token: 'mock_token',
+      deviceId: '-',
+      mid: 'mock_mid',
+      deviceFingerprint: '-',
+      installGuid: 'mock-guid',
+      installMac: 'mock-mac',
+      installDev: 'mock-dev',
+      updatedAt: DateTime.now(),
+    );
+    final media = KugouMediaApi(
+      providerId: kugouProviderId,
+      client: KugouApiClient(
+        sessionManager: KugouSessionManager(
+          secureStore: _MockSecureSessionStore()..session = session,
+          initialSession: session,
+        ),
+        client: _FakeClient((request) {
+          if (request.url.host == 'wwwapi.kugou.com') {
+            return http.Response(
+                '{"data":{},"status":0,"err_code":20010}', 200);
+          }
+          if (request.url.host == 'm.kugou.com') {
+            return http.Response('{"errcode":0,"url":""}', 200);
+          }
+          expect(request.url.path, '/v5/url');
+          final dfid = request.url.queryParameters['dfid'];
+          expect(dfid, isNotNull);
+          expect(dfid, isNot('-'));
+          expect(dfid, matches(RegExp(r'^[A-F0-9]{24}$')));
+          expect(request.headers['Cookie'], contains('dfid=$dfid'));
+          expect(request.headers['Cookie'], contains('KUGOU_API_MID=mock_mid'));
+          return _jsonResponse(
+            '{"status":1,"data":{"128":{"url":"https://sharefs.kugou.com/128.mp3","bitrate":128}}}',
+          );
+        }),
+      ),
+    );
+
+    final resolution = await media.resolve(
+      track: ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: hash,
+        extraIds: const {'albumId': '123', 'albumAudioId': '456'},
+      ),
+      requestedQuality: AudioQuality.standard,
+      use: KugouMediaUse.playback,
+    );
+
+    expect(resolution.url.toString(), 'https://sharefs.kugou.com/128.mp3');
+  });
+
+  test('Kugou v5/url uses music-lib flac probe for app-cookie fallback',
+      () async {
     const hash = 'abcdef1234567890abcdef1234567890';
     final session = KugouSession(
       userId: '12345',
@@ -480,15 +590,14 @@ void main() {
         ),
         client: _FakeClient((request) {
           if (request.url.host == 'wwwapi.kugou.com') {
-            return http.Response('{"data":{},"status":0,"err_code":20010}',
-                200);
+            return http.Response(
+                '{"data":{},"status":0,"err_code":20010}', 200);
           }
           if (request.url.host == 'm.kugou.com') {
             return http.Response('{"errcode":0,"url":""}', 200);
           }
           expect(request.url.path, '/v5/url');
           sentQuality = request.url.queryParameters['quality'];
-          // Server grants 128k for a standard account.
           return _jsonResponse(
             '{"status":1,"data":{"128":{"url":"https://sharefs.kugou.com/128.mp3","bitrate":128}}}',
           );
@@ -496,7 +605,6 @@ void main() {
       ),
     );
 
-    // Standard-quality request must NOT ask Kugou for `flac`.
     final resolution = await media.resolve(
       track: ProviderTrackRef(
         providerId: kugouProviderId,
@@ -507,12 +615,268 @@ void main() {
       use: KugouMediaUse.playback,
     );
 
-    expect(sentQuality, '128');
+    expect(sentQuality, 'flac');
     expect(resolution.url.toString(), 'https://sharefs.kugou.com/128.mp3');
   });
 
-  test('Kugou v5/url surfaces QualityUnavailable on 20006 instead of retrying',
-      () async {
+  test('Kugou v5/url 20006 falls back to signed v6 priv_url', () async {
+    const hash = 'abcdef1234567890abcdef1234567890';
+    final session = KugouSession(
+      userId: '12345',
+      token: 'mock_token',
+      deviceId: '-',
+      mid: 'mock_mid',
+      deviceFingerprint: 'mock_dfid',
+      installGuid: 'mock-guid',
+      installMac: 'mock-mac',
+      installDev: 'mock-dev',
+      vipToken: 'mock_vip_token',
+      vipType: '6',
+      updatedAt: DateTime.now(),
+    );
+    int v5Calls = 0;
+    int v6Calls = 0;
+    final media = KugouMediaApi(
+      providerId: kugouProviderId,
+      client: KugouApiClient(
+        sessionManager: KugouSessionManager(
+          secureStore: _MockSecureSessionStore()..session = session,
+          initialSession: session,
+        ),
+        client: _FakeClient((request) {
+          if (request.url.host == 'wwwapi.kugou.com') {
+            return http.Response(
+                '{"data":{},"status":0,"err_code":20010}', 200);
+          }
+          if (request.url.host == 'm.kugou.com') {
+            return http.Response('{"errcode":0,"url":""}', 200);
+          }
+          if (request.url.path == '/v5/url') {
+            v5Calls++;
+            return _jsonResponse(
+                '{"status":0,"error_code":20006,"data":{"url":""}}');
+          }
+          if (request.url.host == 'tracker.kugou.com' &&
+              request.url.path == '/v6/priv_url') {
+            v6Calls++;
+            expect(request.url.queryParameters['signature'], isNotEmpty);
+            expect(request.url.queryParameters['token'], 'mock_token');
+            expect(request.headers['Cookie'],
+                contains('vip_token=mock_vip_token'));
+            final body = (request as http.Request).body;
+            expect(body, contains('"viptoken":"mock_vip_token"'));
+            expect(body, isNot(contains('"quality"')));
+            expect(body, contains('"qualities"'));
+            final bodyJson = jsonDecode(body) as Map<String, dynamic>;
+            expect(
+              bodyJson['qualities'],
+              [
+                '128',
+                '320',
+                'flac',
+                'high',
+                'multitrack',
+                'viper_atmos',
+                'viper_tape',
+                'viper_clear',
+                'super',
+              ],
+            );
+            return _jsonResponse(
+              '{"status":1,"data":{"url":"https://sharefs.kugou.com/v6.flac","bitrate":1000,"fileSize":99,"fileType":"flac"}}',
+            );
+          }
+          return http.Response('{}', 404);
+        }),
+      ),
+    );
+
+    final resolution = await media.resolve(
+      track: ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: hash,
+        extraIds: const {'albumId': '123', 'albumAudioId': '456'},
+      ),
+      requestedQuality: AudioQuality.lossless,
+      use: KugouMediaUse.playback,
+    );
+
+    expect(resolution.url.toString(), 'https://sharefs.kugou.com/v6.flac');
+    expect(resolution.quality, AudioQuality.lossless);
+    expect(v5Calls, 1);
+    expect(v6Calls, 1);
+  });
+
+  test('Kugou v6 priv_url resolves album_audio_id from songinfo v2', () async {
+    const hash = 'abcdef1234567890abcdef1234567890';
+    final session = KugouSession(
+      userId: '12345',
+      token: 'mock_token',
+      deviceId: '-',
+      mid: 'mock_mid',
+      deviceFingerprint: 'mock_dfid',
+      installGuid: 'mock-guid',
+      installMac: 'mock-mac',
+      installDev: 'mock-dev',
+      vipToken: 'mock_vip_token',
+      vipType: '6',
+      refreshMetadata: const {
+        'cookie':
+            't=web_t; KugooID=54321; mid=web_mid; uuid=web_uuid; dfid=web_dfid',
+      },
+      updatedAt: DateTime.now(),
+    );
+    int songinfoCalls = 0;
+    int v6Calls = 0;
+    final media = KugouMediaApi(
+      providerId: kugouProviderId,
+      client: KugouApiClient(
+        sessionManager: KugouSessionManager(
+          secureStore: _MockSecureSessionStore()..session = session,
+          initialSession: session,
+        ),
+        client: _FakeClient((request) {
+          if (request.url.host == 'wwwapi.kugou.com' &&
+              request.url.path == '/yy/index.php') {
+            return http.Response(
+                '{"data":{},"status":0,"err_code":20010}', 200);
+          }
+          if (request.url.host == 'm.kugou.com') {
+            return http.Response('{"errcode":0,"url":""}', 200);
+          }
+          if (request.url.path == '/v5/url') {
+            return _jsonResponse(
+                '{"status":0,"error_code":20006,"data":{"url":""}}');
+          }
+          if (request.url.host == 'wwwapi.kugou.com' &&
+              request.url.path == '/play/songinfo') {
+            songinfoCalls++;
+            expect(request.url.queryParameters['hash'], hash);
+            expect(request.url.queryParameters['token'], 'web_t');
+            expect(request.url.queryParameters['userid'], '54321');
+            expect(request.url.queryParameters['signature'], isNotEmpty);
+            expect(request.headers['Cookie'], contains('KugooID=54321'));
+            return _jsonResponse(
+              '{"status":1,"data":{"encode_album_audio_id":"encoded-987","album_audio_id":987}}',
+            );
+          }
+          if (request.url.host == 'tracker.kugou.com' &&
+              request.url.path == '/v6/priv_url') {
+            v6Calls++;
+            final body = jsonDecode((request as http.Request).body)
+                as Map<String, dynamic>;
+            final resource = body['resource'] as Map<String, dynamic>;
+            expect(resource['album_audio_id'], '987');
+            return _jsonResponse(
+              '{"status":1,"data":{"url":"https://sharefs.kugou.com/v6.mp3","bitrate":320,"fileSize":99,"fileType":"mp3"}}',
+            );
+          }
+          return http.Response('{}', 404);
+        }),
+      ),
+    );
+
+    final resolution = await media.resolve(
+      track: ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: hash,
+        extraIds: const {'albumId': '123'},
+      ),
+      requestedQuality: AudioQuality.high,
+      use: KugouMediaUse.playback,
+    );
+
+    expect(resolution.url.toString(), 'https://sharefs.kugou.com/v6.mp3');
+    expect(songinfoCalls, 1);
+    expect(v6Calls, 1);
+  });
+
+  test('Kugou fallback uses songinfo v2 before tracker', () async {
+    const hash = 'abcdef1234567890abcdef1234567890';
+    final session = KugouSession(
+      userId: '12345',
+      token: 'mock_token',
+      deviceId: '-',
+      mid: 'mock_mid',
+      deviceFingerprint: 'mock_dfid',
+      installGuid: 'mock-guid',
+      installMac: 'mock-mac',
+      installDev: 'mock-dev',
+      refreshMetadata: const {
+        'cookie':
+            't=web_t; KugooID=54321; mid=web_mid; uuid=web_uuid; dfid=web_dfid',
+      },
+      updatedAt: DateTime.now(),
+    );
+    int songinfoCalls = 0;
+    var trackerCalled = false;
+    final media = KugouMediaApi(
+      providerId: kugouProviderId,
+      client: KugouApiClient(
+        sessionManager: KugouSessionManager(
+          secureStore: _MockSecureSessionStore()..session = session,
+          initialSession: session,
+        ),
+        client: _FakeClient((request) {
+          if (request.url.host == 'wwwapi.kugou.com' &&
+              request.url.path == '/yy/index.php') {
+            return http.Response(
+                '{"data":{},"status":0,"err_code":20010}', 200);
+          }
+          if (request.url.host == 'm.kugou.com') {
+            return http.Response('{"errcode":0,"url":""}', 200);
+          }
+          if (request.url.path == '/v5/url') {
+            return _jsonResponse(
+                '{"status":0,"error_code":20006,"data":{"url":""}}');
+          }
+          if (request.url.host == 'tracker.kugou.com' &&
+              request.url.path == '/v6/priv_url') {
+            return _jsonResponse('{"status":0,"error_code":0,"data":{}}');
+          }
+          if (request.url.host == 'wwwapi.kugou.com' &&
+              request.url.path == '/play/songinfo') {
+            songinfoCalls++;
+            if (request.url.queryParameters.containsKey('hash')) {
+              return _jsonResponse(
+                '{"status":1,"data":{"encode_album_audio_id":"encoded-123","album_audio_id":123}}',
+              );
+            }
+            expect(
+              request.url.queryParameters['encode_album_audio_id'],
+              'encoded-123',
+            );
+            return _jsonResponse(
+              '{"status":1,"data":{"play_backup_url":"https://sharefs.kugou.com/songinfo.mp3","bitrate":128,"filesize":42,"extname":"mp3"}}',
+            );
+          }
+          if (request.url.host.contains('trackercdn')) {
+            trackerCalled = true;
+          }
+          return http.Response('{}', 404);
+        }),
+      ),
+    );
+
+    final resolution = await media.resolve(
+      track: ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: hash,
+        extraIds: const {'albumId': '123', 'albumAudioId': '456'},
+      ),
+      requestedQuality: AudioQuality.standard,
+      use: KugouMediaUse.playback,
+    );
+
+    expect(
+      resolution.url.toString(),
+      'https://sharefs.kugou.com/songinfo.mp3',
+    );
+    expect(songinfoCalls, 2);
+    expect(trackerCalled, isFalse);
+  });
+
+  test('Kugou tracker fallback sends QR app cookie', () async {
     const hash = 'abcdef1234567890abcdef1234567890';
     final session = KugouSession(
       userId: '12345',
@@ -525,7 +889,7 @@ void main() {
       installDev: 'mock-dev',
       updatedAt: DateTime.now(),
     );
-    int v5Calls = 0;
+    var trackerCalls = 0;
     final media = KugouMediaApi(
       providerId: kugouProviderId,
       client: KugouApiClient(
@@ -534,40 +898,52 @@ void main() {
           initialSession: session,
         ),
         client: _FakeClient((request) {
-          if (request.url.host == 'wwwapi.kugou.com') {
-            return http.Response('{"data":{},"status":0,"err_code":20010}',
-                200);
+          if (request.url.host == 'wwwapi.kugou.com' &&
+              request.url.path == '/yy/index.php') {
+            return http.Response(
+                '{"data":{},"status":0,"err_code":20010}', 200);
           }
           if (request.url.host == 'm.kugou.com') {
             return http.Response('{"errcode":0,"url":""}', 200);
           }
           if (request.url.path == '/v5/url') {
-            v5Calls++;
             return _jsonResponse(
                 '{"status":0,"error_code":20006,"data":{"url":""}}');
+          }
+          if (request.url.host == 'tracker.kugou.com' &&
+              request.url.path == '/v6/priv_url') {
+            return _jsonResponse('{"status":0,"error_code":0,"data":{}}');
+          }
+          if (request.url.host.contains('trackercdn.kugou.com') ||
+              request.url.host.contains('trackercdnbj.kugou.com')) {
+            trackerCalls++;
+            final cookie = request.headers['Cookie'] ?? '';
+            expect(cookie, contains('KUGOU_API_MID=mock_mid'));
+            expect(cookie, contains('dfid=mock_dfid'));
+            expect(cookie, contains('userid=12345'));
+            expect(cookie, contains('token=mock_token'));
+            return _jsonResponse(
+              '{"status":1,"errcode":0,"url":"https://fs.youthandroid2.kugou.com/tracker.mp3","bitRate":128,"fileSize":42,"extName":"mp3"}',
+            );
           }
           return http.Response('{}', 404);
         }),
       ),
     );
 
-    await expectLater(
-      () => media.resolve(
-        track: ProviderTrackRef(
-          providerId: kugouProviderId,
-          trackId: hash,
-          extraIds: const {'albumId': '123', 'albumAudioId': '456'},
-        ),
-        requestedQuality: AudioQuality.lossless,
-        use: KugouMediaUse.playback,
+    final resolution = await media.resolve(
+      track: ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: hash,
+        extraIds: const {'albumId': '123', 'albumAudioId': '456'},
       ),
-      throwsA(
-        isA<ProviderException>()
-            .having((e) => e.message, 'message', contains('QualityUnavailable')),
-      ),
+      requestedQuality: AudioQuality.standard,
+      use: KugouMediaUse.playback,
     );
-    // No silent downgrade/retry: exactly one v5 call.
-    expect(v5Calls, 1);
+
+    expect(resolution.url.toString(),
+        'https://fs.youthandroid2.kugou.com/tracker.mp3');
+    expect(trackerCalls, 1);
   });
 
   test('Kugou library API adds and removes playlist tracks', () async {

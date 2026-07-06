@@ -63,9 +63,9 @@ final class KugouAuthService {
       if (_apiClient != null) {
         try {
           await _apiClient.registerWebDevice();
-        } catch (e) {
-          // ignore: avoid_print
-          print('[KugouAuthService] registerWebDevice failed (non-fatal): $e');
+        } catch (_) {
+          // Device registration failures are non-fatal; the session can still
+          // use the login device cookie and gateway fallback paths.
         }
       }
       final currentSession = await _sessionManager.getSession();
