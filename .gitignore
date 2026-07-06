@@ -14,7 +14,7 @@ android/local.properties
 android/key.properties
 *.keystore
 *.jks
-
+.playwright-mcp
 # Windows
 windows/flutter/ephemeral/
 

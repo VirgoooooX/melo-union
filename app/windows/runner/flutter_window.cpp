@@ -191,6 +191,46 @@ bool FlutterWindow::OnCreate() {
           DeleteCredentials(L"MeloUnion/QQMusic");
           result->Success(flutter::EncodableValue(true));
         }
+        else if (call.method_name() == "readKugouCredentials") {
+          std::wstring serialized = ReadCredentials(L"MeloUnion/Kugou");
+          if (serialized.empty()) {
+            result->Success(flutter::EncodableValue());
+            return;
+          }
+          flutter::EncodableMap response;
+          response[flutter::EncodableValue("session")] = flutter::EncodableValue(Utf16ToUtf8(serialized));
+          result->Success(flutter::EncodableValue(response));
+        }
+        else if (call.method_name() == "writeKugouCredentials") {
+          const auto* arguments = std::get_if<flutter::EncodableMap>(call.arguments());
+          if (!arguments) {
+            result->Error("invalid_arguments", "Arguments must be a map.");
+            return;
+          }
+
+          std::string session;
+          auto session_it = arguments->find(flutter::EncodableValue("session"));
+          if (session_it != arguments->end() && !session_it->second.IsNull()) {
+            if (auto val = std::get_if<std::string>(&session_it->second)) {
+              session = *val;
+            }
+          }
+
+          if (session.empty()) {
+            result->Error("invalid_credentials", "Kugou session must not be empty.");
+            return;
+          }
+
+          if (WriteCredentials(L"MeloUnion/Kugou", Utf8ToUtf16(session))) {
+            result->Success(flutter::EncodableValue(true));
+          } else {
+            result->Error("storage_error", "Failed to write credential to Windows Credential Manager.");
+          }
+        }
+        else if (call.method_name() == "deleteKugouCredentials") {
+          DeleteCredentials(L"MeloUnion/Kugou");
+          result->Success(flutter::EncodableValue(true));
+        }
         else {
           result->NotImplemented();
         }

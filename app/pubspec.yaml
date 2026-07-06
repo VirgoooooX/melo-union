@@ -23,12 +23,15 @@ dependencies:
     path: ../packages/provider_netease
   provider_qq:
     path: ../packages/provider_qq
+  provider_kugou:
+    path: ../packages/provider_kugou
   provider_contract:
     path: ../packages/provider_contract
   qr_flutter: ^4.1.0
   just_audio: ^0.9.43
   just_audio_background: ^0.0.1-beta.17
   just_audio_windows: ^0.2.2
+
 dev_dependencies:
   flutter_lints: ^5.0.0
   flutter_test:
@@ -46,6 +49,7 @@ flutter:
     - assets/images/melo_logo_inverse.png
     - assets/images/netease_logo.png
     - assets/images/qq_logo.png
+    - assets/images/kugou_logo.png
 
 msix_config:
   display_name: MeloUnion

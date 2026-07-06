@@ -182,8 +182,10 @@ class _TransportControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final shuffleEnabled = ref.watch(demoRepositoryProvider.select((r) => r.shuffleEnabled));
-    final repeatMode = ref.watch(demoRepositoryProvider.select((r) => r.repeatMode));
+    final shuffleEnabled =
+        ref.watch(demoRepositoryProvider.select((r) => r.shuffleEnabled));
+    final repeatMode =
+        ref.watch(demoRepositoryProvider.select((r) => r.repeatMode));
 
     return Row(
       mainAxisSize: MainAxisSize.min,

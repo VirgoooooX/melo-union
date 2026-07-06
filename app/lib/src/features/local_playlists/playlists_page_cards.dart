@@ -184,7 +184,9 @@ class _RemotePlaylistGrid extends StatelessWidget {
                 ? 3
                 : 2;
     return GridView.builder(
-      padding: isMobile ? const EdgeInsets.fromLTRB(10, 0, 10, 156) : EdgeInsets.zero,
+      padding: isMobile
+          ? const EdgeInsets.fromLTRB(10, 0, 10, 156)
+          : EdgeInsets.zero,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: count,
         mainAxisSpacing: isMobile ? 12 : 16,
@@ -230,7 +232,8 @@ final remotePlaylistTracksProvider =
     FutureProvider.family<List<SourceTrack>, RemotePlaylistId>((ref, id) {
   final repo = ref.read(demoRepositoryProvider);
   final cached = repo.cachedPlaylistTracks(id.providerId, id.playlistId);
-  if (cached != null && repo.hasFreshPlaylistTracks(id.providerId, id.playlistId)) {
+  if (cached != null &&
+      repo.hasFreshPlaylistTracks(id.providerId, id.playlistId)) {
     return cached;
   }
   return repo.loadProviderPlaylistTracks(
@@ -266,7 +269,8 @@ class _RemotePlaylistTracks extends ConsumerWidget {
       error: (error, stack) => MeloErrorState(message: '歌单曲目加载失败：$error'),
       data: (tracks) {
         final headerRow = Padding(
-          padding: const EdgeInsets.fromLTRB(MeloSpacing.xxs, MeloSpacing.sm, MeloSpacing.md, MeloSpacing.sm),
+          padding: const EdgeInsets.fromLTRB(
+              MeloSpacing.xxs, MeloSpacing.sm, MeloSpacing.md, MeloSpacing.sm),
           child: Row(
             children: [
               IconButton(
@@ -285,9 +289,8 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                 ),
               ),
               FilledButton.icon(
-                onPressed: tracks.isEmpty
-                    ? null
-                    : () => repository.playTracks(tracks),
+                onPressed:
+                    tracks.isEmpty ? null : () => repository.playTracks(tracks),
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: const Text('播放全部'),
               ),
@@ -303,9 +306,9 @@ class _RemotePlaylistTracks extends ConsumerWidget {
             key: PageStorageKey<String>(
               'remote_playlist_tracks_mobile_${playlist.providerId.value}_${playlist.playlistId}',
             ),
-            padding: const EdgeInsets.fromLTRB(MeloSpacing.md, MeloSpacing.xxs, MeloSpacing.md, 156),
-            keyboardDismissBehavior:
-                ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(
+                MeloSpacing.md, MeloSpacing.xxs, MeloSpacing.md, 156),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             itemCount: tracks.length,
             separatorBuilder: (_, __) => const SizedBox(height: MeloSpacing.xs),
             itemBuilder: (context, index) {
@@ -326,22 +329,18 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                   children: [
                     Text(
                       () {
-                        final m = track.duration.inMinutes
-                            .toString()
-                            .padLeft(2, '0');
+                        final m =
+                            track.duration.inMinutes.toString().padLeft(2, '0');
                         final s = track.duration.inSeconds
                             .remainder(60)
                             .toString()
                             .padLeft(2, '0');
                         return '$m:$s';
                       }(),
-                      style: Theme.of(context)
-                           .textTheme
-                           .bodySmall
-                           ?.copyWith(
-                             color: MeloColors.textSecondary,
-                             fontSize: 11,
-                           ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: MeloColors.textSecondary,
+                            fontSize: 11,
+                          ),
                     ),
                     const SizedBox(width: MeloSpacing.xxs),
                     MeloTrackDownloadButton(track: track),
@@ -403,8 +402,7 @@ class _RemotePlaylistTracks extends ConsumerWidget {
         final mainContent = Column(
           children: [
             headerRow,
-            if (!isMobile)
-              const Divider(height: 1, color: MeloColors.border),
+            if (!isMobile) const Divider(height: 1, color: MeloColors.border),
             Expanded(child: trackList),
           ],
         );
@@ -460,7 +458,8 @@ class _LocalPlaylistTracks extends StatelessWidget {
     ];
 
     final headerWidget = Padding(
-      padding: const EdgeInsets.fromLTRB(MeloSpacing.xxs, MeloSpacing.sm, MeloSpacing.md, MeloSpacing.sm),
+      padding: const EdgeInsets.fromLTRB(
+          MeloSpacing.xxs, MeloSpacing.sm, MeloSpacing.md, MeloSpacing.sm),
       child: Row(
         children: [
           IconButton(
@@ -510,7 +509,8 @@ class _LocalPlaylistTracks extends StatelessWidget {
                       key: PageStorageKey<String>(
                         'local_playlist_tracks_mobile_${playlist.id}',
                       ),
-                      padding: const EdgeInsets.fromLTRB(MeloSpacing.md, MeloSpacing.xxs, MeloSpacing.md, 156),
+                      padding: const EdgeInsets.fromLTRB(
+                          MeloSpacing.md, MeloSpacing.xxs, MeloSpacing.md, 156),
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       itemCount: playlist.items.length,
@@ -522,8 +522,7 @@ class _LocalPlaylistTracks extends StatelessWidget {
                             repository.sourceTrackByRef(item.trackRef);
                         final selected = currentRef == item.trackRef;
                         final title = track?.title ?? item.cachedTitle;
-                        final artists =
-                            track?.artists ?? item.cachedArtists;
+                        final artists = track?.artists ?? item.cachedArtists;
                         final trackPlayable = track?.isPlayable == true;
 
                         return MeloMobileTrackRow(
@@ -539,7 +538,8 @@ class _LocalPlaylistTracks extends StatelessWidget {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              MeloPlatformIcon(providerId: item.trackRef.providerId),
+                              MeloPlatformIcon(
+                                  providerId: item.trackRef.providerId),
                               const SizedBox(width: MeloSpacing.xs),
                               Text(
                                 track != null
@@ -569,7 +569,8 @@ class _LocalPlaylistTracks extends StatelessWidget {
                                 icon: const Icon(Icons.close_rounded, size: 20),
                                 color: MeloColors.textTertiary,
                                 visualDensity: VisualDensity.compact,
-                                onPressed: () => repository.removeTrackFromPlaylist(
+                                onPressed: () =>
+                                    repository.removeTrackFromPlaylist(
                                   playlistId: playlist.id,
                                   trackRef: item.trackRef,
                                 ),
@@ -585,8 +586,7 @@ class _LocalPlaylistTracks extends StatelessWidget {
                       ),
                       itemCount: playlist.items.length,
                       padding: const EdgeInsets.only(bottom: 4),
-                      scrollCacheExtent:
-                          const ScrollCacheExtent.pixels(560),
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(560),
                       itemExtent: MeloListMetrics.rowHeight,
                       addAutomaticKeepAlives: false,
                       addSemanticIndexes: false,
@@ -596,12 +596,10 @@ class _LocalPlaylistTracks extends StatelessWidget {
                             repository.sourceTrackByRef(item.trackRef);
                         final selected = currentRef == item.trackRef;
                         final title = track?.title ?? item.cachedTitle;
-                        final artists =
-                            track?.artists ?? item.cachedArtists;
+                        final artists = track?.artists ?? item.cachedArtists;
                         final providerName = track == null
                             ? item.cachedProviderName
-                            : meloProviderPresentation(
-                                    track.ref.providerId)
+                            : meloProviderPresentation(track.ref.providerId)
                                 .shortName;
                         return MeloDesktopTrackRow(
                           index: index + 1,
@@ -629,23 +627,21 @@ class _LocalPlaylistTracks extends StatelessWidget {
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: track.isPlayable
-                                      ? '播放'
-                                      : '当前会话缺少播放信息',
-                                  visualDensity:
-                                      VisualDensity.compact,
+                                  tooltip:
+                                      track.isPlayable ? '播放' : '当前会话缺少播放信息',
+                                  visualDensity: VisualDensity.compact,
                                   onPressed: track.isPlayable
-                                      ? () => repository.playOrToggleTrack(track)
+                                      ? () =>
+                                          repository.playOrToggleTrack(track)
                                       : null,
                                   icon: const Icon(Icons.play_arrow_rounded),
                                 ),
                               ],
                               IconButton(
                                 tooltip: '从歌单移除',
-                                visualDensity:
-                                    VisualDensity.compact,
-                                onPressed: () => repository
-                                    .removeTrackFromPlaylist(
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () =>
+                                    repository.removeTrackFromPlaylist(
                                   playlistId: playlist.id,
                                   trackRef: item.trackRef,
                                 ),
@@ -701,7 +697,8 @@ class _TracksTableHeader extends StatelessWidget {
         children: [
           SizedBox(
             width: 32,
-            child: Text(columns[0], style: labelStyle, textAlign: TextAlign.center),
+            child: Text(columns[0],
+                style: labelStyle, textAlign: TextAlign.center),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -714,7 +711,8 @@ class _TracksTableHeader extends StatelessWidget {
           ),
           SizedBox(
             width: 128,
-            child: Text(columns[3], style: labelStyle, textAlign: TextAlign.center),
+            child: Text(columns[3],
+                style: labelStyle, textAlign: TextAlign.center),
           ),
         ],
       ),

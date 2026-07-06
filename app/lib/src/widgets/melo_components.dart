@@ -667,8 +667,8 @@ class MeloPlaylistCover extends StatefulWidget {
 }
 
 class _MeloPlaylistCoverState extends State<MeloPlaylistCover> {
-  late final DisposableBuildContext<_MeloPlaylistCoverState> _scrollAwareContext =
-      DisposableBuildContext(this);
+  late final DisposableBuildContext<_MeloPlaylistCoverState>
+      _scrollAwareContext = DisposableBuildContext(this);
 
   @override
   void dispose() {
@@ -705,7 +705,7 @@ class _MeloPlaylistCoverState extends State<MeloPlaylistCover> {
             desktopLayout ? 1000 : decodedWidth ?? 480,
             highResolution: desktopLayout,
           );
-          
+
           final ImageProvider<Object> baseProvider =
               MeloFileCachedNetworkImageProvider(
             imageUri.toString(),
@@ -739,7 +739,8 @@ class _MeloPlaylistCoverState extends State<MeloPlaylistCover> {
   }
 
   Widget _placeholder() {
-    final hue = widget.title.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
+    final hue =
+        widget.title.codeUnits.fold<int>(0, (sum, value) => sum + value) % 360;
     return Container(
       decoration: BoxDecoration(
         borderRadius: MeloRadii.md,
@@ -1591,6 +1592,13 @@ class MeloPlatformIcon extends StatelessWidget {
         value.contains('qq')) {
       return Image.asset(
         'assets/images/qq_logo.png',
+        width: 18,
+        height: 18,
+        fit: BoxFit.contain,
+      );
+    } else if (value == 'kugou' || value.contains('kugou')) {
+      return Image.asset(
+        'assets/images/kugou_logo.png',
         width: 18,
         height: 18,
         fit: BoxFit.contain,

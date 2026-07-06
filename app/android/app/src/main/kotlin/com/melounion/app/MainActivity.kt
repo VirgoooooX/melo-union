@@ -19,6 +19,7 @@ class MainActivity : AudioServiceActivity() {
         const val NETEASE_COOKIE_KEY = "netease_cookie"
         const val NETEASE_USER_ID_KEY = "netease_user_id"
         const val QQ_MUSIC_COOKIE_KEY = "qq_music_cookie"
+        const val KUGOU_SESSION_KEY = "kugou_session"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -154,6 +155,34 @@ class MainActivity : AudioServiceActivity() {
                 "deleteQqMusicCredentials" -> {
                     getEncryptedPrefs().edit()
                         .remove(QQ_MUSIC_COOKIE_KEY)
+                        .apply()
+                    result.success(true)
+                }
+
+                "readKugouCredentials" -> {
+                    val session = getEncryptedPrefs().getString(KUGOU_SESSION_KEY, null)
+                    if (session.isNullOrBlank()) {
+                        result.success(null)
+                    } else {
+                        result.success(mapOf("session" to session))
+                    }
+                }
+
+                "writeKugouCredentials" -> {
+                    val session = call.argument<String>("session")
+                    if (session.isNullOrBlank()) {
+                        result.error("invalid_credentials", "Kugou session must not be empty.", null)
+                        return@setMethodCallHandler
+                    }
+                    getEncryptedPrefs().edit()
+                        .putString(KUGOU_SESSION_KEY, session)
+                        .apply()
+                    result.success(true)
+                }
+
+                "deleteKugouCredentials" -> {
+                    getEncryptedPrefs().edit()
+                        .remove(KUGOU_SESSION_KEY)
                         .apply()
                     result.success(true)
                 }

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider_contract/provider_contract.dart';
 import 'package:provider_netease/provider_netease.dart';
 import 'package:provider_qq/provider_qq.dart';
+import 'package:provider_kugou/provider_kugou.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../bootstrap/demo_repository.dart';

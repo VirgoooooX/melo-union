@@ -15,11 +15,13 @@ import 'package:path/path.dart' as path;
 import 'package:provider_contract/provider_contract.dart';
 import 'package:provider_netease/provider_netease.dart';
 import 'package:provider_qq/provider_qq.dart';
+import 'package:provider_kugou/provider_kugou.dart';
 
 import '../fakes/fake_music_provider.dart';
 import '../platform/playback_platform_bridge.dart';
 import 'netease_session_store.dart';
 import 'qq_music_session_store.dart';
+import 'kugou_session_store.dart';
 
 class _CacheEntry<T> {
   _CacheEntry(this.data, {DateTime? fetchedAt})
@@ -122,6 +124,7 @@ class DemoRepository extends ChangeNotifier {
     this.neteaseSessionStore,
     QqMusicCredentials? qqMusicCredentials,
     this.qqMusicSessionStore,
+    this.kugouSessionStore,
     this.playbackBridge = const PlaybackPlatformBridge(),
     AudioQuality playbackQuality = AudioQuality.standard,
     double volume = 1.0,
@@ -187,11 +190,17 @@ class DemoRepository extends ChangeNotifier {
     NeteaseSessionStore? neteaseSessionStore,
     QqMusicCredentials? qqMusicCredentials,
     QqMusicSessionStore? qqMusicSessionStore,
+    KugouSession? kugouSession,
+    KugouSessionStore? kugouSessionStore,
     List<MusicProvider> additionalProviders = const [],
   }) {
     final catalogId = ProviderId('compass_catalog');
     final netease = NeteaseMusicProvider(credentials: neteaseCredentials);
     final qqMusic = QqMusicProvider(credentials: qqMusicCredentials);
+    final kugou = KugouMusicProvider.create(
+      secureStore: kugouSessionStore ?? const NullKugouSessionStore(),
+      initialSession: kugouSession,
+    );
 
     final catalog = FakeMusicProvider(
       descriptor: ProviderDescriptor(
@@ -255,6 +264,7 @@ class DemoRepository extends ChangeNotifier {
       catalog,
       netease,
       qqMusic,
+      kugou,
     ]);
 
     final defaultPlaylists = [
@@ -309,6 +319,7 @@ class DemoRepository extends ChangeNotifier {
       neteaseSessionStore: neteaseSessionStore,
       qqMusicCredentials: qqMusicCredentials,
       qqMusicSessionStore: qqMusicSessionStore,
+      kugouSessionStore: kugouSessionStore,
       playbackBridge: const PlaybackPlatformBridge(),
       playbackQuality: snapshot?.playbackQuality ?? AudioQuality.standard,
       volume: snapshot?.volume ?? 1.0,
@@ -330,6 +341,7 @@ class DemoRepository extends ChangeNotifier {
   final MeloSnapshotStore? snapshotStore;
   final NeteaseSessionStore? neteaseSessionStore;
   final QqMusicSessionStore? qqMusicSessionStore;
+  final KugouSessionStore? kugouSessionStore;
   final PlaybackPlatformBridge playbackBridge;
   final ProviderCapabilityMatrix capabilityMatrix =
       const ProviderCapabilityMatrix();
@@ -398,6 +410,9 @@ class DemoRepository extends ChangeNotifier {
 
   bool get hasQqMusicSession => _qqMusicCredentials?.hasCookie ?? false;
 
+  bool get hasKugouSession =>
+      registry.find(kugouProviderId)?.isAuthenticated ?? false;
+
   ProviderSessionAction? sessionActionFor(ProviderId providerId) {
     if (providerId == neteaseProviderId) {
       return ProviderSessionAction(
@@ -413,6 +428,21 @@ class DemoRepository extends ChangeNotifier {
         description:
             'QQ 音乐扫码登录暂不可用。请从浏览器已登录的 y.qq.com 复制完整 Cookie 导入，Cookie 会保存到平台安全存储。',
         clear: clearQqMusicCredentials,
+      );
+    }
+    if (providerId == kugouProviderId) {
+      return ProviderSessionAction(
+        kind: ProviderSessionActionKind.qrLogin,
+        description: '请使用酷狗音乐 App 扫码登录。当前扫码登录是登录酷狗账号的唯一方式。',
+        clear: () async {
+          final provider =
+              registry.find(kugouProviderId) as KugouMusicProvider?;
+          if (provider != null) {
+            await provider.logout();
+          }
+          _favoritesVersion++;
+          notifyListeners();
+        },
       );
     }
     return null;
@@ -493,6 +523,17 @@ class DemoRepository extends ChangeNotifier {
       _playlistCache[pid.value]?.data;
   bool hasFreshRemotePlaylists(ProviderId pid) =>
       _playlistCache[pid.value]?.isFresh(_playlistsTtl) ?? false;
+
+  List<ProviderPlaylist>? cachedRecommendedPlaylists(ProviderId pid) =>
+      _playlistCache['${pid.value}/recommended']?.data;
+  bool hasFreshRecommendedPlaylists(ProviderId pid) =>
+      _playlistCache['${pid.value}/recommended']?.isFresh(_playlistsTtl) ??
+      false;
+
+  List<ProviderPlaylist>? cachedChartPlaylists(ProviderId pid) =>
+      _playlistCache['${pid.value}/charts']?.data;
+  bool hasFreshChartPlaylists(ProviderId pid) =>
+      _playlistCache['${pid.value}/charts']?.isFresh(_playlistsTtl) ?? false;
 
   List<SourceTrack>? cachedPlaylistTracks(ProviderId pid, String playlistId) =>
       _playlistTrackCache['${pid.value}/$playlistId']?.data;
@@ -778,6 +819,148 @@ class DemoRepository extends ChangeNotifier {
     _neteaseCredentials = null;
     _replaceNeteaseProvider(null);
     notifyListeners();
+  }
+
+  Future<KugouQrLoginSession> createKugouQrLoginSession() {
+    final provider = registry.find(kugouProviderId) as KugouMusicProvider;
+    return provider.createQrLoginSession();
+  }
+
+  Future<KugouQrLoginResult> checkKugouQrLoginSession(
+    KugouQrLoginSession session,
+  ) async {
+    final provider = registry.find(kugouProviderId) as KugouMusicProvider;
+    final result = await provider.checkQrLoginSession(session);
+    if (result.status == KugouQrLoginStatus.authorized) {
+      _favoritesVersion++;
+      notifyListeners();
+    }
+    return result;
+  }
+
+  Future<void> saveKugouCookieSession({
+    required String cookie,
+    String? userId,
+  }) async {
+    final session = _kugouSessionFromCookie(cookie: cookie, userId: userId);
+    await kugouSessionStore?.write(session);
+    _replaceKugouProvider(session);
+    _favoritesVersion++;
+    notifyListeners();
+  }
+
+  KugouSession _kugouSessionFromCookie({
+    required String cookie,
+    String? userId,
+  }) {
+    final cookies = _parseCookieHeader(cookie);
+    final normalized = {
+      for (final entry in cookies.entries) entry.key.toLowerCase(): entry.value,
+    };
+    String? value(List<String> keys) {
+      for (final key in keys) {
+        final candidate = normalized[key.toLowerCase()]?.trim();
+        if (candidate != null && candidate.isNotEmpty) {
+          return candidate;
+        }
+      }
+      return null;
+    }
+
+    String decodeUnicodeEscape(String input) {
+      final regex = RegExp(r'%u([0-9a-fA-F]{4})');
+      return input.replaceAllMapped(regex, (match) {
+        final hex = match.group(1)!;
+        final code = int.parse(hex, radix: 16);
+        return String.fromCharCode(code);
+      });
+    }
+
+    String? nestedCookieValue(String cookieKey, List<String> nestedKeys) {
+      final raw = value([cookieKey]);
+      if (raw == null || raw.isEmpty) return null;
+      final parts = raw.replaceAll('&amp;', '&').split('&');
+      final pairs = <String, String>{};
+      for (final part in parts) {
+        final eqIdx = part.indexOf('=');
+        if (eqIdx == -1) {
+          pairs[part.trim()] = '';
+        } else {
+          final k = part.substring(0, eqIdx).trim();
+          final v = part.substring(eqIdx + 1).trim();
+          pairs[k] = v;
+        }
+      }
+      for (final nestedKey in nestedKeys) {
+        final candidate = pairs[nestedKey];
+        if (candidate != null && candidate.isNotEmpty) {
+          try {
+            return Uri.decodeQueryComponent(candidate);
+          } catch (_) {
+            return decodeUnicodeEscape(candidate);
+          }
+        }
+      }
+      return null;
+    }
+
+    final resolvedUserId = userId?.trim().isNotEmpty == true
+        ? userId!.trim()
+        : value(['userid', 'user_id', 'kg_uid', 'kugouid', 'kugooid']) ??
+            nestedCookieValue('kugoo', ['KugooID', 'userid']);
+
+    var token = value(['KuGooToken', 'kugou_token', 'token']) ??
+        nestedCookieValue('kugoo', ['KugooPwd', 'token']);
+
+    if (token == null) {
+      final rawKugoo = value(['kugoo']);
+      if (rawKugoo != null && rawKugoo.isNotEmpty) {
+        final firstSegment = rawKugoo.split('&').first;
+        if (firstSegment.length == 40 || firstSegment.length == 32) {
+          token = firstSegment;
+        }
+      }
+    }
+
+    final mid = value(['kg_mid', 'mid', 'kg_mid_temp']);
+    final dfid = value(['kg_dfid', 'dfid', 'kg_dfid_collect']);
+
+    if (resolvedUserId == null ||
+        token == null ||
+        mid == null ||
+        dfid == null) {
+      throw ArgumentError.value(
+        cookie,
+        'cookie',
+        'Kugou cookie must include KugooID/userid, KuGoo/KuGooToken, kg_mid/mid, and kg_dfid/dfid.',
+      );
+    }
+
+    return KugouSession(
+      userId: resolvedUserId,
+      token: token,
+      deviceId: value(['device_id', 'kg_deviceid']) ?? mid,
+      mid: mid,
+      deviceFingerprint: dfid,
+      vipToken: value(['vip_token', 'viptoken']),
+      vipType: value(['vip_type', 'viptype']),
+      refreshMetadata: {'cookie': cookie.trim()},
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  Map<String, String> _parseCookieHeader(String cookie) {
+    final result = <String, String>{};
+    for (final part in cookie.split(';')) {
+      final index = part.indexOf('=');
+      if (index <= 0) continue;
+      final key = part.substring(0, index).trim();
+      final value = part.substring(index + 1).trim();
+      if (key.isNotEmpty && value.isNotEmpty) {
+        result[key] = value;
+      }
+    }
+    return result;
   }
 
   Future<void> saveQqMusicCredentials(QqMusicCredentials credentials) async {
@@ -1983,6 +2166,17 @@ class DemoRepository extends ChangeNotifier {
     final wasEnabled = registry.isEnabled(qqMusicProviderId);
     registry.register(
       QqMusicProvider(credentials: credentials),
+      enabled: wasEnabled,
+    );
+  }
+
+  void _replaceKugouProvider(KugouSession? session) {
+    final wasEnabled = registry.isEnabled(kugouProviderId);
+    registry.register(
+      KugouMusicProvider.create(
+        secureStore: kugouSessionStore ?? const NullKugouSessionStore(),
+        initialSession: session,
+      ),
       enabled: wasEnabled,
     );
   }

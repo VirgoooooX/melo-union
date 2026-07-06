@@ -41,7 +41,7 @@ class ProvidersPage extends ConsumerWidget {
                       fontWeight: FontWeight.w900,
                       color: MeloColors.textPrimary,
                       letterSpacing: 0,
-                     ),
+                    ),
               ),
             ),
           ],

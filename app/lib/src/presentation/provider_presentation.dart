@@ -42,6 +42,15 @@ MeloProviderPresentation meloProviderPresentation(
       icon: Icons.music_note_rounded,
     );
   }
+  if (value == 'kugou' || value.contains('kugou')) {
+    return const MeloProviderPresentation(
+      shortName: '酷狗音乐',
+      fullName: '酷狗音乐',
+      backgroundColor: MeloColors.kugouBackground,
+      foregroundColor: MeloColors.kugouForeground,
+      icon: Icons.album_rounded,
+    );
+  }
   if (value.contains('local')) {
     return MeloProviderPresentation(
       shortName: displayName ?? '本地',

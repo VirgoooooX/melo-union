@@ -1,4 +1,7 @@
+import 'package:provider_kugou/provider_kugou.dart';
 import 'demo_repository.dart';
+import 'kugou_session_store.dart';
+import 'kugou_session_store_factory.dart';
 import 'managed_snapshot_store.dart';
 import 'netease_session_store.dart';
 import 'netease_session_store_factory.dart';
@@ -9,6 +12,7 @@ import 'snapshot_store_factory.dart';
 typedef SnapshotStoreFactory = Future<ManagedSnapshotStore> Function();
 typedef NeteaseSessionStoreFactory = NeteaseSessionStore Function();
 typedef QqMusicSessionStoreFactory = QqMusicSessionStore Function();
+typedef KugouSessionStoreFactory = KugouSessionStore Function();
 
 final class AppBootstrap {
   AppBootstrap({
@@ -24,13 +28,16 @@ Future<AppBootstrap> createAppBootstrap({
   SnapshotStoreFactory createStore = createSnapshotStore,
   NeteaseSessionStoreFactory createNeteaseStore = createNeteaseSessionStore,
   QqMusicSessionStoreFactory createQqMusicStore = createQqMusicSessionStore,
+  KugouSessionStoreFactory createKugouStore = createKugouSessionStore,
 }) async {
   final managedStore = await createStore();
   final neteaseSessionStore = createNeteaseStore();
   final qqMusicSessionStore = createQqMusicStore();
+  final kugouSessionStore = createKugouStore();
   final snapshot = await managedStore.store?.read();
   final neteaseCredentials = await neteaseSessionStore.read();
   final qqMusicCredentials = await qqMusicSessionStore.read();
+  final KugouSession? kugouSession = await kugouSessionStore.read();
   final repository = DemoRepository.seeded(
     snapshot: snapshot,
     snapshotStore: managedStore.store,
@@ -38,6 +45,8 @@ Future<AppBootstrap> createAppBootstrap({
     neteaseSessionStore: neteaseSessionStore,
     qqMusicCredentials: qqMusicCredentials,
     qqMusicSessionStore: qqMusicSessionStore,
+    kugouSession: kugouSession,
+    kugouSessionStore: kugouSessionStore,
   );
 
   return AppBootstrap(

@@ -32,6 +32,14 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
     final repository = ref.read(demoRepositoryProvider);
     final entries = repository.capabilityMatrix
         .eligibleFavoritesEntries(repository.registry);
+    final entryIds = {for (final entry in entries) entry.descriptor.id};
+    final loggedInPendingEntries = repository.providerEntries.where((entry) {
+      final descriptor = entry.descriptor;
+      return entry.isEnabled &&
+          descriptor.supports(ProviderCapability.authenticate) &&
+          entry.provider.isAuthenticated &&
+          !entryIds.contains(descriptor.id);
+    });
     final tabs = <ProviderTabItem>[
       const ProviderTabItem(
         id: 'all',
@@ -43,6 +51,13 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
           id: entry.descriptor.id.value,
           label: meloProviderLabel(entry.descriptor.id),
           leading: MeloPlatformIcon(providerId: entry.descriptor.id),
+        ),
+      for (final entry in loggedInPendingEntries)
+        ProviderTabItem(
+          id: entry.descriptor.id.value,
+          label: meloProviderLabel(entry.descriptor.id),
+          leading: MeloPlatformIcon(providerId: entry.descriptor.id),
+          enabled: false,
         ),
       const ProviderTabItem(
         id: 'more',
@@ -68,7 +83,8 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
         onRefresh: () => ref.invalidate(allFavoritesProvider),
         searchController: _searchController,
         query: _query,
-        onQueryChanged: (value) => setState(() => _query = value.trim().toLowerCase()),
+        onQueryChanged: (value) =>
+            setState(() => _query = value.trim().toLowerCase()),
         onClearQuery: () {
           _searchController.clear();
           setState(() => _query = '');
@@ -243,17 +259,22 @@ class _MobileAllFavoritesView extends StatelessWidget {
                             const SizedBox(width: 12),
                             FilledButton.icon(
                               onPressed: onPlayAll,
-                              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                              icon: const Icon(Icons.play_arrow_rounded,
+                                  size: 20),
                               label: const Text('播放全部'),
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF14BBA6),
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
                                 shape: const RoundedRectangleBorder(
                                   borderRadius: MeloRadii.pill,
                                 ),
                                 elevation: 0,
-                                textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                textStyle: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
                                       fontWeight: FontWeight.w700,
                                     ),
                               ),
@@ -267,16 +288,16 @@ class _MobileAllFavoritesView extends StatelessWidget {
                       child: Row(
                         children: [
                           Text(
-                            visibleCount == null
-                                ? '323 首'
-                                : '$visibleCount 首',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: MeloColors.textSecondary,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            visibleCount == null ? '323 首' : '$visibleCount 首',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: MeloColors.textSecondary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                           ),
                           const Spacer(),
-                          _MobileSortButton(sort: sort, onSelected: onSortSelected),
+                          _MobileSortButton(
+                              sort: sort, onSelected: onSortSelected),
                         ],
                       ),
                     ),
@@ -284,7 +305,8 @@ class _MobileAllFavoritesView extends StatelessWidget {
                       child: RefreshIndicator(
                         onRefresh: () async => onRefresh(),
                         child: _MobileFavoritesLibrary(
-                          selectedProviderId: selected == 'all' ? null : selected,
+                          selectedProviderId:
+                              selected == 'all' ? null : selected,
                           sort: sort,
                           query: query,
                         ),

@@ -172,9 +172,8 @@ class _MobileShell extends StatelessWidget {
         current == AppDestination.recommendations ||
         current == AppDestination.playlists;
 
-    final childWidget = isImmersivePage
-        ? child
-        : SafeArea(bottom: false, child: child);
+    final childWidget =
+        isImmersivePage ? child : SafeArea(bottom: false, child: child);
 
     return Scaffold(
       extendBody: true,
@@ -205,8 +204,7 @@ class _MobileShell extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         height: 64,
         selectedIndex: selected < 0 ? 0 : selected,
-        onDestinationSelected: (index) =>
-            context.go(destinations[index].path),
+        onDestinationSelected: (index) => context.go(destinations[index].path),
         destinations: [
           for (final item in destinations)
             NavigationDestination(

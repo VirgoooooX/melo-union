@@ -15,7 +15,8 @@ enum _ShelfTab { playlists, charts }
 final _selectedProviderIdProvider = StateProvider<String>((ref) => '');
 final _selectedShelfTabProvider = StateProvider<_ShelfTab?>((ref) => null);
 
-final recommendationsFutureProvider = FutureProvider.family<List<SourceTrack>, ProviderId>((ref, providerId) {
+final recommendationsFutureProvider =
+    FutureProvider.family<List<SourceTrack>, ProviderId>((ref, providerId) {
   final repo = ref.watch(demoRepositoryProvider);
   final cached = repo.cachedRecommendations(providerId);
   if (cached != null && repo.hasFreshRecommendations) {
@@ -24,19 +25,23 @@ final recommendationsFutureProvider = FutureProvider.family<List<SourceTrack>, P
   return repo.loadRecommendations(providerId);
 });
 
-final recommendedPlaylistsFutureProvider = FutureProvider.family<List<ProviderPlaylist>, ProviderId>((ref, providerId) {
+final recommendedPlaylistsFutureProvider =
+    FutureProvider.family<List<ProviderPlaylist>, ProviderId>(
+        (ref, providerId) {
   final repo = ref.watch(demoRepositoryProvider);
-  final cached = repo.cachedRemotePlaylists(providerId);
-  if (cached != null && repo.hasFreshRemotePlaylists(providerId)) {
+  final cached = repo.cachedRecommendedPlaylists(providerId);
+  if (cached != null && repo.hasFreshRecommendedPlaylists(providerId)) {
     return cached;
   }
   return repo.loadRecommendedPlaylists(providerId);
 });
 
-final chartPlaylistsFutureProvider = FutureProvider.family<List<ProviderPlaylist>, ProviderId>((ref, providerId) {
+final chartPlaylistsFutureProvider =
+    FutureProvider.family<List<ProviderPlaylist>, ProviderId>(
+        (ref, providerId) {
   final repo = ref.watch(demoRepositoryProvider);
-  final cached = repo.cachedRemotePlaylists(providerId);
-  if (cached != null && repo.hasFreshRemotePlaylists(providerId)) {
+  final cached = repo.cachedChartPlaylists(providerId);
+  if (cached != null && repo.hasFreshChartPlaylists(providerId)) {
     return cached;
   }
   return repo.loadChartPlaylists(providerId);
@@ -63,9 +68,12 @@ class RecommendationsPage extends ConsumerWidget {
 
     final selectedState = ref.watch(_selectedProviderIdProvider);
     final selected = selectedState.isNotEmpty &&
-            enabledProviders.any((item) => item.descriptor.id.value == selectedState)
+            enabledProviders
+                .any((item) => item.descriptor.id.value == selectedState)
         ? selectedState
-        : (enabledProviders.isEmpty ? 'more' : enabledProviders.first.descriptor.id.value);
+        : (enabledProviders.isEmpty
+            ? 'more'
+            : enabledProviders.first.descriptor.id.value);
 
     final selectedProviderId = ProviderId(selected);
 
@@ -149,7 +157,8 @@ class _RecommendationsTracksGrid extends ConsumerWidget {
     final currentRef = ref.watch(
       demoRepositoryProvider.select((r) => r.queue.current?.track.ref),
     );
-    final recommendationsAsync = ref.watch(recommendationsFutureProvider(selectedProviderId));
+    final recommendationsAsync =
+        ref.watch(recommendationsFutureProvider(selectedProviderId));
 
     return recommendationsAsync.when(
       data: (tracks) {
@@ -350,7 +359,8 @@ class _DesktopRecommendationsView extends ConsumerWidget {
                 onPressed: selected == 'more' || !canShowPlaylists
                     ? null
                     : () async {
-                        final tracksAsync = ref.read(recommendationsFutureProvider(selectedProviderId));
+                        final tracksAsync = ref.read(
+                            recommendationsFutureProvider(selectedProviderId));
                         tracksAsync.whenData((tracks) async {
                           if (tracks.isNotEmpty) {
                             await ref
@@ -474,10 +484,13 @@ class _MobileRecommendationsView extends ConsumerWidget {
                               ),
                               const Spacer(),
                               TextButton.icon(
-                                onPressed: selected == 'more' || !canShowPlaylists
+                                onPressed: selected == 'more' ||
+                                        !canShowPlaylists
                                     ? null
                                     : () async {
-                                        final tracksAsync = ref.read(recommendationsFutureProvider(selectedProviderId));
+                                        final tracksAsync = ref.read(
+                                            recommendationsFutureProvider(
+                                                selectedProviderId));
                                         tracksAsync.whenData((tracks) async {
                                           if (tracks.isNotEmpty) {
                                             await ref
@@ -615,7 +628,8 @@ class _MobileRecommendationsTracksGrid extends ConsumerWidget {
     final currentRef = ref.watch(
       demoRepositoryProvider.select((r) => r.queue.current?.track.ref),
     );
-    final recommendationsAsync = ref.watch(recommendationsFutureProvider(selectedProviderId));
+    final recommendationsAsync =
+        ref.watch(recommendationsFutureProvider(selectedProviderId));
 
     return recommendationsAsync.when(
       data: (tracks) {

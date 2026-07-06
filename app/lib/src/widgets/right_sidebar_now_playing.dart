@@ -6,9 +6,12 @@ class RightSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.read(demoRepositoryProvider);
-    final track = ref.watch(demoRepositoryProvider.select((r) => r.queue.current?.track));
-    final queueLength = ref.watch(demoRepositoryProvider.select((r) => r.queue.entries.length));
-    final queueIsEmpty = ref.watch(demoRepositoryProvider.select((r) => r.queue.entries.isEmpty));
+    final track =
+        ref.watch(demoRepositoryProvider.select((r) => r.queue.current?.track));
+    final queueLength =
+        ref.watch(demoRepositoryProvider.select((r) => r.queue.entries.length));
+    final queueIsEmpty = ref
+        .watch(demoRepositoryProvider.select((r) => r.queue.entries.isEmpty));
     final mode = ref.watch(rightSidebarModeProvider);
     return Material(
       color: MeloColors.surface,
@@ -60,9 +63,8 @@ class RightSidebar extends ConsumerWidget {
                         ),
                         const Spacer(),
                         TextButton(
-                          onPressed: queueIsEmpty
-                              ? null
-                              : repository.clearQueue,
+                          onPressed:
+                              queueIsEmpty ? null : repository.clearQueue,
                           style: TextButton.styleFrom(
                             minimumSize: Size.zero,
                             padding: const EdgeInsets.symmetric(

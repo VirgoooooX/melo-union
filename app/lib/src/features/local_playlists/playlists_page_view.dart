@@ -37,7 +37,8 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
         )
         .toList(growable: false);
     final tabs = [
-      const ProviderTabItem(id: 'local', label: '本地歌单', leading: MeloBrandIcon()),
+      const ProviderTabItem(
+          id: 'local', label: '本地歌单', leading: MeloBrandIcon()),
       for (final entry in remoteProviders)
         ProviderTabItem(
           id: entry.descriptor.id.value,
@@ -133,8 +134,7 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
           const SizedBox(height: 20),
           Expanded(
             child: selected == 'local'
-                ? (_showLocalPlaylistDetails &&
-                        selectedPlaylist != null
+                ? (_showLocalPlaylistDetails && selectedPlaylist != null
                     ? _LocalPlaylistTracks(
                         playlist: selectedPlaylist,
                         repository: repository,
@@ -255,10 +255,12 @@ class _MobilePlaylistsView extends StatelessWidget {
                         children: [
                           Text(
                             selected == 'local' ? '本地歌单' : '云端歌单',
-                            style:
-                                Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                    ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                ),
                           ),
                           const Spacer(),
                           if (selected == 'local')
@@ -277,8 +279,7 @@ class _MobilePlaylistsView extends StatelessWidget {
                     ),
                   Expanded(
                     child: selected == 'local'
-                        ? (showLocalPlaylistDetails &&
-                                selectedPlaylist != null
+                        ? (showLocalPlaylistDetails && selectedPlaylist != null
                             ? _LocalPlaylistTracks(
                                 playlist: selectedPlaylist!,
                                 repository: repository,

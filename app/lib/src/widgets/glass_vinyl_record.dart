@@ -32,27 +32,38 @@ const Color _mistBlue = Color(0xFF1E79BA);
 class GlassVinylRecord extends StatefulWidget {
   const GlassVinylRecord({
     super.key,
+
     /// 嵌入唱片中央的专辑封面 widget（外部构建，组件用 ClipOval 裁圆）。
     /// 传 null 则仅显示深色唱片本体，不展示封面区域。
     this.artwork,
+
     /// 是否正在播放。`true` 时唱片持续旋转，`false` 时停止。
     required this.isPlaying,
+
     /// 唱片直径（不含外圈辉光的 padding）。
     this.size = 310,
+
     /// 同心刻纹数量，建议 12–18。
     this.grooveCount = 16,
+
     /// 唱片主体透明度，`1.0` = 完全不透明。
     this.discOpacity = 0.88,
+
     /// 外圈辉光强度倍率，`1.0` = 全强度。
     this.glowOpacity = 0.45,
+
     /// 唱片完整旋转一圈的时长。
     this.rotationDuration = const Duration(seconds: 22),
+
     /// 镜面高光的旋转弧度（控制高光倾斜角度）。
     this.highlightAngle = -0.55,
+
     /// 镜面高光最高不透明度。
     this.highlightOpacity = 0.20,
+
     /// 边缘发光弧线起始弧度（Flutter 坐标系：0 = 3 点钟方向）。
     this.arcStartAngle = -2.55,
+
     /// 边缘发光弧线扫过的弧度。
     this.arcSweepAngle = 1.15,
   });
@@ -488,8 +499,8 @@ class _EdgeArcPainter extends CustomPainter {
         ],
         stops: const [0, .56, .62, .68, 1],
       ).createShader(trailRect);
-    canvas.drawArc(trailRect, arcStartAngle - .04, arcSweepAngle + .08, false,
-        trail);
+    canvas.drawArc(
+        trailRect, arcStartAngle - .04, arcSweepAngle + .08, false, trail);
   }
 
   @override

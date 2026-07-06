@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:melo_union_app/src/widgets/melo_track_row.dart';
 
 void main() {
-  testWidgets('MeloMobileTrackRow renders correct details and handles tap', (tester) async {
+  testWidgets('MeloMobileTrackRow renders correct details and handles tap',
+      (tester) async {
     var tapped = false;
 
     await tester.pumpWidget(

@@ -62,15 +62,21 @@ class _MusicSourceCard extends ConsumerWidget {
       descriptor.id,
       displayName: descriptor.displayName,
     );
+    final isKugou = descriptor.id.value == 'kugou' ||
+        descriptor.id.value.toLowerCase().contains('kugou');
     final signedIn = entry.provider.isAuthenticated;
     final canSyncFavorites =
         descriptor.supports(ProviderCapability.readFavorites);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: MeloColors.surface,
+        color: isKugou ? presentation.backgroundColor : MeloColors.surface,
         borderRadius: MeloRadii.lg,
-        border: Border.all(color: MeloColors.border),
+        border: Border.all(
+          color: isKugou
+              ? presentation.foregroundColor.withValues(alpha: 0.24)
+              : MeloColors.border,
+        ),
       ),
       child: Row(
         children: [
@@ -148,6 +154,9 @@ class _SourceManagementDialog extends ConsumerWidget {
     );
     final sessionAction = repository.sessionActionFor(entry.descriptor.id);
     final signedIn = entry.provider.isAuthenticated;
+    final supportsCookieImportFallback =
+        entry.descriptor.id == neteaseProviderId ||
+            entry.descriptor.id == qqMusicProviderId;
     return AlertDialog(
       title: Text('管理 ${presentation.fullName}'),
       content: SizedBox(
@@ -193,9 +202,8 @@ class _SourceManagementDialog extends ConsumerWidget {
               Navigator.pop(context);
               await showDialog<void>(
                 context: context,
-                builder: (context) => entry.descriptor.id == qqMusicProviderId
-                    ? const _QqCookieDialog()
-                    : const _NeteaseCookieDialog(),
+                builder: (context) =>
+                    _cookieImportDialogFor(context, ref, entry.descriptor.id),
               );
             },
             icon: Icon(signedIn ? Icons.logout_rounded : Icons.login_rounded),
@@ -205,22 +213,25 @@ class _SourceManagementDialog extends ConsumerWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextButton(
-                onPressed: signedIn
-                    ? null
-                    : () {
-                        Navigator.pop(context);
-                        showDialog<void>(
-                          context: context,
-                          builder: (context) =>
-                              entry.descriptor.id == qqMusicProviderId
-                                  ? const _QqCookieDialog()
-                                  : const _NeteaseCookieDialog(),
-                        );
-                      },
-                child: const Text('导入 Cookie'),
-              ),
-              const SizedBox(width: 8),
+              if (supportsCookieImportFallback) ...[
+                TextButton(
+                  onPressed: signedIn
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          showDialog<void>(
+                            context: context,
+                            builder: (context) => _cookieImportDialogFor(
+                              context,
+                              ref,
+                              entry.descriptor.id,
+                            ),
+                          );
+                        },
+                  child: const Text('导入 Cookie'),
+                ),
+                const SizedBox(width: 8),
+              ],
               FilledButton.icon(
                 onPressed: () async {
                   if (signedIn) {
@@ -233,7 +244,9 @@ class _SourceManagementDialog extends ConsumerWidget {
                   Navigator.pop(context);
                   await showDialog<void>(
                     context: context,
-                    builder: (context) => const _NeteaseQrLoginDialog(),
+                    builder: (context) => entry.descriptor.id == kugouProviderId
+                        ? const _KugouQrLoginDialog()
+                        : const _NeteaseQrLoginDialog(),
                   );
                 },
                 icon: Icon(
@@ -255,6 +268,39 @@ class _SourceManagementDialog extends ConsumerWidget {
       ],
     );
   }
+}
+
+Widget _cookieImportDialogFor(
+  BuildContext context,
+  WidgetRef ref,
+  ProviderId providerId,
+) {
+  final repository = ref.read(demoRepositoryProvider);
+  if (providerId == qqMusicProviderId) {
+    return _CookieImportDialog(
+      title: '导入 QQ 音乐 Cookie',
+      hintText: 'pgv_pvid=...; ...',
+      helpText: '仅用于本机账号读取测试；不要提交或分享 Cookie。写收藏、播放和下载仍需后续官方端验证。',
+      onSave: ({required cookie, userId}) {
+        return repository.saveQqMusicCredentials(
+          QqMusicCredentials(cookie: cookie),
+        );
+      },
+    );
+  }
+  return _CookieImportDialog(
+    title: '导入网易云 Cookie',
+    hintText: 'MUSIC_U=...; ...',
+    helpText:
+        '请从浏览器已登录的 music.163.com 请求中复制完整 Cookie，至少需要包含 MUSIC_U。不要提交或分享 Cookie。',
+    userIdLabel: '用户 ID（可选）',
+    onSave: ({required cookie, userId}) {
+      return repository.saveNeteaseCredentials(
+        cookie: cookie,
+        userId: userId,
+      );
+    },
+  );
 }
 
 class _NeteaseQrLoginDialog extends ConsumerStatefulWidget {
@@ -405,15 +451,32 @@ String _neteaseQrStatusLabel(NeteaseQrLoginStatus status) => switch (status) {
       NeteaseQrLoginStatus.expired => '二维码已过期，请刷新',
     };
 
-class _NeteaseCookieDialog extends ConsumerStatefulWidget {
-  const _NeteaseCookieDialog();
+typedef _CookieImportSave = Future<void> Function({
+  required String cookie,
+  String? userId,
+});
+
+class _CookieImportDialog extends ConsumerStatefulWidget {
+  const _CookieImportDialog({
+    required this.title,
+    required this.hintText,
+    required this.helpText,
+    required this.onSave,
+    this.userIdLabel,
+  });
+
+  final String title;
+  final String hintText;
+  final String helpText;
+  final String? userIdLabel;
+  final _CookieImportSave onSave;
 
   @override
-  ConsumerState<_NeteaseCookieDialog> createState() =>
-      _NeteaseCookieDialogState();
+  ConsumerState<_CookieImportDialog> createState() =>
+      _CookieImportDialogState();
 }
 
-class _NeteaseCookieDialogState extends ConsumerState<_NeteaseCookieDialog> {
+class _CookieImportDialogState extends ConsumerState<_CookieImportDialog> {
   final _cookieController = TextEditingController();
   final _userIdController = TextEditingController();
   bool _saving = false;
@@ -429,7 +492,7 @@ class _NeteaseCookieDialogState extends ConsumerState<_NeteaseCookieDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('导入网易云 Cookie'),
+      title: Text(widget.title),
       content: SizedBox(
         width: 520,
         child: Column(
@@ -440,23 +503,25 @@ class _NeteaseCookieDialogState extends ConsumerState<_NeteaseCookieDialog> {
               controller: _cookieController,
               minLines: 3,
               maxLines: 5,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Cookie',
-                hintText: 'MUSIC_U=...; ...',
+                hintText: widget.hintText,
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _userIdController,
-              decoration: const InputDecoration(
-                labelText: '用户 ID（可选）',
-                border: OutlineInputBorder(),
+            if (widget.userIdLabel != null) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _userIdController,
+                decoration: InputDecoration(
+                  labelText: widget.userIdLabel,
+                  border: const OutlineInputBorder(),
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 10),
             Text(
-              '请从浏览器已登录的 y.qq.com 请求中复制完整 Cookie，至少需要包含 uin 和 qqmusic_key/qm_keyst。不要提交或分享 Cookie。',
+              widget.helpText,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: MeloColors.textSecondary,
                     height: 1.45,
@@ -501,113 +566,10 @@ class _NeteaseCookieDialogState extends ConsumerState<_NeteaseCookieDialog> {
     });
 
     try {
-      await ref.read(demoRepositoryProvider).saveNeteaseCredentials(
-            cookie: cookie,
-            userId: _userIdController.text,
-          );
-      ref.invalidate(allFavoritesProvider);
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    } catch (error) {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _error = '保存失败：$error';
-        });
-      }
-    }
-  }
-}
-
-class _QqCookieDialog extends ConsumerStatefulWidget {
-  const _QqCookieDialog();
-
-  @override
-  ConsumerState<_QqCookieDialog> createState() => _QqCookieDialogState();
-}
-
-class _QqCookieDialogState extends ConsumerState<_QqCookieDialog> {
-  final _cookieController = TextEditingController();
-  bool _saving = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _cookieController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('导入 QQ 音乐 Cookie'),
-      content: SizedBox(
-        width: 520,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _cookieController,
-              minLines: 3,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: 'Cookie',
-                hintText: 'pgv_pvid=...; ...',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '仅用于本机账号读取测试；不要提交或分享 Cookie。写收藏、播放和下载仍需后续官方端验证。',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: MeloColors.textSecondary,
-                    height: 1.45,
-                  ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                _error!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: MeloColors.error,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _save,
-          child: Text(_saving ? '保存中' : '保存会话'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _save() async {
-    final cookie = _cookieController.text.trim();
-    if (cookie.isEmpty) {
-      setState(() => _error = 'Cookie 不能为空。');
-      return;
-    }
-
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-
-    try {
-      await ref.read(demoRepositoryProvider).saveQqMusicCredentials(
-            QqMusicCredentials(cookie: cookie),
-          );
+      await widget.onSave(
+        cookie: cookie,
+        userId: widget.userIdLabel == null ? null : _userIdController.text,
+      );
       ref.invalidate(allFavoritesProvider);
       if (mounted) {
         Navigator.pop(context);
@@ -666,21 +628,28 @@ class _SourceIcon extends StatelessWidget {
         id.contains('aurora') ||
         id.contains('netease');
     final isQQ = id == 'qq_music' || id.contains('beacon') || id.contains('qq');
+    final isKugou = id == 'kugou' || id.contains('kugou');
 
-    if (isNetease || isQQ) {
+    if (isNetease || isQQ || isKugou) {
       return Container(
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isKugou ? MeloColors.kugouBackground : Colors.white,
           borderRadius: MeloRadii.md,
-          border: Border.all(color: MeloColors.border),
+          border: Border.all(
+            color: isKugou
+                ? MeloColors.kugouForeground.withValues(alpha: 0.22)
+                : MeloColors.border,
+          ),
         ),
         padding: const EdgeInsets.all(6),
         child: Image.asset(
           isNetease
               ? 'assets/images/netease_logo.png'
-              : 'assets/images/qq_logo.png',
+              : (isQQ
+                  ? 'assets/images/qq_logo.png'
+                  : 'assets/images/kugou_logo.png'),
           fit: BoxFit.contain,
         ),
       );
@@ -730,3 +699,152 @@ class _StatusChip extends StatelessWidget {
     );
   }
 }
+
+class _KugouQrLoginDialog extends ConsumerStatefulWidget {
+  const _KugouQrLoginDialog();
+
+  @override
+  ConsumerState<_KugouQrLoginDialog> createState() =>
+      _KugouQrLoginDialogState();
+}
+
+class _KugouQrLoginDialogState extends ConsumerState<_KugouQrLoginDialog> {
+  KugouQrLoginSession? _session;
+  KugouQrLoginStatus _status = KugouQrLoginStatus.waiting;
+  Timer? _timer;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_createSession());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _createSession() async {
+    setState(() {
+      _error = null;
+      _session = null;
+      _status = KugouQrLoginStatus.waiting;
+    });
+    try {
+      final session =
+          await ref.read(demoRepositoryProvider).createKugouQrLoginSession();
+      if (!mounted) return;
+      setState(() => _session = session);
+      _timer?.cancel();
+      _timer = Timer.periodic(
+        const Duration(seconds: 2),
+        (_) => unawaited(_checkSession()),
+      );
+      await _checkSession();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error);
+      }
+    }
+  }
+
+  Future<void> _checkSession() async {
+    final session = _session;
+    if (session == null) return;
+    try {
+      final result = await ref
+          .read(demoRepositoryProvider)
+          .checkKugouQrLoginSession(session);
+      ref.invalidate(allFavoritesProvider);
+      if (!mounted) return;
+      setState(() => _status = result.status);
+      if (result.status == KugouQrLoginStatus.authorized) {
+        _timer?.cancel();
+        Navigator.pop(context);
+      } else if (result.status == KugouQrLoginStatus.expired) {
+        _timer?.cancel();
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = _session;
+    return AlertDialog(
+      title: const Text('酷狗音乐扫码登录'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (session == null && _error == null)
+              const SizedBox(
+                width: 160,
+                height: 160,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (session != null)
+              Container(
+                width: 192,
+                height: 192,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: MeloRadii.md,
+                  border: Border.all(color: MeloColors.border),
+                ),
+                child: QrImageView(
+                  data: session.loginUri.toString(),
+                  backgroundColor: Colors.white,
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            const SizedBox(height: 14),
+            Text(
+              _kugouQrStatusLabel(_status),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: MeloColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                '扫码登录失败：$_error',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: MeloColors.error,
+                    ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed:
+              _status == KugouQrLoginStatus.expired ? _createSession : null,
+          child: const Text('刷新二维码'),
+        ),
+      ],
+    );
+  }
+}
+
+String _kugouQrStatusLabel(KugouQrLoginStatus status) => switch (status) {
+      KugouQrLoginStatus.waiting => '请使用酷狗音乐 App 扫描二维码',
+      KugouQrLoginStatus.scanned => '已扫码，请在手机上确认登录',
+      KugouQrLoginStatus.authorized => '登录成功，正在保存会话',
+      KugouQrLoginStatus.expired => '二维码已过期，请刷新',
+      KugouQrLoginStatus.failed => '登录失败，请重新扫码',
+    };

@@ -2,11 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:melo_union_app/src/bootstrap/app_bootstrap.dart';
 import 'package:melo_union_app/src/bootstrap/demo_repository.dart';
 import 'package:melo_union_app/src/bootstrap/managed_snapshot_store.dart';
+import 'package:melo_union_app/src/bootstrap/kugou_session_store.dart';
 import 'package:melo_union_app/src/bootstrap/netease_session_store.dart';
 import 'package:melo_union_app/src/bootstrap/qq_music_session_store.dart';
 import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
+import 'package:provider_kugou/provider_kugou.dart';
 import 'package:provider_netease/provider_netease.dart';
 import 'package:provider_qq/provider_qq.dart';
 
@@ -64,6 +66,23 @@ final class _MemoryQqMusicSessionStore implements QqMusicSessionStore {
   @override
   Future<void> clear() async {
     credentials = null;
+  }
+}
+
+final class _MemoryKugouSessionStore implements KugouSessionStore {
+  KugouSession? session;
+
+  @override
+  Future<KugouSession?> read() async => session;
+
+  @override
+  Future<void> write(KugouSession session) async {
+    this.session = session;
+  }
+
+  @override
+  Future<void> clear() async {
+    session = null;
   }
 }
 
@@ -234,6 +253,38 @@ void main() {
     expect(
       repository.favoritesOverrideRegistry.likedAtFor(qqRef)?.likedAt,
       likedAt,
+    );
+  });
+
+  test('DemoRepository validates and stores Kugou cookie session', () async {
+    final kugouStore = _MemoryKugouSessionStore();
+    final repository = DemoRepository.seeded(kugouSessionStore: kugouStore);
+
+    await expectLater(
+      repository.saveKugouCookieSession(
+        cookie: 'KuGooToken=token; kg_mid=mid; kg_dfid=dfid',
+      ),
+      throwsArgumentError,
+    );
+
+    await repository.saveKugouCookieSession(
+      cookie:
+          'KugooID=12345; KuGoo=KugooID=12345&KugooPwd=token; mid=mid; kg_dfid_collect=dfid; vip_type=1',
+    );
+
+    expect(kugouStore.session?.userId, '12345');
+    expect(kugouStore.session?.token, 'token');
+    expect(kugouStore.session?.mid, 'mid');
+    expect(kugouStore.session?.deviceFingerprint, 'dfid');
+    expect(kugouStore.session?.vipType, '1');
+    expect(
+      kugouStore.session?.refreshMetadata?['cookie'],
+      'KugooID=12345; KuGoo=KugooID=12345&KugooPwd=token; mid=mid; kg_dfid_collect=dfid; vip_type=1',
+    );
+    expect(repository.hasKugouSession, isTrue);
+    expect(
+      repository.registry.entryOf(kugouProviderId)!.provider.isAuthenticated,
+      isTrue,
     );
   });
 }

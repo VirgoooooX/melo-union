@@ -79,7 +79,8 @@ class _QueueTrackCoverState extends State<QueueTrackCover> {
         child: Image(
           image: imageProvider,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => MeloArtworkPlaceholder(seed: widget.seed),
+          errorBuilder: (_, __, ___) =>
+              MeloArtworkPlaceholder(seed: widget.seed),
         ),
       );
     }
