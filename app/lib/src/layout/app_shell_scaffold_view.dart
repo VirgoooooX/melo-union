@@ -217,6 +217,7 @@ class _MobileShell extends StatelessWidget {
       ),
       bottomNavigationBar: NavigationBar(
         height: 64,
+        backgroundColor: meloShellChromeColor(0.76),
         selectedIndex: selected < 0 ? 0 : selected,
         onDestinationSelected: (index) => context.go(destinations[index].path),
         destinations: [
