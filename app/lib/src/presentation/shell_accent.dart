@@ -72,6 +72,25 @@ BoxDecoration meloShellGradientDecoration(
 Color meloShellChromeColor(double alpha) =>
     MeloColors.surface.withValues(alpha: alpha);
 
+Color meloShellMobileDockColor(String providerId) =>
+    meloShellTint(providerId, 0.14).withValues(alpha: 0.58);
+
+Color meloShellMobileDockIndicatorColor(String providerId) => Color.lerp(
+      MeloColors.surface,
+      meloAccentColorForProvider(providerId),
+      0.22,
+    )!
+        .withValues(alpha: 0.88);
+
+Color meloShellMobileDockForegroundColor(String providerId) => Color.lerp(
+      meloAccentColorForProvider(providerId),
+      MeloColors.textPrimary,
+      0.18,
+    )!;
+
+Color meloShellMobileDockOverlayColor(String providerId) =>
+    meloAccentColorForProvider(providerId).withValues(alpha: 0.10);
+
 class MeloShellAccentScope extends ConsumerStatefulWidget {
   const MeloShellAccentScope({
     required this.providerId,

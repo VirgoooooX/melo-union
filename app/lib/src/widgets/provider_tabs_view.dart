@@ -16,16 +16,8 @@ class ProviderTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: MeloDimensions.desktopProviderTabsHeight,
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: MeloColors.border,
-            width: 1.0,
-          ),
-        ),
-      ),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),

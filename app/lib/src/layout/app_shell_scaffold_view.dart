@@ -191,6 +191,9 @@ class _MobileShell extends StatelessWidget {
     final isImmersivePage = current == AppDestination.favorites ||
         current == AppDestination.recommendations ||
         current == AppDestination.playlists;
+    final dockForegroundColor =
+        meloShellMobileDockForegroundColor(accentProviderId);
+    final dockOverlayColor = meloShellMobileDockOverlayColor(accentProviderId);
 
     final childWidget =
         isImmersivePage ? child : SafeArea(bottom: false, child: child);
@@ -224,11 +227,8 @@ class _MobileShell extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: meloShellChromeColor(0.40),
+                color: meloShellMobileDockColor(accentProviderId),
                 borderRadius: BorderRadius.circular(32),
-                border: Border.all(
-                  color: MeloColors.surface.withValues(alpha: 0.42),
-                ),
                 boxShadow: [
                   BoxShadow(
                     color: MeloColors.textPrimary.withValues(alpha: 0.06),
@@ -237,21 +237,55 @@ class _MobileShell extends StatelessWidget {
                   ),
                 ],
               ),
-              child: NavigationBar(
-                height: 64,
-                elevation: 0,
-                backgroundColor: Colors.transparent,
-                selectedIndex: selected < 0 ? 0 : selected,
-                onDestinationSelected: (index) =>
-                    context.go(destinations[index].path),
-                destinations: [
-                  for (final item in destinations)
-                    NavigationDestination(
-                      icon: Icon(_mobileIconFor(item, false)),
-                      selectedIcon: Icon(_mobileIconFor(item, true)),
-                      label: _mobileLabelFor(item),
-                    ),
-                ],
+              child: NavigationBarTheme(
+                data: NavigationBarTheme.of(context).copyWith(
+                  backgroundColor: Colors.transparent,
+                  indicatorColor:
+                      meloShellMobileDockIndicatorColor(accentProviderId),
+                  overlayColor: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.pressed) ||
+                        states.contains(WidgetState.hovered) ||
+                        states.contains(WidgetState.focused)) {
+                      return dockOverlayColor;
+                    }
+                    return null;
+                  }),
+                  iconTheme: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return IconThemeData(color: dockForegroundColor);
+                    }
+                    return const IconThemeData(
+                      color: MeloColors.textSecondary,
+                    );
+                  }),
+                  labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                    final isSelected = states.contains(WidgetState.selected);
+                    return TextStyle(
+                      color: isSelected
+                          ? dockForegroundColor
+                          : MeloColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight:
+                          isSelected ? FontWeight.w800 : FontWeight.w700,
+                    );
+                  }),
+                ),
+                child: NavigationBar(
+                  height: 64,
+                  elevation: 0,
+                  backgroundColor: Colors.transparent,
+                  selectedIndex: selected < 0 ? 0 : selected,
+                  onDestinationSelected: (index) =>
+                      context.go(destinations[index].path),
+                  destinations: [
+                    for (final item in destinations)
+                      NavigationDestination(
+                        icon: Icon(_mobileIconFor(item, false)),
+                        selectedIcon: Icon(_mobileIconFor(item, true)),
+                        label: _mobileLabelFor(item),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
