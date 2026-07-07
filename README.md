@@ -18,7 +18,7 @@
 
 > **MeloUnion (麦乐联合)** 是一款专为 **Windows + Android** 设计的**可扩展、多平台统一音乐客户端**。
 >
-> 核心设计理念是：将您在各大音乐平台（如网易云音乐、QQ 音乐等）的账号数据和喜欢列表，无缝聚合进一个**统一的虚拟歌单**，打破多客户端来回切换的壁垒，同时保留每首歌曲原始的平台归属与收藏状态。
+> 核心设计理念是：将您在各大音乐平台（如网易云音乐、QQ 音乐、酷狗音乐等）的账号数据和喜欢列表，无缝聚合进一个**统一的虚拟歌单**，打破多客户端来回切换的壁垒，同时保留每首歌曲原始的平台归属与收藏状态。
 
 ---
 
@@ -38,7 +38,7 @@
 ## 🌟 核心特性
 
 - 🔗 **多账号聚合「全部喜欢」**
-  将网易云「我喜欢的音乐」与 QQ 音乐「我喜欢」以及未来接入的其他平台，在本地合并成一个**虚拟聚合歌单**，支持一键统一搜索、浏览与随机播放，且不生成多余的云端备份。
+  将网易云「我喜欢的音乐」、QQ 音乐「我喜欢」与酷狗音乐收藏，在本地合并成一个**虚拟聚合歌单**，支持一键统一搜索、浏览与随机播放，且不生成多余的云端备份。
 - 🎯 **收藏状态双向写回**
   统一的点赞（♥）交互：在本地歌单点赞将智能识别音轨原始平台，并实时**双向同步写回**对应的云端官方账号。
 - ⬇️ **跨来源下载与本地音乐管理**
@@ -69,9 +69,11 @@ graph TD
     
     Registry -->|网易云适配器| Netease[provider_netease]
     Registry -->|QQ音乐适配器| QQMusic[provider_qq]
+    Registry -->|酷狗音乐适配器| Kugou[provider_kugou]
     
     Netease -->|API 调用| NetEaseCloud[网易云服务端]
     QQMusic -->|API 调用| QQMusicCloud[QQ音乐服务端]
+    Kugou -->|API 调用| KugouCloud[酷狗音乐服务端]
 ```
 
 ### 2. 核心包依赖结构
@@ -79,7 +81,7 @@ graph TD
 - **`packages/provider_contract/`**：核心抽象契约，定义了 `MusicProvider`、数据模型以及能力矩阵（Capabilities）。
 - **`packages/music_domain/`**：核心业务模型，包含播放队列状态机、下载控制器及底层服务接口。
 - **`packages/music_data/`**：本地数据存储与缓存层，基于 Drift 实现 SQLite 高性能访问、JSON 序列化与数据快照。
-- **`packages/provider_netease/`** 与 **`packages/provider_qq/`**：针对网易云音乐和 QQ 音乐具体网络协议与接口的适配实现包。
+- **`packages/provider_netease/`**、**`packages/provider_qq/`** 与 **`packages/provider_kugou/`**：针对网易云音乐、QQ 音乐和酷狗音乐具体网络协议与接口的适配实现包。
 - **`packages/just_audio_windows_patched/`**：Windows 平台音频播放的本地补丁包，通过 WinRT MediaPlayer 实现对 `just_audio_windows` 的底层覆盖与优化。
 
 ---
@@ -101,9 +103,9 @@ MeloUnion 的下载功能是 Windows 与 Android 共用的系统能力，目标�
 Android 端不是简单的桌面 UI 缩放版，而是围绕移动设备的使用场景做了原生能力补齐：
 
 - **移动端自适应体验**：窄屏下使用移动端导航、迷你播放器与紧凑信息层级，适合单手浏览「全部喜欢」、推荐、搜索和播放队列。
-- **原生后台播放链路**：通过 Kotlin 原生通道接入 `Media3 ExoPlayer` 与 `MediaSessionService`，支持播放队列加载、播放/暂停、上一首/下一首和状态回传。
-- **系统媒体控制集成**：结合 `just_audio_background`、前台媒体服务和媒体按钮接收器，便于接入通知栏、锁屏和系统媒体控制入口。
-- **安卓安全凭据存储**：网易云与 QQ 音乐 Cookie 通过 `EncryptedSharedPreferences` 写入 Android Keystore 保护的加密存储，不落明文数据库。
+- **后台播放与系统媒体控制**：移动端播放统一由 `just_audio_background` 接入系统媒体会话，支持通知栏、锁屏和系统媒体控制入口。
+- **安卓通知权限桥接**：Android 13+ 播放前会请求通知权限，确保媒体播放通知和通知栏控制器可正常显示。
+- **安卓安全凭据存储**：网易云、QQ 音乐与酷狗音乐登录凭据通过 `EncryptedSharedPreferences` 写入 Android Keystore 保护的加密存储，不落明文数据库。
 - **本地数据目录桥接**：Android Runner 通过 `melo_union/storage` 通道提供应用私有目录，供 Drift/SQLite 快照和本地缓存使用。
 - **高刷新率优先**：启动时会优先选择设备可用的 90Hz/120Hz 显示模式，让列表滚动、歌词滚动和播放器动效更贴近移动端手感。
 
@@ -149,6 +151,7 @@ melo-union/
 │   ├── provider_contract/      # 契约层：第三方音乐源提供者契约与 Registry 注册表
 │   ├── provider_netease/       # 网易云适配包：实现登录、搜索、歌单喜欢与播放凭证解析
 │   ├── provider_qq/            # QQ 音乐适配包：实现签名、搜索、喜欢列表与播放凭证解析
+│   ├── provider_kugou/         # 酷狗音乐适配包：实现扫码登录、收藏、搜索、歌单、播放、下载与歌词解析
 │   └── just_audio_windows_patched/ # 播放补丁：Windows 端 WinRT MediaPlayer 的本地 patches
 ├── docs/                       # 系统架构、ADR 记录及优化重构任务书
 └── README.md                   # 本说明文件
