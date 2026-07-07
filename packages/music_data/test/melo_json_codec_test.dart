@@ -109,6 +109,72 @@ void main() {
     expect(decoded.favoritesOverrides.hiddenTracks, contains(alternateRef));
   });
 
+  test('snapshot round trips favorite caches and liked-at ledger', () {
+    final qqRef = ProviderTrackRef(
+      providerId: ProviderId('qq_music'),
+      trackId: 'mid_001',
+      extraIds: const {'song_id': '1001', 'song_mid': 'mid_001'},
+    );
+    final qqTrack = SourceTrack(
+      ref: qqRef,
+      title: '晴天',
+      artists: const ['周杰伦'],
+      duration: const Duration(minutes: 4, seconds: 29),
+      isFavorited: true,
+      likedAtSource: LikedAtMetadata.sourceQqImport,
+      likedAtPrecision: LikedAtMetadata.precisionUnknown,
+    );
+    final ledger = LikedAtLedger()
+      ..record(
+        qqRef,
+        LikedAtMetadata(
+          likedAt: DateTime.utc(2026, 7, 7, 12),
+          source: LikedAtMetadata.sourceLocalEstimate,
+          precision: LikedAtMetadata.precisionUnknown,
+        ),
+        updatedAt: DateTime.utc(2026, 7, 7, 12, 1),
+      );
+    final snapshot = MeloDataSnapshot(
+      favoriteProviderSnapshots: [
+        FavoriteSnapshot(
+          providerId: ProviderId('qq_music'),
+          tracks: [qqTrack],
+          fetchedAt: DateTime.utc(2026, 7, 7, 12, 2),
+        ),
+      ],
+      favoriteLikedAtLedger: ledger,
+      unifiedFavoritesCache: CachedUnifiedFavorites(
+        builtAt: DateTime.utc(2026, 7, 7, 12, 3),
+        tracks: [
+          UnifiedFavoriteTrack(
+            unifiedId: '0_qingtian',
+            title: '晴天',
+            artists: const ['周杰伦'],
+            duration: const Duration(minutes: 4, seconds: 29),
+            variants: [qqTrack],
+          ),
+        ],
+      ),
+      favoriteProviderStates: [
+        FavoriteProviderStateSnapshot(
+          providerId: ProviderId('qq_music'),
+          lastSuccessAt: DateTime.utc(2026, 7, 7, 12, 2),
+        ),
+      ],
+    );
+
+    final decoded = codec.decodeSnapshot(codec.encodeSnapshot(snapshot));
+
+    expect(
+        decoded.favoriteProviderSnapshots.single.providerId.value, 'qq_music');
+    expect(decoded.favoriteProviderSnapshots.single.tracks.single.ref, qqRef);
+    expect(decoded.favoriteLikedAtLedger.likedAtFor(qqRef)?.likedAt,
+        DateTime.utc(2026, 7, 7, 12));
+    expect(decoded.unifiedFavoritesCache?.tracks.single.title, '晴天');
+    expect(decoded.favoriteProviderStates.single.lastSuccessAt,
+        DateTime.utc(2026, 7, 7, 12, 2));
+  });
+
   test('JSON store reads and writes snapshots from disk', () async {
     final dir = await Directory.systemTemp.createTemp('melo_data_test_');
     addTearDown(() => dir.delete(recursive: true));

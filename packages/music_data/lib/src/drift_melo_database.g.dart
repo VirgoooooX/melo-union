@@ -1175,6 +1175,1378 @@ class StoredFavoriteOverridesCompanion
   }
 }
 
+class $FavoriteProviderTracksTable extends FavoriteProviderTracks
+    with TableInfo<$FavoriteProviderTracksTable, FavoriteProviderTrack> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FavoriteProviderTracksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _providerIdMeta =
+      const VerificationMeta('providerId');
+  @override
+  late final GeneratedColumn<String> providerId = GeneratedColumn<String>(
+      'provider_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _refKeyMeta = const VerificationMeta('refKey');
+  @override
+  late final GeneratedColumn<String> refKey = GeneratedColumn<String>(
+      'ref_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _sortIndexMeta =
+      const VerificationMeta('sortIndex');
+  @override
+  late final GeneratedColumn<int> sortIndex = GeneratedColumn<int>(
+      'sort_index', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _payloadJsonMeta =
+      const VerificationMeta('payloadJson');
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+      'payload_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _rawLikedAtMeta =
+      const VerificationMeta('rawLikedAt');
+  @override
+  late final GeneratedColumn<DateTime> rawLikedAt = GeneratedColumn<DateTime>(
+      'raw_liked_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _likedAtSourceMeta =
+      const VerificationMeta('likedAtSource');
+  @override
+  late final GeneratedColumn<String> likedAtSource = GeneratedColumn<String>(
+      'liked_at_source', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _likedAtPrecisionMeta =
+      const VerificationMeta('likedAtPrecision');
+  @override
+  late final GeneratedColumn<String> likedAtPrecision = GeneratedColumn<String>(
+      'liked_at_precision', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _fetchedAtMeta =
+      const VerificationMeta('fetchedAt');
+  @override
+  late final GeneratedColumn<DateTime> fetchedAt = GeneratedColumn<DateTime>(
+      'fetched_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        providerId,
+        refKey,
+        sortIndex,
+        payloadJson,
+        rawLikedAt,
+        likedAtSource,
+        likedAtPrecision,
+        fetchedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'favorite_provider_tracks';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<FavoriteProviderTrack> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('provider_id')) {
+      context.handle(
+          _providerIdMeta,
+          providerId.isAcceptableOrUnknown(
+              data['provider_id']!, _providerIdMeta));
+    } else if (isInserting) {
+      context.missing(_providerIdMeta);
+    }
+    if (data.containsKey('ref_key')) {
+      context.handle(_refKeyMeta,
+          refKey.isAcceptableOrUnknown(data['ref_key']!, _refKeyMeta));
+    } else if (isInserting) {
+      context.missing(_refKeyMeta);
+    }
+    if (data.containsKey('sort_index')) {
+      context.handle(_sortIndexMeta,
+          sortIndex.isAcceptableOrUnknown(data['sort_index']!, _sortIndexMeta));
+    } else if (isInserting) {
+      context.missing(_sortIndexMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+          _payloadJsonMeta,
+          payloadJson.isAcceptableOrUnknown(
+              data['payload_json']!, _payloadJsonMeta));
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('raw_liked_at')) {
+      context.handle(
+          _rawLikedAtMeta,
+          rawLikedAt.isAcceptableOrUnknown(
+              data['raw_liked_at']!, _rawLikedAtMeta));
+    }
+    if (data.containsKey('liked_at_source')) {
+      context.handle(
+          _likedAtSourceMeta,
+          likedAtSource.isAcceptableOrUnknown(
+              data['liked_at_source']!, _likedAtSourceMeta));
+    }
+    if (data.containsKey('liked_at_precision')) {
+      context.handle(
+          _likedAtPrecisionMeta,
+          likedAtPrecision.isAcceptableOrUnknown(
+              data['liked_at_precision']!, _likedAtPrecisionMeta));
+    }
+    if (data.containsKey('fetched_at')) {
+      context.handle(_fetchedAtMeta,
+          fetchedAt.isAcceptableOrUnknown(data['fetched_at']!, _fetchedAtMeta));
+    } else if (isInserting) {
+      context.missing(_fetchedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {providerId, refKey};
+  @override
+  FavoriteProviderTrack map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FavoriteProviderTrack(
+      providerId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}provider_id'])!,
+      refKey: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}ref_key'])!,
+      sortIndex: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}sort_index'])!,
+      payloadJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payload_json'])!,
+      rawLikedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}raw_liked_at']),
+      likedAtSource: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}liked_at_source']),
+      likedAtPrecision: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}liked_at_precision']),
+      fetchedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}fetched_at'])!,
+    );
+  }
+
+  @override
+  $FavoriteProviderTracksTable createAlias(String alias) {
+    return $FavoriteProviderTracksTable(attachedDatabase, alias);
+  }
+}
+
+class FavoriteProviderTrack extends DataClass
+    implements Insertable<FavoriteProviderTrack> {
+  final String providerId;
+  final String refKey;
+  final int sortIndex;
+  final String payloadJson;
+  final DateTime? rawLikedAt;
+  final String? likedAtSource;
+  final String? likedAtPrecision;
+  final DateTime fetchedAt;
+  const FavoriteProviderTrack(
+      {required this.providerId,
+      required this.refKey,
+      required this.sortIndex,
+      required this.payloadJson,
+      this.rawLikedAt,
+      this.likedAtSource,
+      this.likedAtPrecision,
+      required this.fetchedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['provider_id'] = Variable<String>(providerId);
+    map['ref_key'] = Variable<String>(refKey);
+    map['sort_index'] = Variable<int>(sortIndex);
+    map['payload_json'] = Variable<String>(payloadJson);
+    if (!nullToAbsent || rawLikedAt != null) {
+      map['raw_liked_at'] = Variable<DateTime>(rawLikedAt);
+    }
+    if (!nullToAbsent || likedAtSource != null) {
+      map['liked_at_source'] = Variable<String>(likedAtSource);
+    }
+    if (!nullToAbsent || likedAtPrecision != null) {
+      map['liked_at_precision'] = Variable<String>(likedAtPrecision);
+    }
+    map['fetched_at'] = Variable<DateTime>(fetchedAt);
+    return map;
+  }
+
+  FavoriteProviderTracksCompanion toCompanion(bool nullToAbsent) {
+    return FavoriteProviderTracksCompanion(
+      providerId: Value(providerId),
+      refKey: Value(refKey),
+      sortIndex: Value(sortIndex),
+      payloadJson: Value(payloadJson),
+      rawLikedAt: rawLikedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rawLikedAt),
+      likedAtSource: likedAtSource == null && nullToAbsent
+          ? const Value.absent()
+          : Value(likedAtSource),
+      likedAtPrecision: likedAtPrecision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(likedAtPrecision),
+      fetchedAt: Value(fetchedAt),
+    );
+  }
+
+  factory FavoriteProviderTrack.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FavoriteProviderTrack(
+      providerId: serializer.fromJson<String>(json['providerId']),
+      refKey: serializer.fromJson<String>(json['refKey']),
+      sortIndex: serializer.fromJson<int>(json['sortIndex']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      rawLikedAt: serializer.fromJson<DateTime?>(json['rawLikedAt']),
+      likedAtSource: serializer.fromJson<String?>(json['likedAtSource']),
+      likedAtPrecision: serializer.fromJson<String?>(json['likedAtPrecision']),
+      fetchedAt: serializer.fromJson<DateTime>(json['fetchedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'providerId': serializer.toJson<String>(providerId),
+      'refKey': serializer.toJson<String>(refKey),
+      'sortIndex': serializer.toJson<int>(sortIndex),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'rawLikedAt': serializer.toJson<DateTime?>(rawLikedAt),
+      'likedAtSource': serializer.toJson<String?>(likedAtSource),
+      'likedAtPrecision': serializer.toJson<String?>(likedAtPrecision),
+      'fetchedAt': serializer.toJson<DateTime>(fetchedAt),
+    };
+  }
+
+  FavoriteProviderTrack copyWith(
+          {String? providerId,
+          String? refKey,
+          int? sortIndex,
+          String? payloadJson,
+          Value<DateTime?> rawLikedAt = const Value.absent(),
+          Value<String?> likedAtSource = const Value.absent(),
+          Value<String?> likedAtPrecision = const Value.absent(),
+          DateTime? fetchedAt}) =>
+      FavoriteProviderTrack(
+        providerId: providerId ?? this.providerId,
+        refKey: refKey ?? this.refKey,
+        sortIndex: sortIndex ?? this.sortIndex,
+        payloadJson: payloadJson ?? this.payloadJson,
+        rawLikedAt: rawLikedAt.present ? rawLikedAt.value : this.rawLikedAt,
+        likedAtSource:
+            likedAtSource.present ? likedAtSource.value : this.likedAtSource,
+        likedAtPrecision: likedAtPrecision.present
+            ? likedAtPrecision.value
+            : this.likedAtPrecision,
+        fetchedAt: fetchedAt ?? this.fetchedAt,
+      );
+  FavoriteProviderTrack copyWithCompanion(
+      FavoriteProviderTracksCompanion data) {
+    return FavoriteProviderTrack(
+      providerId:
+          data.providerId.present ? data.providerId.value : this.providerId,
+      refKey: data.refKey.present ? data.refKey.value : this.refKey,
+      sortIndex: data.sortIndex.present ? data.sortIndex.value : this.sortIndex,
+      payloadJson:
+          data.payloadJson.present ? data.payloadJson.value : this.payloadJson,
+      rawLikedAt:
+          data.rawLikedAt.present ? data.rawLikedAt.value : this.rawLikedAt,
+      likedAtSource: data.likedAtSource.present
+          ? data.likedAtSource.value
+          : this.likedAtSource,
+      likedAtPrecision: data.likedAtPrecision.present
+          ? data.likedAtPrecision.value
+          : this.likedAtPrecision,
+      fetchedAt: data.fetchedAt.present ? data.fetchedAt.value : this.fetchedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoriteProviderTrack(')
+          ..write('providerId: $providerId, ')
+          ..write('refKey: $refKey, ')
+          ..write('sortIndex: $sortIndex, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('rawLikedAt: $rawLikedAt, ')
+          ..write('likedAtSource: $likedAtSource, ')
+          ..write('likedAtPrecision: $likedAtPrecision, ')
+          ..write('fetchedAt: $fetchedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(providerId, refKey, sortIndex, payloadJson,
+      rawLikedAt, likedAtSource, likedAtPrecision, fetchedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FavoriteProviderTrack &&
+          other.providerId == this.providerId &&
+          other.refKey == this.refKey &&
+          other.sortIndex == this.sortIndex &&
+          other.payloadJson == this.payloadJson &&
+          other.rawLikedAt == this.rawLikedAt &&
+          other.likedAtSource == this.likedAtSource &&
+          other.likedAtPrecision == this.likedAtPrecision &&
+          other.fetchedAt == this.fetchedAt);
+}
+
+class FavoriteProviderTracksCompanion
+    extends UpdateCompanion<FavoriteProviderTrack> {
+  final Value<String> providerId;
+  final Value<String> refKey;
+  final Value<int> sortIndex;
+  final Value<String> payloadJson;
+  final Value<DateTime?> rawLikedAt;
+  final Value<String?> likedAtSource;
+  final Value<String?> likedAtPrecision;
+  final Value<DateTime> fetchedAt;
+  final Value<int> rowid;
+  const FavoriteProviderTracksCompanion({
+    this.providerId = const Value.absent(),
+    this.refKey = const Value.absent(),
+    this.sortIndex = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.rawLikedAt = const Value.absent(),
+    this.likedAtSource = const Value.absent(),
+    this.likedAtPrecision = const Value.absent(),
+    this.fetchedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FavoriteProviderTracksCompanion.insert({
+    required String providerId,
+    required String refKey,
+    required int sortIndex,
+    required String payloadJson,
+    this.rawLikedAt = const Value.absent(),
+    this.likedAtSource = const Value.absent(),
+    this.likedAtPrecision = const Value.absent(),
+    required DateTime fetchedAt,
+    this.rowid = const Value.absent(),
+  })  : providerId = Value(providerId),
+        refKey = Value(refKey),
+        sortIndex = Value(sortIndex),
+        payloadJson = Value(payloadJson),
+        fetchedAt = Value(fetchedAt);
+  static Insertable<FavoriteProviderTrack> custom({
+    Expression<String>? providerId,
+    Expression<String>? refKey,
+    Expression<int>? sortIndex,
+    Expression<String>? payloadJson,
+    Expression<DateTime>? rawLikedAt,
+    Expression<String>? likedAtSource,
+    Expression<String>? likedAtPrecision,
+    Expression<DateTime>? fetchedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (providerId != null) 'provider_id': providerId,
+      if (refKey != null) 'ref_key': refKey,
+      if (sortIndex != null) 'sort_index': sortIndex,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (rawLikedAt != null) 'raw_liked_at': rawLikedAt,
+      if (likedAtSource != null) 'liked_at_source': likedAtSource,
+      if (likedAtPrecision != null) 'liked_at_precision': likedAtPrecision,
+      if (fetchedAt != null) 'fetched_at': fetchedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FavoriteProviderTracksCompanion copyWith(
+      {Value<String>? providerId,
+      Value<String>? refKey,
+      Value<int>? sortIndex,
+      Value<String>? payloadJson,
+      Value<DateTime?>? rawLikedAt,
+      Value<String?>? likedAtSource,
+      Value<String?>? likedAtPrecision,
+      Value<DateTime>? fetchedAt,
+      Value<int>? rowid}) {
+    return FavoriteProviderTracksCompanion(
+      providerId: providerId ?? this.providerId,
+      refKey: refKey ?? this.refKey,
+      sortIndex: sortIndex ?? this.sortIndex,
+      payloadJson: payloadJson ?? this.payloadJson,
+      rawLikedAt: rawLikedAt ?? this.rawLikedAt,
+      likedAtSource: likedAtSource ?? this.likedAtSource,
+      likedAtPrecision: likedAtPrecision ?? this.likedAtPrecision,
+      fetchedAt: fetchedAt ?? this.fetchedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (providerId.present) {
+      map['provider_id'] = Variable<String>(providerId.value);
+    }
+    if (refKey.present) {
+      map['ref_key'] = Variable<String>(refKey.value);
+    }
+    if (sortIndex.present) {
+      map['sort_index'] = Variable<int>(sortIndex.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (rawLikedAt.present) {
+      map['raw_liked_at'] = Variable<DateTime>(rawLikedAt.value);
+    }
+    if (likedAtSource.present) {
+      map['liked_at_source'] = Variable<String>(likedAtSource.value);
+    }
+    if (likedAtPrecision.present) {
+      map['liked_at_precision'] = Variable<String>(likedAtPrecision.value);
+    }
+    if (fetchedAt.present) {
+      map['fetched_at'] = Variable<DateTime>(fetchedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoriteProviderTracksCompanion(')
+          ..write('providerId: $providerId, ')
+          ..write('refKey: $refKey, ')
+          ..write('sortIndex: $sortIndex, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('rawLikedAt: $rawLikedAt, ')
+          ..write('likedAtSource: $likedAtSource, ')
+          ..write('likedAtPrecision: $likedAtPrecision, ')
+          ..write('fetchedAt: $fetchedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FavoriteLikedAtLedgerRowsTable extends FavoriteLikedAtLedgerRows
+    with TableInfo<$FavoriteLikedAtLedgerRowsTable, FavoriteLikedAtLedgerRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FavoriteLikedAtLedgerRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _identityKeyMeta =
+      const VerificationMeta('identityKey');
+  @override
+  late final GeneratedColumn<String> identityKey = GeneratedColumn<String>(
+      'identity_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _refJsonMeta =
+      const VerificationMeta('refJson');
+  @override
+  late final GeneratedColumn<String> refJson = GeneratedColumn<String>(
+      'ref_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _metadataJsonMeta =
+      const VerificationMeta('metadataJson');
+  @override
+  late final GeneratedColumn<String> metadataJson = GeneratedColumn<String>(
+      'metadata_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [identityKey, refJson, metadataJson, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'favorite_liked_at_ledger_rows';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<FavoriteLikedAtLedgerRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('identity_key')) {
+      context.handle(
+          _identityKeyMeta,
+          identityKey.isAcceptableOrUnknown(
+              data['identity_key']!, _identityKeyMeta));
+    } else if (isInserting) {
+      context.missing(_identityKeyMeta);
+    }
+    if (data.containsKey('ref_json')) {
+      context.handle(_refJsonMeta,
+          refJson.isAcceptableOrUnknown(data['ref_json']!, _refJsonMeta));
+    } else if (isInserting) {
+      context.missing(_refJsonMeta);
+    }
+    if (data.containsKey('metadata_json')) {
+      context.handle(
+          _metadataJsonMeta,
+          metadataJson.isAcceptableOrUnknown(
+              data['metadata_json']!, _metadataJsonMeta));
+    } else if (isInserting) {
+      context.missing(_metadataJsonMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {identityKey};
+  @override
+  FavoriteLikedAtLedgerRow map(Map<String, dynamic> data,
+      {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FavoriteLikedAtLedgerRow(
+      identityKey: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}identity_key'])!,
+      refJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}ref_json'])!,
+      metadataJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}metadata_json'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
+    );
+  }
+
+  @override
+  $FavoriteLikedAtLedgerRowsTable createAlias(String alias) {
+    return $FavoriteLikedAtLedgerRowsTable(attachedDatabase, alias);
+  }
+}
+
+class FavoriteLikedAtLedgerRow extends DataClass
+    implements Insertable<FavoriteLikedAtLedgerRow> {
+  final String identityKey;
+  final String refJson;
+  final String metadataJson;
+  final DateTime? updatedAt;
+  const FavoriteLikedAtLedgerRow(
+      {required this.identityKey,
+      required this.refJson,
+      required this.metadataJson,
+      this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['identity_key'] = Variable<String>(identityKey);
+    map['ref_json'] = Variable<String>(refJson);
+    map['metadata_json'] = Variable<String>(metadataJson);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    return map;
+  }
+
+  FavoriteLikedAtLedgerRowsCompanion toCompanion(bool nullToAbsent) {
+    return FavoriteLikedAtLedgerRowsCompanion(
+      identityKey: Value(identityKey),
+      refJson: Value(refJson),
+      metadataJson: Value(metadataJson),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory FavoriteLikedAtLedgerRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FavoriteLikedAtLedgerRow(
+      identityKey: serializer.fromJson<String>(json['identityKey']),
+      refJson: serializer.fromJson<String>(json['refJson']),
+      metadataJson: serializer.fromJson<String>(json['metadataJson']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'identityKey': serializer.toJson<String>(identityKey),
+      'refJson': serializer.toJson<String>(refJson),
+      'metadataJson': serializer.toJson<String>(metadataJson),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+    };
+  }
+
+  FavoriteLikedAtLedgerRow copyWith(
+          {String? identityKey,
+          String? refJson,
+          String? metadataJson,
+          Value<DateTime?> updatedAt = const Value.absent()}) =>
+      FavoriteLikedAtLedgerRow(
+        identityKey: identityKey ?? this.identityKey,
+        refJson: refJson ?? this.refJson,
+        metadataJson: metadataJson ?? this.metadataJson,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+      );
+  FavoriteLikedAtLedgerRow copyWithCompanion(
+      FavoriteLikedAtLedgerRowsCompanion data) {
+    return FavoriteLikedAtLedgerRow(
+      identityKey:
+          data.identityKey.present ? data.identityKey.value : this.identityKey,
+      refJson: data.refJson.present ? data.refJson.value : this.refJson,
+      metadataJson: data.metadataJson.present
+          ? data.metadataJson.value
+          : this.metadataJson,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoriteLikedAtLedgerRow(')
+          ..write('identityKey: $identityKey, ')
+          ..write('refJson: $refJson, ')
+          ..write('metadataJson: $metadataJson, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(identityKey, refJson, metadataJson, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FavoriteLikedAtLedgerRow &&
+          other.identityKey == this.identityKey &&
+          other.refJson == this.refJson &&
+          other.metadataJson == this.metadataJson &&
+          other.updatedAt == this.updatedAt);
+}
+
+class FavoriteLikedAtLedgerRowsCompanion
+    extends UpdateCompanion<FavoriteLikedAtLedgerRow> {
+  final Value<String> identityKey;
+  final Value<String> refJson;
+  final Value<String> metadataJson;
+  final Value<DateTime?> updatedAt;
+  final Value<int> rowid;
+  const FavoriteLikedAtLedgerRowsCompanion({
+    this.identityKey = const Value.absent(),
+    this.refJson = const Value.absent(),
+    this.metadataJson = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FavoriteLikedAtLedgerRowsCompanion.insert({
+    required String identityKey,
+    required String refJson,
+    required String metadataJson,
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : identityKey = Value(identityKey),
+        refJson = Value(refJson),
+        metadataJson = Value(metadataJson);
+  static Insertable<FavoriteLikedAtLedgerRow> custom({
+    Expression<String>? identityKey,
+    Expression<String>? refJson,
+    Expression<String>? metadataJson,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (identityKey != null) 'identity_key': identityKey,
+      if (refJson != null) 'ref_json': refJson,
+      if (metadataJson != null) 'metadata_json': metadataJson,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FavoriteLikedAtLedgerRowsCompanion copyWith(
+      {Value<String>? identityKey,
+      Value<String>? refJson,
+      Value<String>? metadataJson,
+      Value<DateTime?>? updatedAt,
+      Value<int>? rowid}) {
+    return FavoriteLikedAtLedgerRowsCompanion(
+      identityKey: identityKey ?? this.identityKey,
+      refJson: refJson ?? this.refJson,
+      metadataJson: metadataJson ?? this.metadataJson,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (identityKey.present) {
+      map['identity_key'] = Variable<String>(identityKey.value);
+    }
+    if (refJson.present) {
+      map['ref_json'] = Variable<String>(refJson.value);
+    }
+    if (metadataJson.present) {
+      map['metadata_json'] = Variable<String>(metadataJson.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoriteLikedAtLedgerRowsCompanion(')
+          ..write('identityKey: $identityKey, ')
+          ..write('refJson: $refJson, ')
+          ..write('metadataJson: $metadataJson, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $UnifiedFavoriteCacheRowsTable extends UnifiedFavoriteCacheRows
+    with TableInfo<$UnifiedFavoriteCacheRowsTable, UnifiedFavoriteCacheRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UnifiedFavoriteCacheRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _unifiedIdMeta =
+      const VerificationMeta('unifiedId');
+  @override
+  late final GeneratedColumn<String> unifiedId = GeneratedColumn<String>(
+      'unified_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _sortIndexMeta =
+      const VerificationMeta('sortIndex');
+  @override
+  late final GeneratedColumn<int> sortIndex = GeneratedColumn<int>(
+      'sort_index', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _sortLikedAtMeta =
+      const VerificationMeta('sortLikedAt');
+  @override
+  late final GeneratedColumn<DateTime> sortLikedAt = GeneratedColumn<DateTime>(
+      'sort_liked_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _builtAtMeta =
+      const VerificationMeta('builtAt');
+  @override
+  late final GeneratedColumn<DateTime> builtAt = GeneratedColumn<DateTime>(
+      'built_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _payloadJsonMeta =
+      const VerificationMeta('payloadJson');
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+      'payload_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [unifiedId, sortIndex, sortLikedAt, builtAt, payloadJson];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'unified_favorite_cache_rows';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<UnifiedFavoriteCacheRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('unified_id')) {
+      context.handle(_unifiedIdMeta,
+          unifiedId.isAcceptableOrUnknown(data['unified_id']!, _unifiedIdMeta));
+    } else if (isInserting) {
+      context.missing(_unifiedIdMeta);
+    }
+    if (data.containsKey('sort_index')) {
+      context.handle(_sortIndexMeta,
+          sortIndex.isAcceptableOrUnknown(data['sort_index']!, _sortIndexMeta));
+    } else if (isInserting) {
+      context.missing(_sortIndexMeta);
+    }
+    if (data.containsKey('sort_liked_at')) {
+      context.handle(
+          _sortLikedAtMeta,
+          sortLikedAt.isAcceptableOrUnknown(
+              data['sort_liked_at']!, _sortLikedAtMeta));
+    }
+    if (data.containsKey('built_at')) {
+      context.handle(_builtAtMeta,
+          builtAt.isAcceptableOrUnknown(data['built_at']!, _builtAtMeta));
+    } else if (isInserting) {
+      context.missing(_builtAtMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+          _payloadJsonMeta,
+          payloadJson.isAcceptableOrUnknown(
+              data['payload_json']!, _payloadJsonMeta));
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {unifiedId};
+  @override
+  UnifiedFavoriteCacheRow map(Map<String, dynamic> data,
+      {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UnifiedFavoriteCacheRow(
+      unifiedId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}unified_id'])!,
+      sortIndex: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}sort_index'])!,
+      sortLikedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}sort_liked_at']),
+      builtAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}built_at'])!,
+      payloadJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payload_json'])!,
+    );
+  }
+
+  @override
+  $UnifiedFavoriteCacheRowsTable createAlias(String alias) {
+    return $UnifiedFavoriteCacheRowsTable(attachedDatabase, alias);
+  }
+}
+
+class UnifiedFavoriteCacheRow extends DataClass
+    implements Insertable<UnifiedFavoriteCacheRow> {
+  final String unifiedId;
+  final int sortIndex;
+  final DateTime? sortLikedAt;
+  final DateTime builtAt;
+  final String payloadJson;
+  const UnifiedFavoriteCacheRow(
+      {required this.unifiedId,
+      required this.sortIndex,
+      this.sortLikedAt,
+      required this.builtAt,
+      required this.payloadJson});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['unified_id'] = Variable<String>(unifiedId);
+    map['sort_index'] = Variable<int>(sortIndex);
+    if (!nullToAbsent || sortLikedAt != null) {
+      map['sort_liked_at'] = Variable<DateTime>(sortLikedAt);
+    }
+    map['built_at'] = Variable<DateTime>(builtAt);
+    map['payload_json'] = Variable<String>(payloadJson);
+    return map;
+  }
+
+  UnifiedFavoriteCacheRowsCompanion toCompanion(bool nullToAbsent) {
+    return UnifiedFavoriteCacheRowsCompanion(
+      unifiedId: Value(unifiedId),
+      sortIndex: Value(sortIndex),
+      sortLikedAt: sortLikedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sortLikedAt),
+      builtAt: Value(builtAt),
+      payloadJson: Value(payloadJson),
+    );
+  }
+
+  factory UnifiedFavoriteCacheRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UnifiedFavoriteCacheRow(
+      unifiedId: serializer.fromJson<String>(json['unifiedId']),
+      sortIndex: serializer.fromJson<int>(json['sortIndex']),
+      sortLikedAt: serializer.fromJson<DateTime?>(json['sortLikedAt']),
+      builtAt: serializer.fromJson<DateTime>(json['builtAt']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'unifiedId': serializer.toJson<String>(unifiedId),
+      'sortIndex': serializer.toJson<int>(sortIndex),
+      'sortLikedAt': serializer.toJson<DateTime?>(sortLikedAt),
+      'builtAt': serializer.toJson<DateTime>(builtAt),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+    };
+  }
+
+  UnifiedFavoriteCacheRow copyWith(
+          {String? unifiedId,
+          int? sortIndex,
+          Value<DateTime?> sortLikedAt = const Value.absent(),
+          DateTime? builtAt,
+          String? payloadJson}) =>
+      UnifiedFavoriteCacheRow(
+        unifiedId: unifiedId ?? this.unifiedId,
+        sortIndex: sortIndex ?? this.sortIndex,
+        sortLikedAt: sortLikedAt.present ? sortLikedAt.value : this.sortLikedAt,
+        builtAt: builtAt ?? this.builtAt,
+        payloadJson: payloadJson ?? this.payloadJson,
+      );
+  UnifiedFavoriteCacheRow copyWithCompanion(
+      UnifiedFavoriteCacheRowsCompanion data) {
+    return UnifiedFavoriteCacheRow(
+      unifiedId: data.unifiedId.present ? data.unifiedId.value : this.unifiedId,
+      sortIndex: data.sortIndex.present ? data.sortIndex.value : this.sortIndex,
+      sortLikedAt:
+          data.sortLikedAt.present ? data.sortLikedAt.value : this.sortLikedAt,
+      builtAt: data.builtAt.present ? data.builtAt.value : this.builtAt,
+      payloadJson:
+          data.payloadJson.present ? data.payloadJson.value : this.payloadJson,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UnifiedFavoriteCacheRow(')
+          ..write('unifiedId: $unifiedId, ')
+          ..write('sortIndex: $sortIndex, ')
+          ..write('sortLikedAt: $sortLikedAt, ')
+          ..write('builtAt: $builtAt, ')
+          ..write('payloadJson: $payloadJson')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(unifiedId, sortIndex, sortLikedAt, builtAt, payloadJson);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UnifiedFavoriteCacheRow &&
+          other.unifiedId == this.unifiedId &&
+          other.sortIndex == this.sortIndex &&
+          other.sortLikedAt == this.sortLikedAt &&
+          other.builtAt == this.builtAt &&
+          other.payloadJson == this.payloadJson);
+}
+
+class UnifiedFavoriteCacheRowsCompanion
+    extends UpdateCompanion<UnifiedFavoriteCacheRow> {
+  final Value<String> unifiedId;
+  final Value<int> sortIndex;
+  final Value<DateTime?> sortLikedAt;
+  final Value<DateTime> builtAt;
+  final Value<String> payloadJson;
+  final Value<int> rowid;
+  const UnifiedFavoriteCacheRowsCompanion({
+    this.unifiedId = const Value.absent(),
+    this.sortIndex = const Value.absent(),
+    this.sortLikedAt = const Value.absent(),
+    this.builtAt = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UnifiedFavoriteCacheRowsCompanion.insert({
+    required String unifiedId,
+    required int sortIndex,
+    this.sortLikedAt = const Value.absent(),
+    required DateTime builtAt,
+    required String payloadJson,
+    this.rowid = const Value.absent(),
+  })  : unifiedId = Value(unifiedId),
+        sortIndex = Value(sortIndex),
+        builtAt = Value(builtAt),
+        payloadJson = Value(payloadJson);
+  static Insertable<UnifiedFavoriteCacheRow> custom({
+    Expression<String>? unifiedId,
+    Expression<int>? sortIndex,
+    Expression<DateTime>? sortLikedAt,
+    Expression<DateTime>? builtAt,
+    Expression<String>? payloadJson,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (unifiedId != null) 'unified_id': unifiedId,
+      if (sortIndex != null) 'sort_index': sortIndex,
+      if (sortLikedAt != null) 'sort_liked_at': sortLikedAt,
+      if (builtAt != null) 'built_at': builtAt,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UnifiedFavoriteCacheRowsCompanion copyWith(
+      {Value<String>? unifiedId,
+      Value<int>? sortIndex,
+      Value<DateTime?>? sortLikedAt,
+      Value<DateTime>? builtAt,
+      Value<String>? payloadJson,
+      Value<int>? rowid}) {
+    return UnifiedFavoriteCacheRowsCompanion(
+      unifiedId: unifiedId ?? this.unifiedId,
+      sortIndex: sortIndex ?? this.sortIndex,
+      sortLikedAt: sortLikedAt ?? this.sortLikedAt,
+      builtAt: builtAt ?? this.builtAt,
+      payloadJson: payloadJson ?? this.payloadJson,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (unifiedId.present) {
+      map['unified_id'] = Variable<String>(unifiedId.value);
+    }
+    if (sortIndex.present) {
+      map['sort_index'] = Variable<int>(sortIndex.value);
+    }
+    if (sortLikedAt.present) {
+      map['sort_liked_at'] = Variable<DateTime>(sortLikedAt.value);
+    }
+    if (builtAt.present) {
+      map['built_at'] = Variable<DateTime>(builtAt.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UnifiedFavoriteCacheRowsCompanion(')
+          ..write('unifiedId: $unifiedId, ')
+          ..write('sortIndex: $sortIndex, ')
+          ..write('sortLikedAt: $sortLikedAt, ')
+          ..write('builtAt: $builtAt, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FavoriteProviderStatesTable extends FavoriteProviderStates
+    with TableInfo<$FavoriteProviderStatesTable, FavoriteProviderState> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FavoriteProviderStatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _providerIdMeta =
+      const VerificationMeta('providerId');
+  @override
+  late final GeneratedColumn<String> providerId = GeneratedColumn<String>(
+      'provider_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _lastSuccessAtMeta =
+      const VerificationMeta('lastSuccessAt');
+  @override
+  late final GeneratedColumn<DateTime> lastSuccessAt =
+      GeneratedColumn<DateTime>('last_success_at', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _lastFailureAtMeta =
+      const VerificationMeta('lastFailureAt');
+  @override
+  late final GeneratedColumn<DateTime> lastFailureAt =
+      GeneratedColumn<DateTime>('last_failure_at', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _lastFailureMessageMeta =
+      const VerificationMeta('lastFailureMessage');
+  @override
+  late final GeneratedColumn<String> lastFailureMessage =
+      GeneratedColumn<String>('last_failure_message', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [providerId, lastSuccessAt, lastFailureAt, lastFailureMessage];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'favorite_provider_states';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<FavoriteProviderState> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('provider_id')) {
+      context.handle(
+          _providerIdMeta,
+          providerId.isAcceptableOrUnknown(
+              data['provider_id']!, _providerIdMeta));
+    } else if (isInserting) {
+      context.missing(_providerIdMeta);
+    }
+    if (data.containsKey('last_success_at')) {
+      context.handle(
+          _lastSuccessAtMeta,
+          lastSuccessAt.isAcceptableOrUnknown(
+              data['last_success_at']!, _lastSuccessAtMeta));
+    }
+    if (data.containsKey('last_failure_at')) {
+      context.handle(
+          _lastFailureAtMeta,
+          lastFailureAt.isAcceptableOrUnknown(
+              data['last_failure_at']!, _lastFailureAtMeta));
+    }
+    if (data.containsKey('last_failure_message')) {
+      context.handle(
+          _lastFailureMessageMeta,
+          lastFailureMessage.isAcceptableOrUnknown(
+              data['last_failure_message']!, _lastFailureMessageMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {providerId};
+  @override
+  FavoriteProviderState map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FavoriteProviderState(
+      providerId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}provider_id'])!,
+      lastSuccessAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}last_success_at']),
+      lastFailureAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}last_failure_at']),
+      lastFailureMessage: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}last_failure_message']),
+    );
+  }
+
+  @override
+  $FavoriteProviderStatesTable createAlias(String alias) {
+    return $FavoriteProviderStatesTable(attachedDatabase, alias);
+  }
+}
+
+class FavoriteProviderState extends DataClass
+    implements Insertable<FavoriteProviderState> {
+  final String providerId;
+  final DateTime? lastSuccessAt;
+  final DateTime? lastFailureAt;
+  final String? lastFailureMessage;
+  const FavoriteProviderState(
+      {required this.providerId,
+      this.lastSuccessAt,
+      this.lastFailureAt,
+      this.lastFailureMessage});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['provider_id'] = Variable<String>(providerId);
+    if (!nullToAbsent || lastSuccessAt != null) {
+      map['last_success_at'] = Variable<DateTime>(lastSuccessAt);
+    }
+    if (!nullToAbsent || lastFailureAt != null) {
+      map['last_failure_at'] = Variable<DateTime>(lastFailureAt);
+    }
+    if (!nullToAbsent || lastFailureMessage != null) {
+      map['last_failure_message'] = Variable<String>(lastFailureMessage);
+    }
+    return map;
+  }
+
+  FavoriteProviderStatesCompanion toCompanion(bool nullToAbsent) {
+    return FavoriteProviderStatesCompanion(
+      providerId: Value(providerId),
+      lastSuccessAt: lastSuccessAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSuccessAt),
+      lastFailureAt: lastFailureAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastFailureAt),
+      lastFailureMessage: lastFailureMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastFailureMessage),
+    );
+  }
+
+  factory FavoriteProviderState.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FavoriteProviderState(
+      providerId: serializer.fromJson<String>(json['providerId']),
+      lastSuccessAt: serializer.fromJson<DateTime?>(json['lastSuccessAt']),
+      lastFailureAt: serializer.fromJson<DateTime?>(json['lastFailureAt']),
+      lastFailureMessage:
+          serializer.fromJson<String?>(json['lastFailureMessage']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'providerId': serializer.toJson<String>(providerId),
+      'lastSuccessAt': serializer.toJson<DateTime?>(lastSuccessAt),
+      'lastFailureAt': serializer.toJson<DateTime?>(lastFailureAt),
+      'lastFailureMessage': serializer.toJson<String?>(lastFailureMessage),
+    };
+  }
+
+  FavoriteProviderState copyWith(
+          {String? providerId,
+          Value<DateTime?> lastSuccessAt = const Value.absent(),
+          Value<DateTime?> lastFailureAt = const Value.absent(),
+          Value<String?> lastFailureMessage = const Value.absent()}) =>
+      FavoriteProviderState(
+        providerId: providerId ?? this.providerId,
+        lastSuccessAt:
+            lastSuccessAt.present ? lastSuccessAt.value : this.lastSuccessAt,
+        lastFailureAt:
+            lastFailureAt.present ? lastFailureAt.value : this.lastFailureAt,
+        lastFailureMessage: lastFailureMessage.present
+            ? lastFailureMessage.value
+            : this.lastFailureMessage,
+      );
+  FavoriteProviderState copyWithCompanion(
+      FavoriteProviderStatesCompanion data) {
+    return FavoriteProviderState(
+      providerId:
+          data.providerId.present ? data.providerId.value : this.providerId,
+      lastSuccessAt: data.lastSuccessAt.present
+          ? data.lastSuccessAt.value
+          : this.lastSuccessAt,
+      lastFailureAt: data.lastFailureAt.present
+          ? data.lastFailureAt.value
+          : this.lastFailureAt,
+      lastFailureMessage: data.lastFailureMessage.present
+          ? data.lastFailureMessage.value
+          : this.lastFailureMessage,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoriteProviderState(')
+          ..write('providerId: $providerId, ')
+          ..write('lastSuccessAt: $lastSuccessAt, ')
+          ..write('lastFailureAt: $lastFailureAt, ')
+          ..write('lastFailureMessage: $lastFailureMessage')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(providerId, lastSuccessAt, lastFailureAt, lastFailureMessage);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FavoriteProviderState &&
+          other.providerId == this.providerId &&
+          other.lastSuccessAt == this.lastSuccessAt &&
+          other.lastFailureAt == this.lastFailureAt &&
+          other.lastFailureMessage == this.lastFailureMessage);
+}
+
+class FavoriteProviderStatesCompanion
+    extends UpdateCompanion<FavoriteProviderState> {
+  final Value<String> providerId;
+  final Value<DateTime?> lastSuccessAt;
+  final Value<DateTime?> lastFailureAt;
+  final Value<String?> lastFailureMessage;
+  final Value<int> rowid;
+  const FavoriteProviderStatesCompanion({
+    this.providerId = const Value.absent(),
+    this.lastSuccessAt = const Value.absent(),
+    this.lastFailureAt = const Value.absent(),
+    this.lastFailureMessage = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FavoriteProviderStatesCompanion.insert({
+    required String providerId,
+    this.lastSuccessAt = const Value.absent(),
+    this.lastFailureAt = const Value.absent(),
+    this.lastFailureMessage = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : providerId = Value(providerId);
+  static Insertable<FavoriteProviderState> custom({
+    Expression<String>? providerId,
+    Expression<DateTime>? lastSuccessAt,
+    Expression<DateTime>? lastFailureAt,
+    Expression<String>? lastFailureMessage,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (providerId != null) 'provider_id': providerId,
+      if (lastSuccessAt != null) 'last_success_at': lastSuccessAt,
+      if (lastFailureAt != null) 'last_failure_at': lastFailureAt,
+      if (lastFailureMessage != null)
+        'last_failure_message': lastFailureMessage,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FavoriteProviderStatesCompanion copyWith(
+      {Value<String>? providerId,
+      Value<DateTime?>? lastSuccessAt,
+      Value<DateTime?>? lastFailureAt,
+      Value<String?>? lastFailureMessage,
+      Value<int>? rowid}) {
+    return FavoriteProviderStatesCompanion(
+      providerId: providerId ?? this.providerId,
+      lastSuccessAt: lastSuccessAt ?? this.lastSuccessAt,
+      lastFailureAt: lastFailureAt ?? this.lastFailureAt,
+      lastFailureMessage: lastFailureMessage ?? this.lastFailureMessage,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (providerId.present) {
+      map['provider_id'] = Variable<String>(providerId.value);
+    }
+    if (lastSuccessAt.present) {
+      map['last_success_at'] = Variable<DateTime>(lastSuccessAt.value);
+    }
+    if (lastFailureAt.present) {
+      map['last_failure_at'] = Variable<DateTime>(lastFailureAt.value);
+    }
+    if (lastFailureMessage.present) {
+      map['last_failure_message'] = Variable<String>(lastFailureMessage.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoriteProviderStatesCompanion(')
+          ..write('providerId: $providerId, ')
+          ..write('lastSuccessAt: $lastSuccessAt, ')
+          ..write('lastFailureAt: $lastFailureAt, ')
+          ..write('lastFailureMessage: $lastFailureMessage, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$MeloDriftDatabase extends GeneratedDatabase {
   _$MeloDriftDatabase(QueryExecutor e) : super(e);
   $MeloDriftDatabaseManager get managers => $MeloDriftDatabaseManager(this);
@@ -1187,6 +2559,14 @@ abstract class _$MeloDriftDatabase extends GeneratedDatabase {
       $StoredLocalMediaItemsTable(this);
   late final $StoredFavoriteOverridesTable storedFavoriteOverrides =
       $StoredFavoriteOverridesTable(this);
+  late final $FavoriteProviderTracksTable favoriteProviderTracks =
+      $FavoriteProviderTracksTable(this);
+  late final $FavoriteLikedAtLedgerRowsTable favoriteLikedAtLedgerRows =
+      $FavoriteLikedAtLedgerRowsTable(this);
+  late final $UnifiedFavoriteCacheRowsTable unifiedFavoriteCacheRows =
+      $UnifiedFavoriteCacheRowsTable(this);
+  late final $FavoriteProviderStatesTable favoriteProviderStates =
+      $FavoriteProviderStatesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1196,7 +2576,11 @@ abstract class _$MeloDriftDatabase extends GeneratedDatabase {
         storedPlaylists,
         storedDownloadTasks,
         storedLocalMediaItems,
-        storedFavoriteOverrides
+        storedFavoriteOverrides,
+        favoriteProviderTracks,
+        favoriteLikedAtLedgerRows,
+        unifiedFavoriteCacheRows,
+        favoriteProviderStates
       ];
 }
 
@@ -1936,6 +3320,749 @@ typedef $$StoredFavoriteOverridesTableProcessedTableManager
         ),
         StoredFavoriteOverride,
         PrefetchHooks Function()>;
+typedef $$FavoriteProviderTracksTableCreateCompanionBuilder
+    = FavoriteProviderTracksCompanion Function({
+  required String providerId,
+  required String refKey,
+  required int sortIndex,
+  required String payloadJson,
+  Value<DateTime?> rawLikedAt,
+  Value<String?> likedAtSource,
+  Value<String?> likedAtPrecision,
+  required DateTime fetchedAt,
+  Value<int> rowid,
+});
+typedef $$FavoriteProviderTracksTableUpdateCompanionBuilder
+    = FavoriteProviderTracksCompanion Function({
+  Value<String> providerId,
+  Value<String> refKey,
+  Value<int> sortIndex,
+  Value<String> payloadJson,
+  Value<DateTime?> rawLikedAt,
+  Value<String?> likedAtSource,
+  Value<String?> likedAtPrecision,
+  Value<DateTime> fetchedAt,
+  Value<int> rowid,
+});
+
+class $$FavoriteProviderTracksTableFilterComposer
+    extends Composer<_$MeloDriftDatabase, $FavoriteProviderTracksTable> {
+  $$FavoriteProviderTracksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get refKey => $composableBuilder(
+      column: $table.refKey, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get sortIndex => $composableBuilder(
+      column: $table.sortIndex, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get rawLikedAt => $composableBuilder(
+      column: $table.rawLikedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get likedAtSource => $composableBuilder(
+      column: $table.likedAtSource, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get likedAtPrecision => $composableBuilder(
+      column: $table.likedAtPrecision,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get fetchedAt => $composableBuilder(
+      column: $table.fetchedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$FavoriteProviderTracksTableOrderingComposer
+    extends Composer<_$MeloDriftDatabase, $FavoriteProviderTracksTable> {
+  $$FavoriteProviderTracksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get refKey => $composableBuilder(
+      column: $table.refKey, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get sortIndex => $composableBuilder(
+      column: $table.sortIndex, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get rawLikedAt => $composableBuilder(
+      column: $table.rawLikedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get likedAtSource => $composableBuilder(
+      column: $table.likedAtSource,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get likedAtPrecision => $composableBuilder(
+      column: $table.likedAtPrecision,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get fetchedAt => $composableBuilder(
+      column: $table.fetchedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$FavoriteProviderTracksTableAnnotationComposer
+    extends Composer<_$MeloDriftDatabase, $FavoriteProviderTracksTable> {
+  $$FavoriteProviderTracksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => column);
+
+  GeneratedColumn<String> get refKey =>
+      $composableBuilder(column: $table.refKey, builder: (column) => column);
+
+  GeneratedColumn<int> get sortIndex =>
+      $composableBuilder(column: $table.sortIndex, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get rawLikedAt => $composableBuilder(
+      column: $table.rawLikedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get likedAtSource => $composableBuilder(
+      column: $table.likedAtSource, builder: (column) => column);
+
+  GeneratedColumn<String> get likedAtPrecision => $composableBuilder(
+      column: $table.likedAtPrecision, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get fetchedAt =>
+      $composableBuilder(column: $table.fetchedAt, builder: (column) => column);
+}
+
+class $$FavoriteProviderTracksTableTableManager extends RootTableManager<
+    _$MeloDriftDatabase,
+    $FavoriteProviderTracksTable,
+    FavoriteProviderTrack,
+    $$FavoriteProviderTracksTableFilterComposer,
+    $$FavoriteProviderTracksTableOrderingComposer,
+    $$FavoriteProviderTracksTableAnnotationComposer,
+    $$FavoriteProviderTracksTableCreateCompanionBuilder,
+    $$FavoriteProviderTracksTableUpdateCompanionBuilder,
+    (
+      FavoriteProviderTrack,
+      BaseReferences<_$MeloDriftDatabase, $FavoriteProviderTracksTable,
+          FavoriteProviderTrack>
+    ),
+    FavoriteProviderTrack,
+    PrefetchHooks Function()> {
+  $$FavoriteProviderTracksTableTableManager(
+      _$MeloDriftDatabase db, $FavoriteProviderTracksTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FavoriteProviderTracksTableFilterComposer(
+                  $db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FavoriteProviderTracksTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FavoriteProviderTracksTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> providerId = const Value.absent(),
+            Value<String> refKey = const Value.absent(),
+            Value<int> sortIndex = const Value.absent(),
+            Value<String> payloadJson = const Value.absent(),
+            Value<DateTime?> rawLikedAt = const Value.absent(),
+            Value<String?> likedAtSource = const Value.absent(),
+            Value<String?> likedAtPrecision = const Value.absent(),
+            Value<DateTime> fetchedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              FavoriteProviderTracksCompanion(
+            providerId: providerId,
+            refKey: refKey,
+            sortIndex: sortIndex,
+            payloadJson: payloadJson,
+            rawLikedAt: rawLikedAt,
+            likedAtSource: likedAtSource,
+            likedAtPrecision: likedAtPrecision,
+            fetchedAt: fetchedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String providerId,
+            required String refKey,
+            required int sortIndex,
+            required String payloadJson,
+            Value<DateTime?> rawLikedAt = const Value.absent(),
+            Value<String?> likedAtSource = const Value.absent(),
+            Value<String?> likedAtPrecision = const Value.absent(),
+            required DateTime fetchedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              FavoriteProviderTracksCompanion.insert(
+            providerId: providerId,
+            refKey: refKey,
+            sortIndex: sortIndex,
+            payloadJson: payloadJson,
+            rawLikedAt: rawLikedAt,
+            likedAtSource: likedAtSource,
+            likedAtPrecision: likedAtPrecision,
+            fetchedAt: fetchedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$FavoriteProviderTracksTableProcessedTableManager
+    = ProcessedTableManager<
+        _$MeloDriftDatabase,
+        $FavoriteProviderTracksTable,
+        FavoriteProviderTrack,
+        $$FavoriteProviderTracksTableFilterComposer,
+        $$FavoriteProviderTracksTableOrderingComposer,
+        $$FavoriteProviderTracksTableAnnotationComposer,
+        $$FavoriteProviderTracksTableCreateCompanionBuilder,
+        $$FavoriteProviderTracksTableUpdateCompanionBuilder,
+        (
+          FavoriteProviderTrack,
+          BaseReferences<_$MeloDriftDatabase, $FavoriteProviderTracksTable,
+              FavoriteProviderTrack>
+        ),
+        FavoriteProviderTrack,
+        PrefetchHooks Function()>;
+typedef $$FavoriteLikedAtLedgerRowsTableCreateCompanionBuilder
+    = FavoriteLikedAtLedgerRowsCompanion Function({
+  required String identityKey,
+  required String refJson,
+  required String metadataJson,
+  Value<DateTime?> updatedAt,
+  Value<int> rowid,
+});
+typedef $$FavoriteLikedAtLedgerRowsTableUpdateCompanionBuilder
+    = FavoriteLikedAtLedgerRowsCompanion Function({
+  Value<String> identityKey,
+  Value<String> refJson,
+  Value<String> metadataJson,
+  Value<DateTime?> updatedAt,
+  Value<int> rowid,
+});
+
+class $$FavoriteLikedAtLedgerRowsTableFilterComposer
+    extends Composer<_$MeloDriftDatabase, $FavoriteLikedAtLedgerRowsTable> {
+  $$FavoriteLikedAtLedgerRowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get identityKey => $composableBuilder(
+      column: $table.identityKey, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get refJson => $composableBuilder(
+      column: $table.refJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get metadataJson => $composableBuilder(
+      column: $table.metadataJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$FavoriteLikedAtLedgerRowsTableOrderingComposer
+    extends Composer<_$MeloDriftDatabase, $FavoriteLikedAtLedgerRowsTable> {
+  $$FavoriteLikedAtLedgerRowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get identityKey => $composableBuilder(
+      column: $table.identityKey, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get refJson => $composableBuilder(
+      column: $table.refJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get metadataJson => $composableBuilder(
+      column: $table.metadataJson,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$FavoriteLikedAtLedgerRowsTableAnnotationComposer
+    extends Composer<_$MeloDriftDatabase, $FavoriteLikedAtLedgerRowsTable> {
+  $$FavoriteLikedAtLedgerRowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get identityKey => $composableBuilder(
+      column: $table.identityKey, builder: (column) => column);
+
+  GeneratedColumn<String> get refJson =>
+      $composableBuilder(column: $table.refJson, builder: (column) => column);
+
+  GeneratedColumn<String> get metadataJson => $composableBuilder(
+      column: $table.metadataJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$FavoriteLikedAtLedgerRowsTableTableManager extends RootTableManager<
+    _$MeloDriftDatabase,
+    $FavoriteLikedAtLedgerRowsTable,
+    FavoriteLikedAtLedgerRow,
+    $$FavoriteLikedAtLedgerRowsTableFilterComposer,
+    $$FavoriteLikedAtLedgerRowsTableOrderingComposer,
+    $$FavoriteLikedAtLedgerRowsTableAnnotationComposer,
+    $$FavoriteLikedAtLedgerRowsTableCreateCompanionBuilder,
+    $$FavoriteLikedAtLedgerRowsTableUpdateCompanionBuilder,
+    (
+      FavoriteLikedAtLedgerRow,
+      BaseReferences<_$MeloDriftDatabase, $FavoriteLikedAtLedgerRowsTable,
+          FavoriteLikedAtLedgerRow>
+    ),
+    FavoriteLikedAtLedgerRow,
+    PrefetchHooks Function()> {
+  $$FavoriteLikedAtLedgerRowsTableTableManager(
+      _$MeloDriftDatabase db, $FavoriteLikedAtLedgerRowsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FavoriteLikedAtLedgerRowsTableFilterComposer(
+                  $db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FavoriteLikedAtLedgerRowsTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FavoriteLikedAtLedgerRowsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> identityKey = const Value.absent(),
+            Value<String> refJson = const Value.absent(),
+            Value<String> metadataJson = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              FavoriteLikedAtLedgerRowsCompanion(
+            identityKey: identityKey,
+            refJson: refJson,
+            metadataJson: metadataJson,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String identityKey,
+            required String refJson,
+            required String metadataJson,
+            Value<DateTime?> updatedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              FavoriteLikedAtLedgerRowsCompanion.insert(
+            identityKey: identityKey,
+            refJson: refJson,
+            metadataJson: metadataJson,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$FavoriteLikedAtLedgerRowsTableProcessedTableManager
+    = ProcessedTableManager<
+        _$MeloDriftDatabase,
+        $FavoriteLikedAtLedgerRowsTable,
+        FavoriteLikedAtLedgerRow,
+        $$FavoriteLikedAtLedgerRowsTableFilterComposer,
+        $$FavoriteLikedAtLedgerRowsTableOrderingComposer,
+        $$FavoriteLikedAtLedgerRowsTableAnnotationComposer,
+        $$FavoriteLikedAtLedgerRowsTableCreateCompanionBuilder,
+        $$FavoriteLikedAtLedgerRowsTableUpdateCompanionBuilder,
+        (
+          FavoriteLikedAtLedgerRow,
+          BaseReferences<_$MeloDriftDatabase, $FavoriteLikedAtLedgerRowsTable,
+              FavoriteLikedAtLedgerRow>
+        ),
+        FavoriteLikedAtLedgerRow,
+        PrefetchHooks Function()>;
+typedef $$UnifiedFavoriteCacheRowsTableCreateCompanionBuilder
+    = UnifiedFavoriteCacheRowsCompanion Function({
+  required String unifiedId,
+  required int sortIndex,
+  Value<DateTime?> sortLikedAt,
+  required DateTime builtAt,
+  required String payloadJson,
+  Value<int> rowid,
+});
+typedef $$UnifiedFavoriteCacheRowsTableUpdateCompanionBuilder
+    = UnifiedFavoriteCacheRowsCompanion Function({
+  Value<String> unifiedId,
+  Value<int> sortIndex,
+  Value<DateTime?> sortLikedAt,
+  Value<DateTime> builtAt,
+  Value<String> payloadJson,
+  Value<int> rowid,
+});
+
+class $$UnifiedFavoriteCacheRowsTableFilterComposer
+    extends Composer<_$MeloDriftDatabase, $UnifiedFavoriteCacheRowsTable> {
+  $$UnifiedFavoriteCacheRowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get unifiedId => $composableBuilder(
+      column: $table.unifiedId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get sortIndex => $composableBuilder(
+      column: $table.sortIndex, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get sortLikedAt => $composableBuilder(
+      column: $table.sortLikedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get builtAt => $composableBuilder(
+      column: $table.builtAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => ColumnFilters(column));
+}
+
+class $$UnifiedFavoriteCacheRowsTableOrderingComposer
+    extends Composer<_$MeloDriftDatabase, $UnifiedFavoriteCacheRowsTable> {
+  $$UnifiedFavoriteCacheRowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get unifiedId => $composableBuilder(
+      column: $table.unifiedId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get sortIndex => $composableBuilder(
+      column: $table.sortIndex, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get sortLikedAt => $composableBuilder(
+      column: $table.sortLikedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get builtAt => $composableBuilder(
+      column: $table.builtAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => ColumnOrderings(column));
+}
+
+class $$UnifiedFavoriteCacheRowsTableAnnotationComposer
+    extends Composer<_$MeloDriftDatabase, $UnifiedFavoriteCacheRowsTable> {
+  $$UnifiedFavoriteCacheRowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get unifiedId =>
+      $composableBuilder(column: $table.unifiedId, builder: (column) => column);
+
+  GeneratedColumn<int> get sortIndex =>
+      $composableBuilder(column: $table.sortIndex, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get sortLikedAt => $composableBuilder(
+      column: $table.sortLikedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get builtAt =>
+      $composableBuilder(column: $table.builtAt, builder: (column) => column);
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+      column: $table.payloadJson, builder: (column) => column);
+}
+
+class $$UnifiedFavoriteCacheRowsTableTableManager extends RootTableManager<
+    _$MeloDriftDatabase,
+    $UnifiedFavoriteCacheRowsTable,
+    UnifiedFavoriteCacheRow,
+    $$UnifiedFavoriteCacheRowsTableFilterComposer,
+    $$UnifiedFavoriteCacheRowsTableOrderingComposer,
+    $$UnifiedFavoriteCacheRowsTableAnnotationComposer,
+    $$UnifiedFavoriteCacheRowsTableCreateCompanionBuilder,
+    $$UnifiedFavoriteCacheRowsTableUpdateCompanionBuilder,
+    (
+      UnifiedFavoriteCacheRow,
+      BaseReferences<_$MeloDriftDatabase, $UnifiedFavoriteCacheRowsTable,
+          UnifiedFavoriteCacheRow>
+    ),
+    UnifiedFavoriteCacheRow,
+    PrefetchHooks Function()> {
+  $$UnifiedFavoriteCacheRowsTableTableManager(
+      _$MeloDriftDatabase db, $UnifiedFavoriteCacheRowsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UnifiedFavoriteCacheRowsTableFilterComposer(
+                  $db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UnifiedFavoriteCacheRowsTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UnifiedFavoriteCacheRowsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> unifiedId = const Value.absent(),
+            Value<int> sortIndex = const Value.absent(),
+            Value<DateTime?> sortLikedAt = const Value.absent(),
+            Value<DateTime> builtAt = const Value.absent(),
+            Value<String> payloadJson = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              UnifiedFavoriteCacheRowsCompanion(
+            unifiedId: unifiedId,
+            sortIndex: sortIndex,
+            sortLikedAt: sortLikedAt,
+            builtAt: builtAt,
+            payloadJson: payloadJson,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String unifiedId,
+            required int sortIndex,
+            Value<DateTime?> sortLikedAt = const Value.absent(),
+            required DateTime builtAt,
+            required String payloadJson,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              UnifiedFavoriteCacheRowsCompanion.insert(
+            unifiedId: unifiedId,
+            sortIndex: sortIndex,
+            sortLikedAt: sortLikedAt,
+            builtAt: builtAt,
+            payloadJson: payloadJson,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$UnifiedFavoriteCacheRowsTableProcessedTableManager
+    = ProcessedTableManager<
+        _$MeloDriftDatabase,
+        $UnifiedFavoriteCacheRowsTable,
+        UnifiedFavoriteCacheRow,
+        $$UnifiedFavoriteCacheRowsTableFilterComposer,
+        $$UnifiedFavoriteCacheRowsTableOrderingComposer,
+        $$UnifiedFavoriteCacheRowsTableAnnotationComposer,
+        $$UnifiedFavoriteCacheRowsTableCreateCompanionBuilder,
+        $$UnifiedFavoriteCacheRowsTableUpdateCompanionBuilder,
+        (
+          UnifiedFavoriteCacheRow,
+          BaseReferences<_$MeloDriftDatabase, $UnifiedFavoriteCacheRowsTable,
+              UnifiedFavoriteCacheRow>
+        ),
+        UnifiedFavoriteCacheRow,
+        PrefetchHooks Function()>;
+typedef $$FavoriteProviderStatesTableCreateCompanionBuilder
+    = FavoriteProviderStatesCompanion Function({
+  required String providerId,
+  Value<DateTime?> lastSuccessAt,
+  Value<DateTime?> lastFailureAt,
+  Value<String?> lastFailureMessage,
+  Value<int> rowid,
+});
+typedef $$FavoriteProviderStatesTableUpdateCompanionBuilder
+    = FavoriteProviderStatesCompanion Function({
+  Value<String> providerId,
+  Value<DateTime?> lastSuccessAt,
+  Value<DateTime?> lastFailureAt,
+  Value<String?> lastFailureMessage,
+  Value<int> rowid,
+});
+
+class $$FavoriteProviderStatesTableFilterComposer
+    extends Composer<_$MeloDriftDatabase, $FavoriteProviderStatesTable> {
+  $$FavoriteProviderStatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get lastSuccessAt => $composableBuilder(
+      column: $table.lastSuccessAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get lastFailureAt => $composableBuilder(
+      column: $table.lastFailureAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get lastFailureMessage => $composableBuilder(
+      column: $table.lastFailureMessage,
+      builder: (column) => ColumnFilters(column));
+}
+
+class $$FavoriteProviderStatesTableOrderingComposer
+    extends Composer<_$MeloDriftDatabase, $FavoriteProviderStatesTable> {
+  $$FavoriteProviderStatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get lastSuccessAt => $composableBuilder(
+      column: $table.lastSuccessAt,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get lastFailureAt => $composableBuilder(
+      column: $table.lastFailureAt,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get lastFailureMessage => $composableBuilder(
+      column: $table.lastFailureMessage,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$FavoriteProviderStatesTableAnnotationComposer
+    extends Composer<_$MeloDriftDatabase, $FavoriteProviderStatesTable> {
+  $$FavoriteProviderStatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSuccessAt => $composableBuilder(
+      column: $table.lastSuccessAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastFailureAt => $composableBuilder(
+      column: $table.lastFailureAt, builder: (column) => column);
+
+  GeneratedColumn<String> get lastFailureMessage => $composableBuilder(
+      column: $table.lastFailureMessage, builder: (column) => column);
+}
+
+class $$FavoriteProviderStatesTableTableManager extends RootTableManager<
+    _$MeloDriftDatabase,
+    $FavoriteProviderStatesTable,
+    FavoriteProviderState,
+    $$FavoriteProviderStatesTableFilterComposer,
+    $$FavoriteProviderStatesTableOrderingComposer,
+    $$FavoriteProviderStatesTableAnnotationComposer,
+    $$FavoriteProviderStatesTableCreateCompanionBuilder,
+    $$FavoriteProviderStatesTableUpdateCompanionBuilder,
+    (
+      FavoriteProviderState,
+      BaseReferences<_$MeloDriftDatabase, $FavoriteProviderStatesTable,
+          FavoriteProviderState>
+    ),
+    FavoriteProviderState,
+    PrefetchHooks Function()> {
+  $$FavoriteProviderStatesTableTableManager(
+      _$MeloDriftDatabase db, $FavoriteProviderStatesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FavoriteProviderStatesTableFilterComposer(
+                  $db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FavoriteProviderStatesTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FavoriteProviderStatesTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> providerId = const Value.absent(),
+            Value<DateTime?> lastSuccessAt = const Value.absent(),
+            Value<DateTime?> lastFailureAt = const Value.absent(),
+            Value<String?> lastFailureMessage = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              FavoriteProviderStatesCompanion(
+            providerId: providerId,
+            lastSuccessAt: lastSuccessAt,
+            lastFailureAt: lastFailureAt,
+            lastFailureMessage: lastFailureMessage,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String providerId,
+            Value<DateTime?> lastSuccessAt = const Value.absent(),
+            Value<DateTime?> lastFailureAt = const Value.absent(),
+            Value<String?> lastFailureMessage = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              FavoriteProviderStatesCompanion.insert(
+            providerId: providerId,
+            lastSuccessAt: lastSuccessAt,
+            lastFailureAt: lastFailureAt,
+            lastFailureMessage: lastFailureMessage,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$FavoriteProviderStatesTableProcessedTableManager
+    = ProcessedTableManager<
+        _$MeloDriftDatabase,
+        $FavoriteProviderStatesTable,
+        FavoriteProviderState,
+        $$FavoriteProviderStatesTableFilterComposer,
+        $$FavoriteProviderStatesTableOrderingComposer,
+        $$FavoriteProviderStatesTableAnnotationComposer,
+        $$FavoriteProviderStatesTableCreateCompanionBuilder,
+        $$FavoriteProviderStatesTableUpdateCompanionBuilder,
+        (
+          FavoriteProviderState,
+          BaseReferences<_$MeloDriftDatabase, $FavoriteProviderStatesTable,
+              FavoriteProviderState>
+        ),
+        FavoriteProviderState,
+        PrefetchHooks Function()>;
 
 class $MeloDriftDatabaseManager {
   final _$MeloDriftDatabase _db;
@@ -1951,4 +4078,16 @@ class $MeloDriftDatabaseManager {
   $$StoredFavoriteOverridesTableTableManager get storedFavoriteOverrides =>
       $$StoredFavoriteOverridesTableTableManager(
           _db, _db.storedFavoriteOverrides);
+  $$FavoriteProviderTracksTableTableManager get favoriteProviderTracks =>
+      $$FavoriteProviderTracksTableTableManager(
+          _db, _db.favoriteProviderTracks);
+  $$FavoriteLikedAtLedgerRowsTableTableManager get favoriteLikedAtLedgerRows =>
+      $$FavoriteLikedAtLedgerRowsTableTableManager(
+          _db, _db.favoriteLikedAtLedgerRows);
+  $$UnifiedFavoriteCacheRowsTableTableManager get unifiedFavoriteCacheRows =>
+      $$UnifiedFavoriteCacheRowsTableTableManager(
+          _db, _db.unifiedFavoriteCacheRows);
+  $$FavoriteProviderStatesTableTableManager get favoriteProviderStates =>
+      $$FavoriteProviderStatesTableTableManager(
+          _db, _db.favoriteProviderStates);
 }

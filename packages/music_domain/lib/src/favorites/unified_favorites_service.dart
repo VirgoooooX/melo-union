@@ -44,6 +44,16 @@ final class UnifiedFavoriteTrack {
   }
 }
 
+final class CachedUnifiedFavorites {
+  const CachedUnifiedFavorites({
+    required this.tracks,
+    required this.builtAt,
+  });
+
+  final List<UnifiedFavoriteTrack> tracks;
+  final DateTime builtAt;
+}
+
 final class UnifiedFavoritesService {
   const UnifiedFavoritesService({
     this.capabilityMatrix = const ProviderCapabilityMatrix(),
@@ -61,6 +71,7 @@ final class UnifiedFavoritesService {
   Future<UnifiedFavoritesResult> buildAllFavoritesWithResult(
     StaticProviderRegistry registry, {
     FavoritesOverrideRegistry? overrides,
+    LikedAtLedger? likedAtLedger,
   }) async {
     final eligibleEntries = capabilityMatrix.eligibleFavoritesEntries(registry);
     final failures = <ProviderId, String>{};
@@ -75,89 +86,40 @@ final class UnifiedFavoritesService {
       }
     }
 
+    final bridgeLegacyLedger = likedAtLedger == null && overrides != null;
+    final ledger = likedAtLedger ?? LikedAtLedger();
+    if (bridgeLegacyLedger) {
+      ledger.seedFromLegacy(overrides);
+    }
+
+    final result = buildFromSnapshots(
+      snapshots,
+      failures: failures,
+      overrides: overrides,
+      likedAtLedger: ledger,
+    );
+
+    if (bridgeLegacyLedger) {
+      overrides.likedAtTracking
+        ..clear()
+        ..addEntries(
+          ledger.entries.map((entry) => MapEntry(entry.ref, entry.metadata)),
+        );
+    }
+
+    return result;
+  }
+
+  UnifiedFavoritesResult buildFromSnapshots(
+    List<FavoriteSnapshot> snapshots, {
+    Map<ProviderId, String> failures = const {},
+    FavoritesOverrideRegistry? overrides,
+    required LikedAtLedger likedAtLedger,
+  }) {
     final groups = <_FavoriteGroup>[];
 
-    // Sync external-source liked-at to the registry:
-    //   Real exact likedAt from track -> update registry with exact precision.
-    //   No likedAt -> fallback to sync detection estimation.
-    if (overrides != null) {
-      overrides.normalizeLikedAtTracking();
-      for (final snapshot in snapshots) {
-        final tracksToEstimate = <SourceTrack>[];
-        String? importSource;
-        for (final track in snapshot.tracks) {
-          final source = track.likedAtSource;
-          if (_isExternalImportSource(source)) {
-            final existing = overrides.likedAtFor(track.ref);
-            if (track.likedAt != null) {
-              // If we have a real precise likedAt from the provider, update or set it.
-              // Overwrite if missing, or if the registry only had an estimate.
-              if (existing == null ||
-                  existing.precision != LikedAtMetadata.precisionExact) {
-                overrides.recordLikedAt(
-                  track.ref,
-                  LikedAtMetadata(
-                    likedAt: track.likedAt!,
-                    source: source!,
-                    precision: LikedAtMetadata.precisionExact,
-                  ),
-                );
-              }
-            } else {
-              // Fallback: estimate if not in registry.
-              if (existing == null) {
-                tracksToEstimate.add(track);
-                importSource ??= source;
-              }
-            }
-          }
-        }
-        if (tracksToEstimate.isEmpty || importSource == null) continue;
+    _reconcileQqLedger(snapshots, likedAtLedger);
 
-        // Determine span: from last sync to now.
-        // The last sync time ≈ newest registry entry for the same import source.
-        final now = DateTime.now().toUtc();
-        DateTime? lastSync;
-        for (final entry in overrides.likedAtTracking.entries) {
-          if (entry.value.source == importSource &&
-              entry.value.likedAt != null) {
-            if (lastSync == null || entry.value.likedAt!.isAfter(lastSync)) {
-              lastSync = entry.value.likedAt;
-            }
-          }
-        }
-        final refTime = lastSync ?? now.subtract(const Duration(days: 180));
-        final span = now.difference(refTime);
-        if (span.inSeconds <= 0) {
-          // All get now if no elapsed time.
-          for (var i = 0; i < tracksToEstimate.length; i++) {
-            overrides.recordLikedAt(
-              tracksToEstimate[i].ref,
-              LikedAtMetadata(
-                likedAt: now,
-                source: importSource,
-                precision: LikedAtMetadata.precisionUnknown,
-              ),
-            );
-          }
-        } else {
-          final interval = Duration(
-            seconds: (span.inSeconds ~/ tracksToEstimate.length)
-                .clamp(1, 86400 * 180),
-          );
-          for (var i = 0; i < tracksToEstimate.length; i++) {
-            overrides.recordLikedAt(
-              tracksToEstimate[i].ref,
-              LikedAtMetadata(
-                likedAt: now.subtract(interval * i),
-                source: importSource,
-                precision: LikedAtMetadata.precisionUnknown,
-              ),
-            );
-          }
-        }
-      }
-    }
     for (final snapshot in snapshots) {
       for (final track in snapshot.tracks) {
         // Apply hidden track override
@@ -187,14 +149,13 @@ final class UnifiedFavoritesService {
       }
     }
 
-    // Apply registry liked-at overrides to SourceTrack variants
+    // Apply local liked-at only where provider time is not authoritative.
     for (final group in groups) {
       for (var i = 0; i < group.variants.length; i++) {
         final variant = group.variants[i];
-        final regMeta = overrides?.likedAtFor(variant.ref);
+        if (!_usesLocalLikedAt(variant.ref.providerId)) continue;
+        final regMeta = likedAtLedger.likedAtFor(variant.ref);
         if (regMeta != null) {
-          // Registry data (app_action or sync_detected) takes precedence
-          // over what the provider returned (qq_import / unknown).
           group.variants[i] = variant.copyWith(
             likedAt: regMeta.likedAt,
             likedAtSource: regMeta.source,
@@ -241,7 +202,10 @@ final class UnifiedFavoritesService {
         ),
     ];
 
-    return UnifiedFavoritesResult(tracks: tracks, failures: failures);
+    return UnifiedFavoritesResult(
+      tracks: tracks,
+      failures: Map.unmodifiable(failures),
+    );
   }
 
   static bool _canMerge(SourceTrack left, SourceTrack right) {
@@ -258,10 +222,36 @@ final class UnifiedFavoritesService {
         durationDelta <= 2;
   }
 
-  static bool _isExternalImportSource(String? source) {
-    return source == LikedAtMetadata.sourceQqImport ||
-        source == LikedAtMetadata.sourceKugouImport ||
-        source == LikedAtMetadata.sourceKugouRaw;
+  static void _reconcileQqLedger(
+    List<FavoriteSnapshot> snapshots,
+    LikedAtLedger ledger,
+  ) {
+    for (final snapshot in snapshots) {
+      if (snapshot.providerId.value != 'qq_music') continue;
+      final missing = <SourceTrack>[];
+      for (final track in snapshot.tracks) {
+        if (ledger.likedAtFor(track.ref) == null) {
+          missing.add(track);
+        }
+      }
+      if (missing.isEmpty) continue;
+      final now = DateTime.now().toUtc();
+      for (var i = 0; i < missing.length; i++) {
+        ledger.record(
+          missing[i].ref,
+          LikedAtMetadata(
+            likedAt: now.subtract(Duration(seconds: i)),
+            source: LikedAtMetadata.sourceLocalEstimate,
+            precision: LikedAtMetadata.precisionUnknown,
+          ),
+          updatedAt: now,
+        );
+      }
+    }
+  }
+
+  static bool _usesLocalLikedAt(ProviderId providerId) {
+    return providerId.value == 'qq_music';
   }
 
   static String _normalizedArtists(List<String> artists) {
@@ -283,23 +273,20 @@ final class UnifiedFavoritesService {
   }
 
   /// Returns the best available liked-at DateTime from a list of variants.
-  /// Picks the latest (newest) DateTime; no liked-at → DateTime(1900) → end.
-  /// For merged groups (same song from multiple providers), netease_raw
-  /// timestamp takes precedence over qq_import.
+  /// NetEase/Kugou raw times are authoritative; QQ uses local ledger.
   static DateTime _bestLikedAt(List<SourceTrack> variants) {
-    // Priority 1: netease_raw (authoritative when same song exists on QQ too)
+    DateTime? providerExact;
     for (final track in variants) {
-      if (track.likedAtSource == 'netease_raw' && track.likedAt != null) {
-        return track.likedAt!;
+      if ((track.likedAtSource == LikedAtMetadata.sourceNeteaseRaw ||
+              track.likedAtSource == LikedAtMetadata.sourceKugouRaw) &&
+          track.likedAt != null) {
+        if (providerExact == null || track.likedAt!.isAfter(providerExact)) {
+          providerExact = track.likedAt;
+        }
       }
     }
-    // Priority 2: app_action (user liked via this client)
-    for (final track in variants) {
-      if (track.likedAtSource == 'app_action' && track.likedAt != null) {
-        return track.likedAt!;
-      }
-    }
-    // Fallback: latest DateTime across all variants
+    if (providerExact != null) return providerExact;
+
     DateTime? best;
     for (final track in variants) {
       if (track.likedAt != null &&

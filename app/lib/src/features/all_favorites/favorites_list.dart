@@ -170,6 +170,12 @@ class _FavoritesLibraryPanelState
     final sorted = List<UnifiedFavoriteTrack>.from(visible);
     switch (widget.sort) {
       case _FavoriteSort.recent:
+        if (widget.selectedProviderId != null) {
+          sorted.sort(
+            (a, b) => _providerLikedAt(b, widget.selectedProviderId!)
+                .compareTo(_providerLikedAt(a, widget.selectedProviderId!)),
+          );
+        }
         break;
       case _FavoriteSort.title:
         sorted.sort(
@@ -188,6 +194,18 @@ class _FavoritesLibraryPanelState
         break;
     }
     return sorted;
+  }
+
+  DateTime _providerLikedAt(UnifiedFavoriteTrack track, String providerId) {
+    DateTime? best;
+    for (final variant in track.variants) {
+      if (variant.ref.providerId.value != providerId) continue;
+      final likedAt = variant.likedAt;
+      if (likedAt != null && (best == null || likedAt.isAfter(best))) {
+        best = likedAt;
+      }
+    }
+    return best ?? DateTime(1900);
   }
 }
 
@@ -248,15 +266,16 @@ class _SilentRefreshListState extends State<_SilentRefreshList> {
     // fall back to a non-animated rebuild.
     final added = newIds.toSet().difference(oldIds.toSet());
     final removed = oldIds.toSet().difference(newIds.toSet());
-    final hasMixOfAddAndRemove = added.length + removed.length !=
-        (newIds.length - oldIds.length).abs();
+    final hasMixOfAddAndRemove =
+        added.length + removed.length != (newIds.length - oldIds.length).abs();
 
     if (orderChanged || hasMixOfAddAndRemove) {
       // Complex change — rebuild silently.
       _items
         ..clear()
         ..addAll(newTracks);
-      _listKey = GlobalKey<AnimatedListState>(); // Force recreate AnimatedListState to match new items count
+      _listKey = GlobalKey<
+          AnimatedListState>(); // Force recreate AnimatedListState to match new items count
       return;
     }
 
@@ -413,6 +432,12 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
     }).toList(growable: false);
     switch (sort) {
       case _FavoriteSort.recent:
+        if (selectedProviderId != null) {
+          visible.sort(
+            (a, b) => _providerLikedAt(b, selectedProviderId!)
+                .compareTo(_providerLikedAt(a, selectedProviderId!)),
+          );
+        }
         break;
       case _FavoriteSort.title:
         visible.sort(
@@ -432,6 +457,18 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
         break;
     }
     return visible;
+  }
+
+  DateTime _providerLikedAt(UnifiedFavoriteTrack track, String providerId) {
+    DateTime? best;
+    for (final variant in track.variants) {
+      if (variant.ref.providerId.value != providerId) continue;
+      final likedAt = variant.likedAt;
+      if (likedAt != null && (best == null || likedAt.isAfter(best))) {
+        best = likedAt;
+      }
+    }
+    return best ?? DateTime(1900);
   }
 }
 

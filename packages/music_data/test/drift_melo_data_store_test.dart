@@ -144,4 +144,78 @@ void main() {
     expect(restored.downloadTasks, isEmpty);
     expect(restored.localMediaItems, isEmpty);
   });
+
+  test('persists favorite provider cache, liked-at ledger, and unified cache',
+      () async {
+    final qqRef = ProviderTrackRef(
+      providerId: ProviderId('qq_music'),
+      trackId: 'mid_001',
+      extraIds: const {'song_id': '1001', 'song_mid': 'mid_001'},
+    );
+    final qqTrack = SourceTrack(
+      ref: qqRef,
+      title: '晴天',
+      artists: const ['周杰伦'],
+      duration: const Duration(minutes: 4, seconds: 29),
+      isFavorited: true,
+      likedAtSource: LikedAtMetadata.sourceQqImport,
+      likedAtPrecision: LikedAtMetadata.precisionUnknown,
+    );
+    final ledger = LikedAtLedger()
+      ..record(
+        qqRef,
+        LikedAtMetadata(
+          likedAt: DateTime.utc(2026, 7, 7, 12),
+          source: LikedAtMetadata.sourceLocalEstimate,
+          precision: LikedAtMetadata.precisionUnknown,
+        ),
+        updatedAt: DateTime.utc(2026, 7, 7, 12, 1),
+      );
+
+    await store.write(
+      MeloDataSnapshot(
+        favoriteProviderSnapshots: [
+          FavoriteSnapshot(
+            providerId: ProviderId('qq_music'),
+            tracks: [qqTrack],
+            fetchedAt: DateTime.utc(2026, 7, 7, 12, 2),
+          ),
+        ],
+        favoriteLikedAtLedger: ledger,
+        unifiedFavoritesCache: CachedUnifiedFavorites(
+          builtAt: DateTime.utc(2026, 7, 7, 12, 3),
+          tracks: [
+            UnifiedFavoriteTrack(
+              unifiedId: '0_qingtian',
+              title: '晴天',
+              artists: const ['周杰伦'],
+              duration: const Duration(minutes: 4, seconds: 29),
+              variants: [qqTrack],
+            ),
+          ],
+        ),
+        favoriteProviderStates: [
+          FavoriteProviderStateSnapshot(
+            providerId: ProviderId('qq_music'),
+            lastSuccessAt: DateTime.utc(2026, 7, 7, 12, 2),
+          ),
+        ],
+      ),
+    );
+
+    expect(await database.select(database.favoriteProviderTracks).get(),
+        hasLength(1));
+    expect(await database.select(database.favoriteLikedAtLedgerRows).get(),
+        hasLength(1));
+    expect(await database.select(database.unifiedFavoriteCacheRows).get(),
+        hasLength(1));
+
+    final restored = await store.read();
+
+    expect(restored.favoriteProviderSnapshots.single.tracks.single.ref, qqRef);
+    expect(restored.favoriteLikedAtLedger.likedAtFor(qqRef)?.source,
+        LikedAtMetadata.sourceLocalEstimate);
+    expect(restored.unifiedFavoritesCache?.tracks.single.title, '晴天');
+    expect(restored.favoriteProviderStates.single.providerId.value, 'qq_music');
+  });
 }

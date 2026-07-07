@@ -81,6 +81,59 @@ void main() {
     expect(exported.favoritesOverrides.hiddenTracks, contains(ref));
   });
 
+  test('DemoRepository hydrates last favorites data from unified cache', () {
+    final providerId = ProviderId('aurora_stream');
+    final ref = ProviderTrackRef(
+      providerId: providerId,
+      trackId: 'mid_001',
+      extraIds: const {'song_id': '1001', 'song_mid': 'mid_001'},
+    );
+    final track = SourceTrack(
+      ref: ref,
+      title: '晴天',
+      artists: const ['周杰伦'],
+      duration: const Duration(minutes: 4, seconds: 29),
+      isFavorited: true,
+      likedAt: DateTime.utc(2026, 7, 7, 12),
+      likedAtSource: LikedAtMetadata.sourceLocalEstimate,
+      likedAtPrecision: LikedAtMetadata.precisionUnknown,
+    );
+
+    final repository = DemoRepository.seeded(
+      snapshot: MeloDataSnapshot(
+        unifiedFavoritesCache: CachedUnifiedFavorites(
+          builtAt: DateTime.utc(2026, 7, 7, 12, 1),
+          tracks: [
+            UnifiedFavoriteTrack(
+              unifiedId: '0_qingtian',
+              title: '晴天',
+              artists: const ['周杰伦'],
+              duration: const Duration(minutes: 4, seconds: 29),
+              variants: [track],
+            ),
+          ],
+        ),
+      ),
+      additionalProviders: [
+        FakeMusicProvider(
+          descriptor: ProviderDescriptor(
+            id: providerId,
+            displayName: 'Aurora Stream',
+            capabilities: const {
+              ProviderCapability.authenticate,
+              ProviderCapability.readFavorites,
+            },
+          ),
+          profile: null,
+          seedTracks: [track],
+        ),
+      ],
+    );
+
+    expect(repository.lastFavoritesData?.single.title, '晴天');
+    expect(repository.sourceTrackByRef(ref)?.title, '晴天');
+  });
+
   test('DemoRepository reports playback issue and can retry current track',
       () async {
     final providerId = ProviderId('aurora_stream');

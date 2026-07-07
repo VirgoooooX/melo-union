@@ -21,6 +21,21 @@ final class MeloJsonCodec {
         for (final item in snapshot.localMediaItems)
           _encodeLocalMediaItem(item),
       ],
+      'favoriteProviderSnapshots': [
+        for (final snapshot in snapshot.favoriteProviderSnapshots)
+          _encodeFavoriteSnapshot(snapshot),
+      ],
+      'favoriteLikedAtLedger': [
+        for (final entry in snapshot.favoriteLikedAtLedger.entries)
+          _encodeLikedAtLedgerEntry(entry),
+      ],
+      'unifiedFavoritesCache': snapshot.unifiedFavoritesCache == null
+          ? null
+          : _encodeUnifiedFavoritesCache(snapshot.unifiedFavoritesCache!),
+      'favoriteProviderStates': [
+        for (final state in snapshot.favoriteProviderStates)
+          _encodeFavoriteProviderState(state),
+      ],
       'playbackQuality': snapshot.playbackQuality.name,
       'volume': snapshot.volume,
       'downloadDirectory': snapshot.downloadDirectory,
@@ -61,6 +76,15 @@ final class MeloJsonCodec {
         ),
       );
     }
+    final likedAtLedger = LikedAtLedger(
+      entries: [
+        for (final item in _listOfMaps(json['favoriteLikedAtLedger']))
+          _decodeLikedAtLedgerEntry(item),
+      ],
+    );
+    if (likedAtLedger.isEmpty) {
+      likedAtLedger.seedFromLegacy(overrides);
+    }
 
     return MeloDataSnapshot(
       playlists: [
@@ -74,6 +98,17 @@ final class MeloJsonCodec {
       localMediaItems: [
         for (final item in _listOfMaps(json['localMediaItems']))
           _decodeLocalMediaItem(item),
+      ],
+      favoriteProviderSnapshots: [
+        for (final item in _listOfMaps(json['favoriteProviderSnapshots']))
+          _decodeFavoriteSnapshot(item),
+      ],
+      favoriteLikedAtLedger: likedAtLedger,
+      unifiedFavoritesCache:
+          _decodeOptionalUnifiedFavoritesCache(json['unifiedFavoritesCache']),
+      favoriteProviderStates: [
+        for (final item in _listOfMaps(json['favoriteProviderStates']))
+          _decodeFavoriteProviderState(item),
       ],
       playbackQuality: AudioQuality.values.byName(
         json['playbackQuality'] as String? ?? AudioQuality.standard.name,
@@ -161,6 +196,117 @@ final class MeloJsonCodec {
     };
   }
 
+  Map<String, Object?> _encodeFavoriteSnapshot(FavoriteSnapshot snapshot) {
+    return {
+      'providerId': snapshot.providerId.value,
+      'fetchedAt': snapshot.fetchedAt.toUtc().toIso8601String(),
+      'partialFailureReason': snapshot.partialFailureReason,
+      'tracks': [
+        for (final track in snapshot.tracks) _encodeSourceTrack(track),
+      ],
+    };
+  }
+
+  FavoriteSnapshot _decodeFavoriteSnapshot(Map<String, Object?> json) {
+    return FavoriteSnapshot(
+      providerId: ProviderId(_requiredString(json, 'providerId')),
+      tracks: [
+        for (final item in _listOfMaps(json['tracks']))
+          _decodeSourceTrack(item),
+      ],
+      fetchedAt: DateTime.parse(_requiredString(json, 'fetchedAt')).toUtc(),
+      partialFailureReason: json['partialFailureReason'] as String?,
+    );
+  }
+
+  Map<String, Object?> _encodeLikedAtLedgerEntry(LikedAtLedgerEntry entry) {
+    return {
+      'ref': _encodeTrackRef(entry.ref),
+      'metadata': _encodeLikedAtMetadata(entry.metadata),
+      'updatedAt': entry.updatedAt?.toUtc().toIso8601String(),
+    };
+  }
+
+  LikedAtLedgerEntry _decodeLikedAtLedgerEntry(Map<String, Object?> json) {
+    return LikedAtLedgerEntry(
+      ref: _decodeTrackRef(_requiredMap(json, 'ref')),
+      metadata: _decodeLikedAtMetadata(_requiredMap(json, 'metadata')),
+      updatedAt: _optionalDateTime(json['updatedAt']?.toString()),
+    );
+  }
+
+  Map<String, Object?> _encodeUnifiedFavoritesCache(
+    CachedUnifiedFavorites cache,
+  ) {
+    return {
+      'builtAt': cache.builtAt.toUtc().toIso8601String(),
+      'tracks': [
+        for (final track in cache.tracks) _encodeUnifiedFavoriteTrack(track),
+      ],
+    };
+  }
+
+  CachedUnifiedFavorites? _decodeOptionalUnifiedFavoritesCache(Object? raw) {
+    if (raw == null) return null;
+    final json = _stringKeyedMap(raw as Map<Object?, Object?>);
+    return CachedUnifiedFavorites(
+      builtAt: DateTime.parse(_requiredString(json, 'builtAt')).toUtc(),
+      tracks: [
+        for (final item in _listOfMaps(json['tracks']))
+          _decodeUnifiedFavoriteTrack(item),
+      ],
+    );
+  }
+
+  Map<String, Object?> _encodeUnifiedFavoriteTrack(
+    UnifiedFavoriteTrack track,
+  ) {
+    return {
+      'unifiedId': track.unifiedId,
+      'title': track.title,
+      'artists': track.artists,
+      'durationMs': track.duration.inMilliseconds,
+      'variants': [
+        for (final variant in track.variants) _encodeSourceTrack(variant),
+      ],
+    };
+  }
+
+  UnifiedFavoriteTrack _decodeUnifiedFavoriteTrack(Map<String, Object?> json) {
+    return UnifiedFavoriteTrack(
+      unifiedId: _requiredString(json, 'unifiedId'),
+      title: _requiredString(json, 'title'),
+      artists: _stringList(json['artists']),
+      duration: Duration(milliseconds: json['durationMs'] as int),
+      variants: [
+        for (final item in _listOfMaps(json['variants']))
+          _decodeSourceTrack(item),
+      ],
+    );
+  }
+
+  Map<String, Object?> _encodeFavoriteProviderState(
+    FavoriteProviderStateSnapshot state,
+  ) {
+    return {
+      'providerId': state.providerId.value,
+      'lastSuccessAt': state.lastSuccessAt?.toUtc().toIso8601String(),
+      'lastFailureAt': state.lastFailureAt?.toUtc().toIso8601String(),
+      'lastFailureMessage': state.lastFailureMessage,
+    };
+  }
+
+  FavoriteProviderStateSnapshot _decodeFavoriteProviderState(
+    Map<String, Object?> json,
+  ) {
+    return FavoriteProviderStateSnapshot(
+      providerId: ProviderId(_requiredString(json, 'providerId')),
+      lastSuccessAt: _optionalDateTime(json['lastSuccessAt']?.toString()),
+      lastFailureAt: _optionalDateTime(json['lastFailureAt']?.toString()),
+      lastFailureMessage: json['lastFailureMessage'] as String?,
+    );
+  }
+
   LocalMediaItem _decodeLocalMediaItem(Map<String, Object?> json) {
     return LocalMediaItem(
       sourceRef: _decodeTrackRef(_requiredMap(json, 'sourceRef')),
@@ -227,19 +373,25 @@ final class MeloJsonCodec {
       'hiddenTracks': [
         for (final ref in registry.hiddenTracks) _encodeTrackRef(ref),
       ],
-      'likedAtTracking': [
-        for (final entry in registry.likedAtTracking.entries)
-          {
-            'ref': _encodeTrackRef(entry.key),
-            'metadata': {
-              if (entry.value.likedAt != null)
-                'likedAt': entry.value.likedAt!.toUtc().toIso8601String(),
-              'source': entry.value.source,
-              'precision': entry.value.precision,
-            },
-          },
-      ],
     };
+  }
+
+  Map<String, Object?> _encodeLikedAtMetadata(LikedAtMetadata metadata) {
+    return {
+      if (metadata.likedAt != null)
+        'likedAt': metadata.likedAt!.toUtc().toIso8601String(),
+      'source': metadata.source,
+      'precision': metadata.precision,
+    };
+  }
+
+  LikedAtMetadata _decodeLikedAtMetadata(Map<String, Object?> json) {
+    return LikedAtMetadata(
+      likedAt: _optionalDateTime(json['likedAt']?.toString()),
+      source: json['source']?.toString() ?? LikedAtMetadata.sourceUnknown,
+      precision:
+          json['precision']?.toString() ?? LikedAtMetadata.precisionUnknown,
+    );
   }
 
   List<Map<String, Object?>> _encodeRefSet(Set<ProviderTrackRef> refs) {

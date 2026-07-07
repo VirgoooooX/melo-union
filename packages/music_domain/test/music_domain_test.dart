@@ -655,7 +655,7 @@ void main() {
       expect(variant.likedAtPrecision, LikedAtMetadata.precisionUnknown);
     });
 
-    test('promotes QQ exact import over a previous local estimate', () async {
+    test('keeps QQ local estimate even when provider includes time', () async {
       final qqProviderId = ProviderId('qq_music');
       final oldRef = ProviderTrackRef(
         providerId: qqProviderId,
@@ -711,15 +711,16 @@ void main() {
       );
 
       expect(overrides.likedAtTracking, hasLength(1));
-      expect(overrides.likedAtFor(oldRef)?.likedAt, exact);
+      expect(overrides.likedAtFor(oldRef)?.likedAt, estimate);
       expect(
         overrides.likedAtFor(currentRef)?.precision,
-        LikedAtMetadata.precisionExact,
+        LikedAtMetadata.precisionUnknown,
       );
-      expect(result.tracks.single.variants.single.likedAt, exact);
+      expect(result.tracks.single.variants.single.likedAt, estimate);
     });
 
-    test('estimates Kugou imported favorites when raw collecttime is absent',
+    test(
+        'does not estimate Kugou imported favorites when raw collecttime is absent',
         () async {
       final kugouProviderId = ProviderId('kugou');
       final ref = ProviderTrackRef(
@@ -757,13 +758,12 @@ void main() {
       );
 
       final metadata = overrides.likedAtFor(ref);
-      expect(metadata?.likedAt, isNotNull);
-      expect(metadata?.source, LikedAtMetadata.sourceKugouImport);
-      expect(metadata?.precision, LikedAtMetadata.precisionUnknown);
-      expect(result.tracks.single.variants.single.likedAt, metadata?.likedAt);
+      expect(metadata, isNull);
+      expect(result.tracks.single.variants.single.likedAt, isNull);
     });
 
-    test('promotes Kugou raw collecttime over a previous estimate', () async {
+    test('uses Kugou raw collecttime without storing it in the local ledger',
+        () async {
       final kugouProviderId = ProviderId('kugou');
       final oldRef = ProviderTrackRef(
         providerId: kugouProviderId,
@@ -814,9 +814,9 @@ void main() {
         overrides: overrides,
       );
 
-      expect(overrides.likedAtFor(oldRef)?.likedAt, raw);
+      expect(overrides.likedAtFor(oldRef)?.likedAt, estimate);
       expect(overrides.likedAtFor(currentRef)?.source,
-          LikedAtMetadata.sourceKugouRaw);
+          LikedAtMetadata.sourceKugouImport);
       expect(result.tracks.single.variants.single.likedAt, raw);
     });
   });

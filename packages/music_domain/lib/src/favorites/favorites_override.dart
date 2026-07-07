@@ -35,10 +35,147 @@ final class LikedAtMetadata {
   static const sourceKugouImport = 'kugou_import';
   static const sourceKugouRaw = 'kugou_raw';
   static const sourceNeteaseRaw = 'netease_raw';
+  static const sourceLocalEstimate = 'local_estimate';
 
   static const precisionExact = 'exact';
   static const precisionApproximate = 'approximate';
   static const precisionUnknown = 'unknown';
+}
+
+final class LikedAtLedgerEntry {
+  const LikedAtLedgerEntry({
+    required this.ref,
+    required this.metadata,
+    this.updatedAt,
+  });
+
+  final ProviderTrackRef ref;
+  final LikedAtMetadata metadata;
+  final DateTime? updatedAt;
+
+  LikedAtLedgerEntry copyWith({
+    ProviderTrackRef? ref,
+    LikedAtMetadata? metadata,
+    DateTime? updatedAt,
+  }) {
+    return LikedAtLedgerEntry(
+      ref: ref ?? this.ref,
+      metadata: metadata ?? this.metadata,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
+class LikedAtLedger {
+  LikedAtLedger({
+    Iterable<LikedAtLedgerEntry> entries = const [],
+  }) {
+    for (final entry in entries) {
+      record(entry.ref, entry.metadata, updatedAt: entry.updatedAt);
+    }
+  }
+
+  final Map<String, LikedAtLedgerEntry> _entries = {};
+
+  List<LikedAtLedgerEntry> get entries => List.unmodifiable(_entries.values);
+
+  bool get isEmpty => _entries.isEmpty;
+
+  void record(
+    ProviderTrackRef ref,
+    LikedAtMetadata metadata, {
+    DateTime? updatedAt,
+  }) {
+    final identityKeys = FavoritesOverrideRegistry.likedAtIdentityKeys(ref);
+    var preferredRef = ref;
+    var preferredMetadata = metadata;
+    DateTime? preferredUpdatedAt = updatedAt;
+    final matchedKeys = <String>[];
+
+    for (final entry in _entries.entries) {
+      if (!FavoritesOverrideRegistry.sharesLikedAtIdentity(
+        identityKeys,
+        FavoritesOverrideRegistry.likedAtIdentityKeys(entry.value.ref),
+      )) {
+        continue;
+      }
+      matchedKeys.add(entry.key);
+      final preferred = FavoritesOverrideRegistry.preferLikedAtEntry(
+        leftRef: preferredRef,
+        leftMetadata: preferredMetadata,
+        rightRef: entry.value.ref,
+        rightMetadata: entry.value.metadata,
+      );
+      final existingWon = preferred.$1 == entry.value.ref &&
+          identical(preferred.$2, entry.value.metadata);
+      preferredRef = preferred.$1;
+      preferredMetadata = preferred.$2;
+      preferredUpdatedAt = existingWon ? entry.value.updatedAt : updatedAt;
+    }
+
+    for (final key in matchedKeys) {
+      _entries.remove(key);
+    }
+    _entries[_preferredIdentityKey(preferredRef)] = LikedAtLedgerEntry(
+      ref: preferredRef,
+      metadata: preferredMetadata,
+      updatedAt: preferredUpdatedAt,
+    );
+  }
+
+  LikedAtMetadata? likedAtFor(ProviderTrackRef ref) {
+    return entryFor(ref)?.metadata;
+  }
+
+  LikedAtLedgerEntry? entryFor(ProviderTrackRef ref) {
+    final identityKeys = FavoritesOverrideRegistry.likedAtIdentityKeys(ref);
+    LikedAtLedgerEntry? preferredEntry;
+    for (final entry in _entries.values) {
+      if (!FavoritesOverrideRegistry.sharesLikedAtIdentity(
+        identityKeys,
+        FavoritesOverrideRegistry.likedAtIdentityKeys(entry.ref),
+      )) {
+        continue;
+      }
+      if (preferredEntry == null) {
+        preferredEntry = entry;
+        continue;
+      }
+      final preferred = FavoritesOverrideRegistry.preferLikedAtEntry(
+        leftRef: preferredEntry.ref,
+        leftMetadata: preferredEntry.metadata,
+        rightRef: entry.ref,
+        rightMetadata: entry.metadata,
+      );
+      preferredEntry =
+          preferred.$1 == preferredEntry.ref ? preferredEntry : entry;
+    }
+    return preferredEntry;
+  }
+
+  void remove(ProviderTrackRef ref) {
+    final identityKeys = FavoritesOverrideRegistry.likedAtIdentityKeys(ref);
+    _entries.removeWhere(
+      (_, entry) => FavoritesOverrideRegistry.sharesLikedAtIdentity(
+        identityKeys,
+        FavoritesOverrideRegistry.likedAtIdentityKeys(entry.ref),
+      ),
+    );
+  }
+
+  void seedFromLegacy(FavoritesOverrideRegistry registry) {
+    for (final entry in registry.likedAtTracking.entries) {
+      record(entry.key, entry.value);
+    }
+  }
+
+  static String _preferredIdentityKey(ProviderTrackRef ref) {
+    final keys = FavoritesOverrideRegistry.likedAtIdentityKeys(ref).toList()
+      ..sort();
+    final songIdKey = keys.where((key) => key.contains(':song_id:'));
+    if (songIdKey.isNotEmpty) return songIdKey.first;
+    return keys.first;
+  }
 }
 
 final class UnifiedFavoritesResult {
@@ -107,12 +244,12 @@ class FavoritesOverrideRegistry {
     final equivalentRefs = <ProviderTrackRef>[];
 
     for (final entry in likedAtTracking.entries) {
-      if (!_sharesLikedAtIdentity(
+      if (!sharesLikedAtIdentity(
           identityKeys, likedAtIdentityKeys(entry.key))) {
         continue;
       }
       equivalentRefs.add(entry.key);
-      final preferred = _preferLikedAtEntry(
+      final preferred = preferLikedAtEntry(
         leftRef: preferredRef,
         leftMetadata: preferredMetadata,
         rightRef: entry.key,
@@ -139,7 +276,7 @@ class FavoritesOverrideRegistry {
     ProviderTrackRef? preferredRef;
     LikedAtMetadata? preferredMetadata;
     for (final entry in likedAtTracking.entries) {
-      if (!_sharesLikedAtIdentity(
+      if (!sharesLikedAtIdentity(
           identityKeys, likedAtIdentityKeys(entry.key))) {
         continue;
       }
@@ -148,7 +285,7 @@ class FavoritesOverrideRegistry {
         preferredMetadata = entry.value;
         continue;
       }
-      final preferred = _preferLikedAtEntry(
+      final preferred = preferLikedAtEntry(
         leftRef: preferredRef!,
         leftMetadata: preferredMetadata,
         rightRef: entry.key,
@@ -174,7 +311,7 @@ class FavoritesOverrideRegistry {
     final identityKeys = likedAtIdentityKeys(ref);
     likedAtTracking.removeWhere(
       (storedRef, _) =>
-          _sharesLikedAtIdentity(identityKeys, likedAtIdentityKeys(storedRef)),
+          sharesLikedAtIdentity(identityKeys, likedAtIdentityKeys(storedRef)),
     );
   }
 
@@ -228,21 +365,21 @@ class FavoritesOverrideRegistry {
     return {'${ref.providerId.value}:${ref.trackId}:${_extraIdsKey(ref)}'};
   }
 
-  static bool _sharesLikedAtIdentity(Set<String> left, Set<String> right) {
+  static bool sharesLikedAtIdentity(Set<String> left, Set<String> right) {
     if (left.length < right.length) {
       return left.any(right.contains);
     }
     return right.any(left.contains);
   }
 
-  static (ProviderTrackRef, LikedAtMetadata) _preferLikedAtEntry({
+  static (ProviderTrackRef, LikedAtMetadata) preferLikedAtEntry({
     required ProviderTrackRef leftRef,
     required LikedAtMetadata leftMetadata,
     required ProviderTrackRef rightRef,
     required LikedAtMetadata rightMetadata,
   }) {
-    final leftScore = _metadataPriority(leftMetadata);
-    final rightScore = _metadataPriority(rightMetadata);
+    final leftScore = metadataPriority(leftMetadata);
+    final rightScore = metadataPriority(rightMetadata);
     if (leftScore != rightScore) {
       return leftScore > rightScore
           ? (leftRef, leftMetadata)
@@ -275,7 +412,7 @@ class FavoritesOverrideRegistry {
     return (leftRef, leftMetadata);
   }
 
-  static int _metadataPriority(LikedAtMetadata metadata) {
+  static int metadataPriority(LikedAtMetadata metadata) {
     final hasTime = metadata.likedAt != null;
     if (metadata.source == LikedAtMetadata.sourceAppAction && hasTime) {
       return 500;
@@ -289,6 +426,9 @@ class FavoritesOverrideRegistry {
     }
     if (metadata.precision == LikedAtMetadata.precisionApproximate && hasTime) {
       return 250;
+    }
+    if (metadata.source == LikedAtMetadata.sourceLocalEstimate && hasTime) {
+      return 200;
     }
     if (hasTime) {
       return 100;

@@ -47,6 +47,51 @@ class StoredFavoriteOverrides extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+class FavoriteProviderTracks extends Table {
+  TextColumn get providerId => text()();
+  TextColumn get refKey => text()();
+  IntColumn get sortIndex => integer()();
+  TextColumn get payloadJson => text()();
+  DateTimeColumn get rawLikedAt => dateTime().nullable()();
+  TextColumn get likedAtSource => text().nullable()();
+  TextColumn get likedAtPrecision => text().nullable()();
+  DateTimeColumn get fetchedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {providerId, refKey};
+}
+
+class FavoriteLikedAtLedgerRows extends Table {
+  TextColumn get identityKey => text()();
+  TextColumn get refJson => text()();
+  TextColumn get metadataJson => text()();
+  DateTimeColumn get updatedAt => dateTime().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {identityKey};
+}
+
+class UnifiedFavoriteCacheRows extends Table {
+  TextColumn get unifiedId => text()();
+  IntColumn get sortIndex => integer()();
+  DateTimeColumn get sortLikedAt => dateTime().nullable()();
+  DateTimeColumn get builtAt => dateTime()();
+  TextColumn get payloadJson => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {unifiedId};
+}
+
+class FavoriteProviderStates extends Table {
+  TextColumn get providerId => text()();
+  DateTimeColumn get lastSuccessAt => dateTime().nullable()();
+  DateTimeColumn get lastFailureAt => dateTime().nullable()();
+  TextColumn get lastFailureMessage => text().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {providerId};
+}
+
 @DriftDatabase(
   tables: [
     MeloMetaRows,
@@ -54,13 +99,29 @@ class StoredFavoriteOverrides extends Table {
     StoredDownloadTasks,
     StoredLocalMediaItems,
     StoredFavoriteOverrides,
+    FavoriteProviderTracks,
+    FavoriteLikedAtLedgerRows,
+    UnifiedFavoriteCacheRows,
+    FavoriteProviderStates,
   ],
 )
 class MeloDriftDatabase extends _$MeloDriftDatabase {
   MeloDriftDatabase(super.executor);
 
-  static const currentSchemaVersion = 1;
+  static const currentSchemaVersion = 2;
 
   @override
   int get schemaVersion => currentSchemaVersion;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(favoriteProviderTracks);
+            await m.createTable(favoriteLikedAtLedgerRows);
+            await m.createTable(unifiedFavoriteCacheRows);
+            await m.createTable(favoriteProviderStates);
+          }
+        },
+      );
 }

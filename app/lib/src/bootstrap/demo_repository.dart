@@ -117,6 +117,10 @@ class DemoRepository extends ChangeNotifier {
     required this.playlists,
     required this.providers,
     FavoritesOverrideRegistry? favoritesOverrideRegistry,
+    LikedAtLedger? favoriteLikedAtLedger,
+    List<FavoriteSnapshot> seedFavoriteProviderSnapshots = const [],
+    CachedUnifiedFavorites? seedUnifiedFavoritesCache,
+    List<FavoriteProviderStateSnapshot> seedFavoriteProviderStates = const [],
     List<DownloadTask> seedDownloadTasks = const [],
     List<LocalMediaItem> seedLocalMediaItems = const [],
     this.snapshotStore,
@@ -131,6 +135,16 @@ class DemoRepository extends ChangeNotifier {
     String? downloadDirectory,
   })  : favoritesOverrideRegistry =
             favoritesOverrideRegistry ?? FavoritesOverrideRegistry(),
+        favoriteLikedAtLedger = favoriteLikedAtLedger ?? LikedAtLedger(),
+        _favoriteProviderSnapshots = {
+          for (final snapshot in seedFavoriteProviderSnapshots)
+            snapshot.providerId: snapshot,
+        },
+        _favoriteProviderStates = {
+          for (final state in seedFavoriteProviderStates)
+            state.providerId: state,
+        },
+        _unifiedFavoritesCache = seedUnifiedFavoritesCache,
         _neteaseCredentials = neteaseCredentials,
         _qqMusicCredentials = qqMusicCredentials,
         _volume = volume.clamp(0.0, 1.0).toDouble(),
@@ -312,6 +326,11 @@ class DemoRepository extends ChangeNotifier {
         catalogId: catalog,
       },
       favoritesOverrideRegistry: snapshot?.favoritesOverrides,
+      favoriteLikedAtLedger: snapshot?.favoriteLikedAtLedger,
+      seedFavoriteProviderSnapshots:
+          snapshot?.favoriteProviderSnapshots ?? const [],
+      seedUnifiedFavoritesCache: snapshot?.unifiedFavoritesCache,
+      seedFavoriteProviderStates: snapshot?.favoriteProviderStates ?? const [],
       seedDownloadTasks: snapshot?.downloadTasks ?? const [],
       seedLocalMediaItems: snapshot?.localMediaItems ?? const [],
       snapshotStore: snapshotStore,
@@ -331,6 +350,16 @@ class DemoRepository extends ChangeNotifier {
     ];
     if (allSeededTracks.isNotEmpty) {
       repo.playbackCoordinator.setQueue(allSeededTracks);
+    }
+    final cachedFavorites = snapshot?.unifiedFavoritesCache?.tracks;
+    if (cachedFavorites != null && cachedFavorites.isNotEmpty) {
+      final eligibleCached =
+          repo._filterUnifiedTracksByEligible(cachedFavorites);
+      repo._lastFavoritesData =
+          eligibleCached.isEmpty ? null : List.unmodifiable(eligibleCached);
+      for (final track in eligibleCached) {
+        repo._rememberTracks(track.variants);
+      }
     }
     return repo;
   }
@@ -353,6 +382,10 @@ class DemoRepository extends ChangeNotifier {
   late final PlaybackCoordinator playbackCoordinator;
   late final DownloadCoordinator downloadCoordinator;
   final FavoritesOverrideRegistry favoritesOverrideRegistry;
+  final LikedAtLedger favoriteLikedAtLedger;
+  final Map<ProviderId, FavoriteSnapshot> _favoriteProviderSnapshots;
+  final Map<ProviderId, FavoriteProviderStateSnapshot> _favoriteProviderStates;
+  CachedUnifiedFavorites? _unifiedFavoritesCache;
   NeteaseCredentials? _neteaseCredentials;
   QqMusicCredentials? _qqMusicCredentials;
   String? _selectedPlaylistId;
@@ -440,6 +473,7 @@ class DemoRepository extends ChangeNotifier {
           if (provider != null) {
             await provider.logout();
           }
+          _discardFavoriteProvider(kugouProviderId);
           _favoritesVersion++;
           notifyListeners();
         },
@@ -473,22 +507,54 @@ class DemoRepository extends ChangeNotifier {
   PlaylistReferenceResolver get playlistResolver =>
       PlaylistReferenceResolver(registry);
 
-  Future<List<UnifiedFavoriteTrack>> loadAllFavorites() {
-    return favoritesService
-        .buildAllFavoritesWithResult(
-      registry,
-      overrides: favoritesOverrideRegistry,
-    )
-        .then((r) {
-      _lastFavoritesData = r.tracks;
-      for (final track in r.tracks) {
-        _rememberTracks(track.variants);
+  Future<List<UnifiedFavoriteTrack>> loadAllFavorites() async {
+    final eligibleEntries = capabilityMatrix.eligibleFavoritesEntries(registry);
+    final failures = <ProviderId, String>{};
+
+    for (final entry in eligibleEntries) {
+      final providerId = entry.descriptor.id;
+      try {
+        final pulled = await entry.provider.pullFavorites();
+        final normalized = _normalizeFavoriteSnapshot(
+          pulled,
+          previous: _favoriteProviderSnapshots[providerId],
+        );
+        _favoriteProviderSnapshots[providerId] = normalized;
+        _favoriteProviderStates[providerId] = FavoriteProviderStateSnapshot(
+          providerId: providerId,
+          lastSuccessAt: DateTime.now().toUtc(),
+          lastFailureAt: _favoriteProviderStates[providerId]?.lastFailureAt,
+          lastFailureMessage:
+              _favoriteProviderStates[providerId]?.lastFailureMessage,
+        );
+      } catch (e) {
+        failures[providerId] = e.toString();
+        final previous = _favoriteProviderStates[providerId];
+        _favoriteProviderStates[providerId] = FavoriteProviderStateSnapshot(
+          providerId: providerId,
+          lastSuccessAt: previous?.lastSuccessAt,
+          lastFailureAt: DateTime.now().toUtc(),
+          lastFailureMessage: e.toString(),
+        );
       }
-      // Unified favorites may add or normalize local liked-at metadata
-      // (notably QQ imports without reliable server timestamps).
-      _persistSoon();
-      return r.tracks;
-    });
+    }
+
+    final result = favoritesService.buildFromSnapshots(
+      _eligibleFavoriteSnapshots(),
+      failures: failures,
+      overrides: favoritesOverrideRegistry,
+      likedAtLedger: favoriteLikedAtLedger,
+    );
+    _unifiedFavoritesCache = CachedUnifiedFavorites(
+      tracks: result.tracks,
+      builtAt: DateTime.now().toUtc(),
+    );
+    _lastFavoritesData = result.tracks;
+    for (final track in result.tracks) {
+      _rememberTracks(track.variants);
+    }
+    _persistSoon();
+    return result.tracks;
   }
 
   /// Most recently loaded favorites data, persisted across page rebuilds.
@@ -610,6 +676,12 @@ class DemoRepository extends ChangeNotifier {
       playlists: playlistList,
       downloadTasks: downloadCoordinator.allTasks,
       localMediaItems: downloadCoordinator.localItems,
+      favoriteProviderSnapshots:
+          _favoriteProviderSnapshots.values.toList(growable: false),
+      favoriteLikedAtLedger: favoriteLikedAtLedger,
+      unifiedFavoritesCache: _unifiedFavoritesCache,
+      favoriteProviderStates:
+          _favoriteProviderStates.values.toList(growable: false),
       playbackQuality: playbackQuality,
       volume: volume,
       downloadDirectory: _downloadDirectory,
@@ -738,7 +810,7 @@ class DemoRepository extends ChangeNotifier {
 
     if (liked) {
       // Record app-action liked-at timestamp (precise).
-      favoritesOverrideRegistry.recordLikedAt(
+      favoriteLikedAtLedger.record(
         track.ref,
         LikedAtMetadata(
           likedAt: DateTime.now().toUtc(),
@@ -748,7 +820,7 @@ class DemoRepository extends ChangeNotifier {
       );
     } else {
       // Remove liked-at metadata when unliking.
-      favoritesOverrideRegistry.removeLikedAt(track.ref);
+      favoriteLikedAtLedger.remove(track.ref);
     }
     _persistSoon();
     _favoritesVersion++;
@@ -758,6 +830,9 @@ class DemoRepository extends ChangeNotifier {
 
   void setProviderEnabled(ProviderId providerId, bool enabled) {
     registry.setEnabled(providerId, enabled);
+    _rebuildUnifiedFavoritesCache();
+    _persistSoon();
+    _favoritesVersion++;
     notifyListeners();
   }
 
@@ -823,6 +898,8 @@ class DemoRepository extends ChangeNotifier {
     await neteaseSessionStore?.clear();
     _neteaseCredentials = null;
     _replaceNeteaseProvider(null);
+    _discardFavoriteProvider(neteaseProviderId);
+    _favoritesVersion++;
     notifyListeners();
   }
 
@@ -996,6 +1073,8 @@ class DemoRepository extends ChangeNotifier {
     await qqMusicSessionStore?.clear();
     _qqMusicCredentials = null;
     _replaceQqMusicProvider(null);
+    _discardFavoriteProvider(qqMusicProviderId);
+    _favoritesVersion++;
     notifyListeners();
   }
 
@@ -2144,6 +2223,123 @@ class DemoRepository extends ChangeNotifier {
     } finally {
       _isAdvancingAfterCompletion = false;
     }
+  }
+
+  FavoriteSnapshot _normalizeFavoriteSnapshot(
+    FavoriteSnapshot snapshot, {
+    FavoriteSnapshot? previous,
+  }) {
+    final previousByRef = {
+      for (final track in previous?.tracks ?? const <SourceTrack>[])
+        _refKey(track.ref): track,
+    };
+    final tracks = <SourceTrack>[];
+    final seenRefs = <String>{};
+    for (final track in snapshot.tracks) {
+      final key = _refKey(track.ref);
+      if (!seenRefs.add(key)) continue;
+      if (snapshot.providerId == qqMusicProviderId) {
+        tracks.add(_qqTrackWithoutProviderLikedAt(track));
+        continue;
+      }
+      if (snapshot.providerId == kugouProviderId &&
+          track.likedAtSource != LikedAtMetadata.sourceKugouRaw) {
+        final previousTrack = previousByRef[key];
+        if (previousTrack?.likedAtSource == LikedAtMetadata.sourceKugouRaw &&
+            previousTrack?.likedAt != null) {
+          tracks.add(
+            track.copyWith(
+              likedAt: previousTrack!.likedAt,
+              likedAtSource: previousTrack.likedAtSource,
+              likedAtPrecision: previousTrack.likedAtPrecision,
+            ),
+          );
+          continue;
+        }
+      }
+      tracks.add(track);
+    }
+    return FavoriteSnapshot(
+      providerId: snapshot.providerId,
+      tracks: tracks,
+      fetchedAt: snapshot.fetchedAt,
+      partialFailureReason: snapshot.partialFailureReason,
+    );
+  }
+
+  Set<ProviderId> _eligibleFavoriteProviderIds() {
+    return {
+      for (final entry in capabilityMatrix.eligibleFavoritesEntries(registry))
+        entry.descriptor.id,
+    };
+  }
+
+  List<FavoriteSnapshot> _eligibleFavoriteSnapshots() {
+    final eligible = _eligibleFavoriteProviderIds();
+    return [
+      for (final entry in _favoriteProviderSnapshots.entries)
+        if (eligible.contains(entry.key)) entry.value,
+    ];
+  }
+
+  List<UnifiedFavoriteTrack> _filterUnifiedTracksByEligible(
+    List<UnifiedFavoriteTrack> tracks,
+  ) {
+    final eligible = _eligibleFavoriteProviderIds();
+    return [
+      for (final track in tracks)
+        if (track.variants
+            .any((variant) => eligible.contains(variant.ref.providerId)))
+          track,
+    ];
+  }
+
+  void _discardFavoriteProvider(ProviderId providerId) {
+    _favoriteProviderSnapshots.remove(providerId);
+    _favoriteProviderStates.remove(providerId);
+    _rebuildUnifiedFavoritesCache();
+    _persistSoon();
+  }
+
+  void _rebuildUnifiedFavoritesCache() {
+    final result = favoritesService.buildFromSnapshots(
+      _eligibleFavoriteSnapshots(),
+      overrides: favoritesOverrideRegistry,
+      likedAtLedger: favoriteLikedAtLedger,
+    );
+    _unifiedFavoritesCache = CachedUnifiedFavorites(
+      tracks: result.tracks,
+      builtAt: DateTime.now().toUtc(),
+    );
+    _lastFavoritesData = result.tracks.isEmpty ? null : result.tracks;
+    for (final track in result.tracks) {
+      _rememberTracks(track.variants);
+    }
+  }
+
+  String _refKey(ProviderTrackRef ref) {
+    final extra = ref.extraIds.entries.toList(growable: false)
+      ..sort((left, right) => left.key.compareTo(right.key));
+    final extraKey =
+        extra.map((entry) => '${entry.key}=${entry.value}').join('&');
+    return '${ref.providerId.value}:${ref.trackId}:$extraKey';
+  }
+
+  SourceTrack _qqTrackWithoutProviderLikedAt(SourceTrack track) {
+    return SourceTrack(
+      ref: track.ref,
+      title: track.title,
+      artists: track.artists,
+      duration: track.duration,
+      isFavorited: track.isFavorited,
+      album: track.album,
+      isrc: track.isrc,
+      artwork: track.artwork,
+      isPlayable: track.isPlayable,
+      isDownloadable: track.isDownloadable,
+      likedAtSource: LikedAtMetadata.sourceQqImport,
+      likedAtPrecision: LikedAtMetadata.precisionUnknown,
+    );
   }
 
   @override
