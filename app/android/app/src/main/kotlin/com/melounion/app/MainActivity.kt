@@ -1,10 +1,12 @@
 package com.melounion.app
 
-import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Build
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.MethodChannel.Result
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
@@ -15,6 +17,8 @@ class MainActivity : AudioServiceActivity() {
     private companion object {
         const val STORAGE_CHANNEL_NAME = "melo_union/storage"
         const val CREDENTIALS_CHANNEL_NAME = "melo_union/provider_credentials"
+        const val NOTIFICATIONS_CHANNEL_NAME = "melo_union/notifications"
+        const val POST_NOTIFICATIONS_REQUEST_CODE = 2407
         const val PROVIDER_CREDENTIALS_PREFS = "melo_union_provider_credentials"
         const val NETEASE_COOKIE_KEY = "netease_cookie"
         const val NETEASE_USER_ID_KEY = "netease_user_id"
@@ -22,9 +26,26 @@ class MainActivity : AudioServiceActivity() {
         const val KUGOU_SESSION_KEY = "kugou_session"
     }
 
+    private var pendingNotificationPermissionResult: Result? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         preferHighRefreshRate()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        if (requestCode == POST_NOTIFICATIONS_REQUEST_CODE) {
+            pendingNotificationPermissionResult?.success(
+                grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED,
+            )
+            pendingNotificationPermissionResult = null
+            return
+        }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -32,45 +53,10 @@ class MainActivity : AudioServiceActivity() {
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
-            MeloPlaybackService.CHANNEL_NAME,
+            NOTIFICATIONS_CHANNEL_NAME,
         ).setMethodCallHandler { call, result ->
             when (call.method) {
-                "loadQueue" -> {
-                    startPlaybackService(
-                        MeloPlaybackService.ACTION_LOAD_QUEUE,
-                        call.argument<String>(MeloPlaybackService.EXTRA_ITEMS_JSON).orEmpty(),
-                        call.argument<Boolean>(MeloPlaybackService.EXTRA_PLAY_WHEN_READY) ?: false,
-                    )
-                    result.success(true)
-                }
-
-                "play" -> {
-                    startPlaybackService(MeloPlaybackService.ACTION_PLAY)
-                    result.success(true)
-                }
-
-                "pause" -> {
-                    startPlaybackService(MeloPlaybackService.ACTION_PAUSE)
-                    result.success(true)
-                }
-
-                "stop" -> {
-                    startPlaybackService(MeloPlaybackService.ACTION_STOP)
-                    result.success(true)
-                }
-
-                "next" -> {
-                    startPlaybackService(MeloPlaybackService.ACTION_NEXT)
-                    result.success(true)
-                }
-
-                "previous" -> {
-                    startPlaybackService(MeloPlaybackService.ACTION_PREVIOUS)
-                    result.success(true)
-                }
-
-                "status" -> result.success(MeloPlaybackService.statusSnapshot())
-
+                "requestPostNotifications" -> requestPostNotifications(result)
                 else -> result.notImplemented()
             }
         }
@@ -220,19 +206,21 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
-    private fun startPlaybackService(
-        action: String,
-        itemsJson: String? = null,
-        playWhenReady: Boolean? = null,
-    ) {
-        val intent = Intent(this, MeloPlaybackService::class.java).setAction(action)
-        if (itemsJson != null) {
-            intent.putExtra(MeloPlaybackService.EXTRA_ITEMS_JSON, itemsJson)
+    private fun requestPostNotifications(result: Result) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            result.success(true)
+            return
         }
-        if (playWhenReady != null) {
-            intent.putExtra(MeloPlaybackService.EXTRA_PLAY_WHEN_READY, playWhenReady)
-        }
-        startService(intent)
+
+        pendingNotificationPermissionResult?.success(false)
+        pendingNotificationPermissionResult = result
+        requestPermissions(
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            POST_NOTIFICATIONS_REQUEST_CODE,
+        )
     }
 
     @Suppress("DEPRECATION")

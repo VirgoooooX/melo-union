@@ -18,7 +18,7 @@ import 'package:provider_qq/provider_qq.dart';
 import 'package:provider_kugou/provider_kugou.dart';
 
 import '../fakes/fake_music_provider.dart';
-import '../platform/playback_platform_bridge.dart';
+import '../platform/notification_permission_bridge.dart';
 import 'netease_session_store.dart';
 import 'qq_music_session_store.dart';
 import 'kugou_session_store.dart';
@@ -125,7 +125,7 @@ class DemoRepository extends ChangeNotifier {
     QqMusicCredentials? qqMusicCredentials,
     this.qqMusicSessionStore,
     this.kugouSessionStore,
-    this.playbackBridge = const PlaybackPlatformBridge(),
+    this.notificationPermissionBridge = const NotificationPermissionBridge(),
     AudioQuality playbackQuality = AudioQuality.standard,
     double volume = 1.0,
     String? downloadDirectory,
@@ -320,7 +320,7 @@ class DemoRepository extends ChangeNotifier {
       qqMusicCredentials: qqMusicCredentials,
       qqMusicSessionStore: qqMusicSessionStore,
       kugouSessionStore: kugouSessionStore,
-      playbackBridge: const PlaybackPlatformBridge(),
+      notificationPermissionBridge: const NotificationPermissionBridge(),
       playbackQuality: snapshot?.playbackQuality ?? AudioQuality.standard,
       volume: snapshot?.volume ?? 1.0,
       downloadDirectory: snapshot?.downloadDirectory,
@@ -342,7 +342,7 @@ class DemoRepository extends ChangeNotifier {
   final NeteaseSessionStore? neteaseSessionStore;
   final QqMusicSessionStore? qqMusicSessionStore;
   final KugouSessionStore? kugouSessionStore;
-  final PlaybackPlatformBridge playbackBridge;
+  final NotificationPermissionBridge notificationPermissionBridge;
   final ProviderCapabilityMatrix capabilityMatrix =
       const ProviderCapabilityMatrix();
   final UnifiedFavoritesService favoritesService =
@@ -1433,6 +1433,7 @@ class DemoRepository extends ChangeNotifier {
         );
         _updatingNativeAudioSource = false;
         _playbackIssue = null;
+        await notificationPermissionBridge.requestPostNotifications();
         _startAudioPlayer();
       } catch (e) {
         _updatingNativeAudioSource = false;
