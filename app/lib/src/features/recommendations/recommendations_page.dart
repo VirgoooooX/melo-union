@@ -6,6 +6,7 @@ import 'package:provider_contract/provider_contract.dart';
 import '../../bootstrap/demo_repository.dart';
 import '../../design/melo_tokens.dart';
 import '../../presentation/provider_presentation.dart';
+import '../../presentation/shell_accent.dart';
 import '../../widgets/melo_components.dart';
 import '../../widgets/melo_track_row.dart';
 import '../../widgets/provider_tabs.dart';
@@ -77,18 +78,19 @@ class RecommendationsPage extends ConsumerWidget {
 
     final selectedProviderId = ProviderId(selected);
 
-    if (isMobile) {
-      return _MobileRecommendationsView(
-        selected: selected,
-        selectedProviderId: selectedProviderId,
-        enabledProviders: enabledProviders,
-      );
-    }
-
-    return _DesktopRecommendationsView(
-      selected: selected,
-      selectedProviderId: selectedProviderId,
-      enabledProviders: enabledProviders,
+    return MeloShellAccentScope(
+      providerId: selected,
+      child: isMobile
+          ? _MobileRecommendationsView(
+              selected: selected,
+              selectedProviderId: selectedProviderId,
+              enabledProviders: enabledProviders,
+            )
+          : _DesktopRecommendationsView(
+              selected: selected,
+              selectedProviderId: selectedProviderId,
+              enabledProviders: enabledProviders,
+            ),
     );
   }
 }

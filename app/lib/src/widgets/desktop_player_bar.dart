@@ -5,6 +5,7 @@ import 'package:provider_contract/provider_contract.dart';
 
 import '../bootstrap/demo_repository.dart';
 import '../design/melo_tokens.dart';
+import '../presentation/shell_accent.dart';
 import 'full_screen_player.dart';
 import 'melo_components.dart';
 import 'right_sidebar.dart';

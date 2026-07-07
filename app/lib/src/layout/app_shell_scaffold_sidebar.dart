@@ -1,7 +1,10 @@
 part of 'app_shell_scaffold.dart';
 
 class _DesktopSidebar extends StatelessWidget {
-  const _DesktopSidebar({required this.current, required this.width});
+  const _DesktopSidebar({
+    required this.current,
+    required this.width,
+  });
 
   final AppDestination current;
   final double width;
@@ -20,9 +23,13 @@ class _DesktopSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      decoration: const BoxDecoration(
-        color: MeloColors.surface,
-        border: Border(right: BorderSide(color: MeloColors.border)),
+      decoration: BoxDecoration(
+        color: meloShellChromeColor(0.46),
+        border: Border(
+          right: BorderSide(
+            color: MeloColors.border.withValues(alpha: 0.70),
+          ),
+        ),
       ),
       padding: const EdgeInsets.fromLTRB(24, 28, 20, 22),
       child: Column(

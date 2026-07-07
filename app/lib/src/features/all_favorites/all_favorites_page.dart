@@ -9,6 +9,7 @@ import 'package:provider_contract/provider_contract.dart';
 import '../../bootstrap/demo_repository.dart';
 import '../../bootstrap/demo_repository_extensions.dart';
 import '../../design/melo_tokens.dart';
+import '../../presentation/shell_accent.dart';
 import '../../widgets/melo_components.dart';
 import '../../widgets/melo_track_row.dart';
 import '../../widgets/provider_tabs.dart';

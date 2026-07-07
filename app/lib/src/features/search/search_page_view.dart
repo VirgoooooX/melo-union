@@ -49,80 +49,83 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ? _selectedSource
         : 'all';
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        compact ? 16 : 24,
-        compact ? 18 : 20,
-        compact ? 16 : 24,
-        16,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '搜索',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontSize: compact ? 28 : null,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0,
+    return MeloShellAccentScope(
+      providerId: selected,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          compact ? 16 : 24,
+          compact ? 18 : 20,
+          compact ? 16 : 24,
+          16,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '搜索',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontSize: compact ? 28 : null,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                        ),
+                  ),
+                ),
+                Text(
+                  '跨来源检索',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: MeloColors.textSecondary,
                       ),
                 ),
-              ),
-              Text(
-                '跨来源检索',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: MeloColors.textSecondary,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            textInputAction: TextInputAction.search,
-            onChanged: (value) => setState(() => _query = value.trim()),
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search_rounded),
-              hintText: '搜索歌曲、歌手或专辑',
-              filled: true,
-              fillColor: MeloColors.surface,
-              suffixIcon: _query.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: '清除',
-                      onPressed: () {
-                        _controller.clear();
-                        setState(() => _query = '');
-                      },
-                      icon: const Icon(Icons.close_rounded),
-                    ),
+              ],
             ),
-          ),
-          const SizedBox(height: 14),
-          compact
-              ? _MobileSearchSourceRail(
-                  items: tabs,
-                  selectedId: selected,
-                  onSelected: (value) =>
-                      setState(() => _selectedSource = value),
-                )
-              : ProviderTabs(
-                  items: tabs,
-                  selectedId: selected,
-                  onSelected: (value) =>
-                      setState(() => _selectedSource = value),
-                ),
-          const SizedBox(height: 14),
-          Expanded(
-            child: _query.isEmpty
-                ? const _SearchIdleState()
-                : _SearchResults(query: _query, selectedSource: selected),
-          ),
-        ],
+            const SizedBox(height: 16),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              onChanged: (value) => setState(() => _query = value.trim()),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search_rounded),
+                hintText: '搜索歌曲、歌手或专辑',
+                filled: true,
+                fillColor: MeloColors.surface,
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: '清除',
+                        onPressed: () {
+                          _controller.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            compact
+                ? _MobileSearchSourceRail(
+                    items: tabs,
+                    selectedId: selected,
+                    onSelected: (value) =>
+                        setState(() => _selectedSource = value),
+                  )
+                : ProviderTabs(
+                    items: tabs,
+                    selectedId: selected,
+                    onSelected: (value) =>
+                        setState(() => _selectedSource = value),
+                  ),
+            const SizedBox(height: 14),
+            Expanded(
+              child: _query.isEmpty
+                  ? const _SearchIdleState()
+                  : _SearchResults(query: _query, selectedSource: selected),
+            ),
+          ],
+        ),
       ),
     );
   }

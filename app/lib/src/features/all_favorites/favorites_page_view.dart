@@ -108,7 +108,7 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
       );
     }
 
-    return MeloPageGradientBackground(
+    return MeloShellAccentScope(
       providerId: selected,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
@@ -219,7 +219,7 @@ class _MobileAllFavoritesView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MeloPageGradientBackground(
+    return MeloShellAccentScope(
       providerId: selected,
       child: SafeArea(
         bottom: false,

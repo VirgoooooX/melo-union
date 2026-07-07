@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:window_manager/window_manager.dart';
 import '../design/melo_tokens.dart';
+import '../presentation/shell_accent.dart';
 
 class MeloTitleBar extends StatefulWidget {
-  const MeloTitleBar({super.key});
+  const MeloTitleBar({
+    required this.providerId,
+    super.key,
+  });
+
+  final String providerId;
 
   @override
   State<MeloTitleBar> createState() => _MeloTitleBarState();
@@ -47,13 +53,14 @@ class _MeloTitleBarState extends State<MeloTitleBar> with WindowListener {
 
   @override
   Widget build(BuildContext context) {
+    final accent = meloAccentColorForProvider(widget.providerId);
     return Container(
       height: 46,
-      decoration: const BoxDecoration(
-        color: MeloColors.surface,
+      decoration: BoxDecoration(
+        color: meloShellTint(widget.providerId, 0.20),
         border: Border(
           bottom: BorderSide(
-            color: MeloColors.border,
+            color: accent.withValues(alpha: 0.12),
             width: 1.0,
           ),
         ),
@@ -88,7 +95,7 @@ class _MeloTitleBarState extends State<MeloTitleBar> with WindowListener {
           _WindowControlButton(
             icon: Icons.remove_rounded,
             onPressed: () => windowManager.minimize(),
-            hoverColor: MeloColors.surfaceHover,
+            hoverColor: accent.withValues(alpha: 0.10),
           ),
           _WindowControlButton(
             icon: _isMaximized
@@ -102,7 +109,7 @@ class _MeloTitleBarState extends State<MeloTitleBar> with WindowListener {
                 await windowManager.maximize();
               }
             },
-            hoverColor: MeloColors.surfaceHover,
+            hoverColor: accent.withValues(alpha: 0.10),
           ),
           _WindowControlButton(
             icon: Icons.close_rounded,

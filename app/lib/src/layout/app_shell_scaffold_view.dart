@@ -13,8 +13,18 @@ class AppShellScaffold extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final current = _destinationFor(location);
+    final accentProviderId = _accentProviderIdFor(
+      current,
+      ref.watch(meloShellAccentProviderIdProvider),
+    );
     final width = MediaQuery.sizeOf(context).width;
-    if (width < 960) return _MobileShell(current: current, child: child);
+    if (width < 960) {
+      return _MobileShell(
+        current: current,
+        accentProviderId: accentProviderId,
+        child: child,
+      );
+    }
 
     final widths = ref.watch(sidebarWidthsProvider);
     final leftWidth = widths.left;
@@ -25,8 +35,8 @@ class AppShellScaffold extends ConsumerWidget {
       body: DragToResizeArea(
         resizeEdgeSize: 6,
         child: Container(
-          decoration: const BoxDecoration(
-            color: MeloColors.surface,
+          decoration: meloShellGradientDecoration(
+            accentProviderId,
             borderRadius: MeloRadii.window,
           ),
           foregroundDecoration: BoxDecoration(
@@ -39,35 +49,29 @@ class AppShellScaffold extends ConsumerWidget {
               color: Colors.transparent,
               child: Column(
                 children: [
-                  const MeloTitleBar(),
+                  MeloTitleBar(providerId: accentProviderId),
                   Expanded(
                     child: Stack(
                       children: [
                         Row(
                           children: [
-                            _DesktopSidebar(current: current, width: leftWidth),
+                            _DesktopSidebar(
+                              current: current,
+                              width: leftWidth,
+                            ),
                             Expanded(
-                              child: DecoratedBox(
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      MeloColors.canvasSoft,
-                                      MeloColors.canvas,
-                                    ],
-                                  ),
-                                ),
-                                child: child,
-                              ),
+                              child: child,
                             ),
                             if (width >= 1180)
                               Container(
                                 width: rightWidth,
-                                decoration: const BoxDecoration(
-                                  color: MeloColors.surface,
+                                decoration: BoxDecoration(
                                   border: Border(
-                                    left: BorderSide(color: MeloColors.border),
+                                    left: BorderSide(
+                                      color: MeloColors.border.withValues(
+                                        alpha: 0.70,
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 child: const RightSidebar(),
@@ -123,6 +127,17 @@ class AppShellScaffold extends ConsumerWidget {
     return AppDestination.favorites;
   }
 
+  static String _accentProviderIdFor(
+    AppDestination destination,
+    String providerId,
+  ) {
+    if (destination == AppDestination.downloads ||
+        destination == AppDestination.settings) {
+      return 'all';
+    }
+    return providerId;
+  }
+
   static String titleFor(AppDestination destination) => switch (destination) {
         AppDestination.favorites => '喜欢',
         AppDestination.playlists => '歌单',
@@ -149,9 +164,14 @@ class AppShellScaffold extends ConsumerWidget {
 }
 
 class _MobileShell extends StatelessWidget {
-  const _MobileShell({required this.current, required this.child});
+  const _MobileShell({
+    required this.current,
+    required this.accentProviderId,
+    required this.child,
+  });
 
   final AppDestination current;
+  final String accentProviderId;
   final Widget child;
 
   @override
@@ -182,13 +202,7 @@ class _MobileShell extends StatelessWidget {
         children: [
           Positioned.fill(
             child: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [MeloColors.canvasSoft, MeloColors.canvas],
-                ),
-              ),
+              decoration: meloShellGradientDecoration(accentProviderId),
               child: childWidget,
             ),
           ),

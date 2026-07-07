@@ -58,107 +58,113 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
         tabs.any((item) => item.id == _selectedTab) ? _selectedTab : 'local';
     final isMobile = MediaQuery.sizeOf(context).width < 960;
     if (isMobile) {
-      return _MobilePlaylistsView(
-        tabs: tabs,
-        selected: selected,
-        showLocalPlaylistDetails: _showLocalPlaylistDetails,
-        selectedRemotePlaylistId: _selectedRemotePlaylistId,
-        selectedPlaylist: selectedPlaylist,
-        repository: repository,
-        onTabSelected: (id) {
-          setState(() {
-            _selectedTab = id;
-            _selectedRemotePlaylistId = null;
-            _showLocalPlaylistDetails = false;
-          });
-        },
-        onMorePressed: () {
-          MeloSnackbar.show(
-            context: context,
-            message: '后续 Provider 歌单会显示在这里。',
-          );
-        },
-        onCreatePlaylist: () => _showCreateDialog(context, repository),
-        onLocalSelected: (playlistId) {
-          repository.selectPlaylist(playlistId);
-          setState(() => _showLocalPlaylistDetails = true);
-        },
-        onLocalBack: () => setState(() => _showLocalPlaylistDetails = false),
-        onRemoteSelected: (playlistId) =>
-            setState(() => _selectedRemotePlaylistId = playlistId),
-        onRemoteBack: () => setState(() => _selectedRemotePlaylistId = null),
+      return MeloShellAccentScope(
+        providerId: selected,
+        child: _MobilePlaylistsView(
+          tabs: tabs,
+          selected: selected,
+          showLocalPlaylistDetails: _showLocalPlaylistDetails,
+          selectedRemotePlaylistId: _selectedRemotePlaylistId,
+          selectedPlaylist: selectedPlaylist,
+          repository: repository,
+          onTabSelected: (id) {
+            setState(() {
+              _selectedTab = id;
+              _selectedRemotePlaylistId = null;
+              _showLocalPlaylistDetails = false;
+            });
+          },
+          onMorePressed: () {
+            MeloSnackbar.show(
+              context: context,
+              message: '后续 Provider 歌单会显示在这里。',
+            );
+          },
+          onCreatePlaylist: () => _showCreateDialog(context, repository),
+          onLocalSelected: (playlistId) {
+            repository.selectPlaylist(playlistId);
+            setState(() => _showLocalPlaylistDetails = true);
+          },
+          onLocalBack: () => setState(() => _showLocalPlaylistDetails = false),
+          onRemoteSelected: (playlistId) =>
+              setState(() => _selectedRemotePlaylistId = playlistId),
+          onRemoteBack: () => setState(() => _selectedRemotePlaylistId = null),
+        ),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
-      child: Column(
-        children: [
-          ProviderTabs(
-            items: tabs,
-            selectedId: selected,
-            onSelected: (id) {
-              setState(() {
-                _selectedTab = id;
-                _selectedRemotePlaylistId = null;
-                _showLocalPlaylistDetails = false;
-              });
-            },
-            onMorePressed: () {
-              MeloSnackbar.show(
-                context: context,
-                message: '后续 Provider 歌单会显示在这里。',
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const SizedBox(
-                  width: 270,
-                  child: TextField(
-                      decoration: InputDecoration(
-                          prefixIcon: Icon(Icons.search_rounded),
-                          hintText: '搜索歌单'))),
-              const Spacer(),
-              OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.grid_view_rounded),
-                  label: const Text('卡片视图')),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                  onPressed: () => _showCreateDialog(context, repository),
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('新建歌单')),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: selected == 'local'
-                ? (_showLocalPlaylistDetails && selectedPlaylist != null
-                    ? _LocalPlaylistTracks(
-                        playlist: selectedPlaylist,
-                        repository: repository,
-                        onBack: () =>
-                            setState(() => _showLocalPlaylistDetails = false),
-                      )
-                    : _PlaylistGrid(
-                        playlists: playlistList,
-                        selectedPlaylistId: selectedPlaylistId,
-                        onSelected: (playlistId) {
-                          repository.selectPlaylist(playlistId);
-                          setState(() => _showLocalPlaylistDetails = true);
-                        },
-                      ))
-                : _RemotePlaylistsPanel(
-                    providerId: ProviderId(selected),
-                    selectedPlaylistId: _selectedRemotePlaylistId,
-                    onSelected: (playlistId) =>
-                        setState(() => _selectedRemotePlaylistId = playlistId),
-                    onBack: () =>
-                        setState(() => _selectedRemotePlaylistId = null),
-                  ),
-          ),
-        ],
+    return MeloShellAccentScope(
+      providerId: selected,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
+        child: Column(
+          children: [
+            ProviderTabs(
+              items: tabs,
+              selectedId: selected,
+              onSelected: (id) {
+                setState(() {
+                  _selectedTab = id;
+                  _selectedRemotePlaylistId = null;
+                  _showLocalPlaylistDetails = false;
+                });
+              },
+              onMorePressed: () {
+                MeloSnackbar.show(
+                  context: context,
+                  message: '后续 Provider 歌单会显示在这里。',
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const SizedBox(
+                    width: 270,
+                    child: TextField(
+                        decoration: InputDecoration(
+                            prefixIcon: Icon(Icons.search_rounded),
+                            hintText: '搜索歌单'))),
+                const Spacer(),
+                OutlinedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.grid_view_rounded),
+                    label: const Text('卡片视图')),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                    onPressed: () => _showCreateDialog(context, repository),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('新建歌单')),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: selected == 'local'
+                  ? (_showLocalPlaylistDetails && selectedPlaylist != null
+                      ? _LocalPlaylistTracks(
+                          playlist: selectedPlaylist,
+                          repository: repository,
+                          onBack: () =>
+                              setState(() => _showLocalPlaylistDetails = false),
+                        )
+                      : _PlaylistGrid(
+                          playlists: playlistList,
+                          selectedPlaylistId: selectedPlaylistId,
+                          onSelected: (playlistId) {
+                            repository.selectPlaylist(playlistId);
+                            setState(() => _showLocalPlaylistDetails = true);
+                          },
+                        ))
+                  : _RemotePlaylistsPanel(
+                      providerId: ProviderId(selected),
+                      selectedPlaylistId: _selectedRemotePlaylistId,
+                      onSelected: (playlistId) => setState(
+                          () => _selectedRemotePlaylistId = playlistId),
+                      onBack: () =>
+                          setState(() => _selectedRemotePlaylistId = null),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

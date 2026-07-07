@@ -8,6 +8,7 @@ import 'package:provider_contract/provider_contract.dart';
 import '../bootstrap/demo_repository.dart';
 import '../design/melo_tokens.dart';
 import '../presentation/provider_presentation.dart';
+import '../presentation/shell_accent.dart';
 import 'melo_file_cached_image_provider.dart';
 
 abstract final class MeloListMetrics {
@@ -1535,20 +1536,7 @@ class MeloPageGradientBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color color;
-    final id = providerId.toLowerCase();
-    if (id == 'all' || id == 'local' || id == 'recommendations' || id.isEmpty) {
-      color = const Color(0xFF14BBA6); // Brand Mint
-    } else if (id == 'netease_cloud_music' ||
-        id.contains('aurora') ||
-        id.contains('netease')) {
-      color = const Color(0xFFFF4D4F); // NetEase Red
-    } else if (id == 'qq_music' || id.contains('beacon') || id.contains('qq')) {
-      color = const Color(
-          0xFFFAC800); // QQ Golden Yellow (from the new logo circle)
-    } else {
-      color = const Color(0xFF14BBA6); // Fallback to brand Mint
-    }
+    final color = meloAccentColorForProvider(providerId);
 
     return DecoratedBox(
       decoration: BoxDecoration(

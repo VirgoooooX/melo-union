@@ -14,7 +14,7 @@ class RightSidebar extends ConsumerWidget {
         .watch(demoRepositoryProvider.select((r) => r.queue.entries.isEmpty));
     final mode = ref.watch(rightSidebarModeProvider);
     return Material(
-      color: MeloColors.surface,
+      color: meloShellChromeColor(0.42),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 22, 18, 16),
         child: Column(
@@ -189,20 +189,22 @@ class _NowPlayingCard extends ConsumerWidget {
 
 class _Panel extends StatelessWidget {
   const _Panel({required this.child});
+
   final Widget child;
+
   @override
   Widget build(BuildContext context) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(MeloSpacing.md),
         decoration: BoxDecoration(
-            color: MeloColors.surface,
-            borderRadius: MeloRadii.lg,
-            border: Border.all(color: MeloColors.border),
-            boxShadow: MeloShadows.card),
+          color: MeloColors.surface,
+          borderRadius: MeloRadii.lg,
+          border: Border.all(color: MeloColors.border),
+          boxShadow: MeloShadows.card,
+        ),
         child: child,
       );
 }
-
 
 class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.icon, required this.label});
