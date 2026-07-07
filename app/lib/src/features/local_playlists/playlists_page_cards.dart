@@ -189,9 +189,9 @@ class _RemotePlaylistGrid extends StatelessWidget {
           : EdgeInsets.zero,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: count,
-        mainAxisSpacing: isMobile ? 12 : 16,
+        mainAxisSpacing: isMobile ? 8 : 16,
         crossAxisSpacing: isMobile ? 10 : 16,
-        childAspectRatio: isMobile ? 0.64 : 0.78,
+        childAspectRatio: isMobile ? 0.72 : 0.78,
       ),
       itemCount: playlists.length,
       itemBuilder: (context, index) {

@@ -215,19 +215,47 @@ class _MobileShell extends StatelessWidget {
             ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        height: 64,
-        backgroundColor: meloShellChromeColor(0.68),
-        selectedIndex: selected < 0 ? 0 : selected,
-        onDestinationSelected: (index) => context.go(destinations[index].path),
-        destinations: [
-          for (final item in destinations)
-            NavigationDestination(
-              icon: Icon(_mobileIconFor(item, false)),
-              selectedIcon: Icon(_mobileIconFor(item, true)),
-              label: _mobileLabelFor(item),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: meloShellChromeColor(0.40),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(
+                  color: MeloColors.surface.withValues(alpha: 0.42),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: MeloColors.textPrimary.withValues(alpha: 0.06),
+                    blurRadius: 28,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: NavigationBar(
+                height: 64,
+                elevation: 0,
+                backgroundColor: Colors.transparent,
+                selectedIndex: selected < 0 ? 0 : selected,
+                onDestinationSelected: (index) =>
+                    context.go(destinations[index].path),
+                destinations: [
+                  for (final item in destinations)
+                    NavigationDestination(
+                      icon: Icon(_mobileIconFor(item, false)),
+                      selectedIcon: Icon(_mobileIconFor(item, true)),
+                      label: _mobileLabelFor(item),
+                    ),
+                ],
+              ),
             ),
-        ],
+          ),
+        ),
       ),
     );
   }

@@ -335,9 +335,9 @@ class _MobileLocalPlaylistList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 156),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        mainAxisSpacing: 12,
+        mainAxisSpacing: 8,
         crossAxisSpacing: 10,
-        childAspectRatio: 0.64,
+        childAspectRatio: 0.72,
       ),
       itemCount: playlists.length,
       itemBuilder: (context, index) {

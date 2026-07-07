@@ -13,6 +13,13 @@ abstract final class MeloColors {
   static const border = Color(0xFFE7ECF1);
   static const borderStrong = Color(0xFFDDE4EA);
 
+  static Color get mobileSurface => surface.withValues(alpha: 0.78);
+  static Color get mobileSurfaceSoft => surface.withValues(alpha: 0.68);
+  static Color get mobileSurfaceMuted => surfaceMuted.withValues(alpha: 0.72);
+  static Color get mobileAccentSurface => primary50.withValues(alpha: 0.82);
+  static Color get mobileSurfaceBorder => surface.withValues(alpha: 0.40);
+  static Color get mobileAccentBorder => primary100.withValues(alpha: 0.68);
+
   static const primary700 = Color(0xFF087C76);
   static const primary600 = Color(0xFF0AA69A);
   static const primary500 = Color(0xFF18B8AA);

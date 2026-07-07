@@ -31,7 +31,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final searchable = repository.providerEntries
         .where((entry) =>
             entry.isEnabled &&
-            entry.descriptor.supports(ProviderCapability.search))
+            entry.descriptor.supports(ProviderCapability.search) &&
+            !_isCatalogProvider(entry.descriptor))
         .toList(growable: false);
     final tabs = <ProviderTabItem>[
       const ProviderTabItem(id: 'all', label: '全部来源'),
@@ -91,7 +92,24 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 prefixIcon: const Icon(Icons.search_rounded),
                 hintText: '搜索歌曲、歌手或专辑',
                 filled: true,
-                fillColor: MeloColors.surface,
+                fillColor:
+                    compact ? MeloColors.mobileSurface : MeloColors.surface,
+                enabledBorder: compact
+                    ? OutlineInputBorder(
+                        borderRadius: MeloRadii.md,
+                        borderSide:
+                            BorderSide(color: MeloColors.mobileSurfaceBorder),
+                      )
+                    : null,
+                focusedBorder: compact
+                    ? OutlineInputBorder(
+                        borderRadius: MeloRadii.md,
+                        borderSide: BorderSide(
+                          color: MeloColors.primary500.withValues(alpha: 0.72),
+                          width: 1.5,
+                        ),
+                      )
+                    : null,
                 suffixIcon: _query.isEmpty
                     ? null
                     : IconButton(
@@ -186,10 +204,14 @@ class _MobileSearchSourceChip extends StatelessWidget {
         duration: const Duration(milliseconds: 140),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: selected ? MeloColors.primary50 : MeloColors.surface,
+          color: selected
+              ? MeloColors.mobileAccentSurface
+              : MeloColors.mobileSurface,
           borderRadius: MeloRadii.pill,
           border: Border.all(
-            color: selected ? MeloColors.primary100 : MeloColors.border,
+            color: selected
+                ? MeloColors.mobileAccentBorder
+                : MeloColors.mobileSurfaceBorder,
           ),
         ),
         child: Row(
@@ -226,9 +248,9 @@ class _SearchIdleState extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 440),
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: MeloColors.surface,
+          color: MeloColors.mobileSurface,
           borderRadius: MeloRadii.lg,
-          border: Border.all(color: MeloColors.border),
+          border: Border.all(color: MeloColors.mobileSurfaceBorder),
           boxShadow: MeloShadows.card,
         ),
         child: Column(

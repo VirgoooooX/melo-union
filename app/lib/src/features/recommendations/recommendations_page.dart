@@ -472,7 +472,7 @@ class _MobileRecommendationsView extends ConsumerWidget {
                             selectedShelfTab: selectedShelfTab,
                             shelfTabs: shelfTabs,
                           ),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 12),
                           Row(
                             children: [
                               Text(
@@ -507,7 +507,7 @@ class _MobileRecommendationsView extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                         ],
                       ),
                     ),
@@ -560,9 +560,9 @@ class _MobileRecommendationsPlaylistsGrid extends ConsumerWidget {
             ref.read(_selectedShelfTabProvider.notifier).state = tab;
           },
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         SizedBox(
-          height: 226,
+          height: 210,
           child: playlistsAsync.when(
             data: (playlists) {
               if (playlists.isEmpty) {

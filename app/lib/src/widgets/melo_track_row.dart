@@ -27,6 +27,9 @@ class MeloMobileTrackRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final backgroundColor =
+        isActive ? MeloColors.mobileAccentSurface : MeloColors.mobileSurface;
+
     return MeloTapFeedback(
       onTap: onTap,
       selected: isActive,
@@ -34,8 +37,11 @@ class MeloMobileTrackRow extends StatelessWidget {
       animatePress: false,
       child: Container(
         decoration: BoxDecoration(
-          color: isActive ? MeloColors.primary50 : MeloColors.surface,
+          color: backgroundColor,
           borderRadius: MeloRadii.md,
+          border: Border.all(
+            color: MeloColors.mobileSurfaceBorder,
+          ),
           boxShadow: MeloShadows.card,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

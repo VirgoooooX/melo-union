@@ -122,9 +122,9 @@ class _MobileProviderResultSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: MeloColors.surface,
+        color: MeloColors.mobileSurfaceSoft,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: MeloColors.border),
+        border: Border.all(color: MeloColors.mobileSurfaceBorder),
         boxShadow: MeloShadows.card,
       ),
       child: Column(
@@ -272,7 +272,7 @@ class _ProviderCountPill extends StatelessWidget {
       height: 26,
       padding: const EdgeInsets.symmetric(horizontal: 9),
       decoration: BoxDecoration(
-        color: MeloColors.surfaceMuted,
+        color: MeloColors.mobileSurfaceMuted,
         borderRadius: MeloRadii.pill,
       ),
       alignment: Alignment.center,
@@ -391,9 +391,9 @@ class _CatalogTag extends StatelessWidget {
       height: 22,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: MeloColors.primary50,
+        color: MeloColors.mobileAccentSurface,
         borderRadius: MeloRadii.pill,
-        border: Border.all(color: MeloColors.primary100),
+        border: Border.all(color: MeloColors.mobileAccentBorder),
       ),
       alignment: Alignment.center,
       child: Text(

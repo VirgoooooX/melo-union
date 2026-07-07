@@ -130,36 +130,17 @@ class _MobileMineView extends ConsumerWidget {
             entry.descriptor.supports(ProviderCapability.authenticate) ||
             repository.sessionActionFor(entry.descriptor.id) != null)
         .toList(growable: false);
+    final signedInSources =
+        sources.where((entry) => entry.provider.isAuthenticated).length;
+    final enabledSources = sources.where((entry) => entry.isEnabled).length;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
       children: [
-        Row(
-          children: [
-            Image.asset(
-              'assets/images/melo_logo_inverse.png',
-              width: 40,
-              height: 40,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(width: MeloSpacing.sm),
-            Expanded(
-              child: Text(
-                '我的',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-              ),
-            ),
-          ],
+        _MobileMineHero(
+          signedInSources: signedInSources,
+          enabledSources: enabledSources,
         ),
-        const SizedBox(height: 4),
-        Text(
-          '账号来源、播放偏好和应用信息。',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: MeloColors.textSecondary,
-              ),
-        ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 22),
         const _MineSectionTitle('账号与来源'),
         const SizedBox(height: 10),
         for (final entry in sources) ...[
@@ -214,6 +195,151 @@ class _MineSectionTitle extends StatelessWidget {
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w900,
           ),
+    );
+  }
+}
+
+class _MobileMineHero extends StatelessWidget {
+  const _MobileMineHero({
+    required this.signedInSources,
+    required this.enabledSources,
+  });
+
+  final int signedInSources;
+  final int enabledSources;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 14, 14),
+      decoration: BoxDecoration(
+        color: MeloColors.mobileSurfaceSoft,
+        borderRadius: MeloRadii.xl,
+        border: Border.all(color: MeloColors.mobileSurfaceBorder),
+        boxShadow: MeloShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  '我的',
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        color: MeloColors.textPrimary,
+                        fontSize: 38,
+                        height: 1,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0,
+                      ),
+                ),
+              ),
+              Container(
+                width: 62,
+                height: 62,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      MeloColors.primary600,
+                      MeloColors.kugouForeground,
+                    ],
+                  ),
+                  borderRadius: MeloRadii.lg,
+                  boxShadow: [
+                    BoxShadow(
+                      color: MeloColors.primary600.withValues(alpha: 0.20),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Image.asset(
+                  'assets/images/melo_logo_inverse.png',
+                  width: 42,
+                  height: 42,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _MineHeroStat(
+                  icon: Icons.verified_user_outlined,
+                  value: signedInSources.toString(),
+                  label: '已登录',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _MineHeroStat(
+                  icon: Icons.radio_button_checked_rounded,
+                  value: enabledSources.toString(),
+                  label: '已启用',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MineHeroStat extends StatelessWidget {
+  const _MineHeroStat({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 46,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: MeloColors.mobileSurface,
+        borderRadius: MeloRadii.md,
+        border: Border.all(color: MeloColors.mobileSurfaceBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: MeloColors.primary700, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: MeloColors.textPrimary,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: MeloColors.textSecondary,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -872,12 +998,15 @@ class _SettingsSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 960;
     return Material(
-      color: MeloColors.surface,
+      color: mobile ? MeloColors.mobileSurface : MeloColors.surface,
       elevation: 0,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: MeloRadii.lg,
-        side: BorderSide(color: MeloColors.border),
+        side: BorderSide(
+          color: mobile ? MeloColors.mobileSurfaceBorder : MeloColors.border,
+        ),
       ),
       child: Padding(
         padding: padding,
@@ -1073,10 +1202,14 @@ class _QualityOption extends StatelessWidget {
         width: 150,
         padding: const EdgeInsets.all(MeloSpacing.sm),
         decoration: BoxDecoration(
-          color: selected ? MeloColors.primary50 : MeloColors.surfaceMuted,
+          color: selected
+              ? MeloColors.mobileAccentSurface
+              : MeloColors.mobileSurfaceMuted,
           borderRadius: MeloRadii.md,
           border: Border.all(
-            color: selected ? MeloColors.primary300 : MeloColors.border,
+            color: selected
+                ? MeloColors.primary300.withValues(alpha: 0.78)
+                : MeloColors.mobileSurfaceBorder,
           ),
         ),
         child: Row(
