@@ -12,6 +12,8 @@ final class MeloDataSnapshot {
     this.favoriteProviderStates = const [],
     this.playbackQuality = AudioQuality.standard,
     this.volume = 1.0,
+    this.playbackPreferences = const PlaybackPreferencesSnapshot(),
+    this.playbackQueue,
     this.downloadDirectory,
     FavoritesOverrideRegistry? favoritesOverrides,
   })  : favoriteLikedAtLedger = favoriteLikedAtLedger ?? LikedAtLedger(),
@@ -26,8 +28,48 @@ final class MeloDataSnapshot {
   final List<FavoriteProviderStateSnapshot> favoriteProviderStates;
   final AudioQuality playbackQuality;
   final double volume;
+  final PlaybackPreferencesSnapshot playbackPreferences;
+  final PlaybackQueueSnapshot? playbackQueue;
   final String? downloadDirectory;
   final FavoritesOverrideRegistry favoritesOverrides;
+}
+
+final class PlaybackPreferencesSnapshot {
+  const PlaybackPreferencesSnapshot({
+    this.rememberQueue = false,
+    this.restorePlaybackState = false,
+  });
+
+  final bool rememberQueue;
+  final bool restorePlaybackState;
+}
+
+final class PlaybackQueueSnapshot {
+  PlaybackQueueSnapshot({
+    required this.entries,
+    required this.currentIndex,
+    this.position = Duration.zero,
+    this.shuffleEnabled = false,
+    this.repeatMode = 'off',
+    DateTime? updatedAt,
+  }) : updatedAt = updatedAt ?? DateTime.now().toUtc();
+
+  final List<PlaybackQueueEntrySnapshot> entries;
+  final int currentIndex;
+  final Duration position;
+  final bool shuffleEnabled;
+  final String repeatMode;
+  final DateTime updatedAt;
+}
+
+final class PlaybackQueueEntrySnapshot {
+  const PlaybackQueueEntrySnapshot({
+    required this.track,
+    required this.queuedAt,
+  });
+
+  final SourceTrack track;
+  final DateTime queuedAt;
 }
 
 final class FavoriteProviderStateSnapshot {

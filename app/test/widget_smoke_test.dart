@@ -1,5 +1,4 @@
-import 'dart:ui';
-
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:melo_union_app/src/app.dart';
@@ -29,6 +28,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('管理音乐来源、播放行为与应用偏好。'), findsOneWidget);
+    expect(find.text('备份与恢复'), findsOneWidget);
+
+    await tester.tap(find.text('播放设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('记住播放队列'), findsOneWidget);
+    expect(find.text('启动后恢复播放进度'), findsOneWidget);
   });
 
   testWidgets('mobile shell uses single-column music UI and opens player',
@@ -87,6 +93,26 @@ void main() {
     expect(find.text('歌单'), findsOneWidget);
     expect(find.text('我的'), findsOneWidget);
     expect(find.text('歌曲'), findsNothing);
+
+    await tester.tap(find.text('我的'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('播放恢复'),
+      220,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('播放恢复'), findsOneWidget);
+    expect(find.text('启动后恢复播放进度'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('备份与恢复'),
+      220,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('备份与恢复'), findsOneWidget);
+    await tester.tap(find.text('喜欢'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Test Song'), findsWidgets);
     await tester.tap(find.text('Test Song').last);

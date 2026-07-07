@@ -134,6 +134,87 @@ void main() {
     expect(repository.sourceTrackByRef(ref)?.title, '晴天');
   });
 
+  test('DemoRepository restores and exports playback queue preferences',
+      () async {
+    final providerId = ProviderId('aurora_stream');
+    final first = SourceTrack(
+      ref: ProviderTrackRef(providerId: providerId, trackId: 'song_1'),
+      title: 'First Song',
+      artists: const ['Melo Artist'],
+      duration: const Duration(minutes: 3),
+      isFavorited: false,
+      isPlayable: true,
+    );
+    final second = SourceTrack(
+      ref: ProviderTrackRef(providerId: providerId, trackId: 'song_2'),
+      title: 'Second Song',
+      artists: const ['Melo Artist'],
+      duration: const Duration(minutes: 4),
+      isFavorited: false,
+      isPlayable: true,
+    );
+    final repository = DemoRepository.seeded(
+      snapshot: MeloDataSnapshot(
+        playbackPreferences: const PlaybackPreferencesSnapshot(
+          rememberQueue: true,
+          restorePlaybackState: true,
+        ),
+        playbackQueue: PlaybackQueueSnapshot(
+          entries: [
+            PlaybackQueueEntrySnapshot(
+              track: first,
+              queuedAt: DateTime.utc(2026, 7, 7, 12),
+            ),
+            PlaybackQueueEntrySnapshot(
+              track: second,
+              queuedAt: DateTime.utc(2026, 7, 7, 12, 1),
+            ),
+          ],
+          currentIndex: 1,
+          position: const Duration(seconds: 42),
+          shuffleEnabled: true,
+          repeatMode: PlaybackRepeatMode.one.name,
+          updatedAt: DateTime.utc(2026, 7, 7, 12, 2),
+        ),
+      ),
+      additionalProviders: [
+        FakeMusicProvider(
+          descriptor: ProviderDescriptor(
+            id: providerId,
+            displayName: 'Aurora Stream',
+            capabilities: const {ProviderCapability.resolvePlayback},
+          ),
+          profile: null,
+          seedTracks: [first, second],
+        ),
+      ],
+    );
+
+    expect(repository.rememberQueue, isTrue);
+    expect(repository.restorePlaybackState, isTrue);
+    expect(repository.queue.entries.map((entry) => entry.track.title),
+        ['First Song', 'Second Song']);
+    expect(repository.queue.current?.track.title, 'Second Song');
+    expect(repository.shuffleEnabled, isTrue);
+    expect(repository.repeatMode, PlaybackRepeatMode.one);
+
+    final exported = repository.toSnapshot();
+
+    expect(exported.playbackPreferences.rememberQueue, isTrue);
+    expect(exported.playbackPreferences.restorePlaybackState, isTrue);
+    expect(exported.playbackQueue?.currentIndex, 1);
+    expect(exported.playbackQueue?.position, const Duration(seconds: 42));
+    expect(exported.playbackQueue?.shuffleEnabled, isTrue);
+    expect(exported.playbackQueue?.repeatMode, 'one');
+
+    await repository.setRememberQueue(false);
+
+    final disabled = repository.toSnapshot();
+    expect(disabled.playbackPreferences.rememberQueue, isFalse);
+    expect(disabled.playbackPreferences.restorePlaybackState, isFalse);
+    expect(disabled.playbackQueue, isNull);
+  });
+
   test('DemoRepository reports playback issue and can retry current track',
       () async {
     final providerId = ProviderId('aurora_stream');

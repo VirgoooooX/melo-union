@@ -24,6 +24,10 @@ class MainActivity : AudioServiceActivity() {
         const val NETEASE_USER_ID_KEY = "netease_user_id"
         const val QQ_MUSIC_COOKIE_KEY = "qq_music_cookie"
         const val KUGOU_SESSION_KEY = "kugou_session"
+        const val WEBDAV_URL_KEY = "webdav_url"
+        const val WEBDAV_USERNAME_KEY = "webdav_username"
+        const val WEBDAV_PASSWORD_KEY = "webdav_password"
+        const val WEBDAV_REMOTE_DIRECTORY_KEY = "webdav_remote_directory"
     }
 
     private var pendingNotificationPermissionResult: Result? = null
@@ -169,6 +173,56 @@ class MainActivity : AudioServiceActivity() {
                 "deleteKugouCredentials" -> {
                     getEncryptedPrefs().edit()
                         .remove(KUGOU_SESSION_KEY)
+                        .apply()
+                    result.success(true)
+                }
+
+                "readWebDavConfig" -> {
+                    val prefs = getEncryptedPrefs()
+                    val url = prefs.getString(WEBDAV_URL_KEY, null)
+                    val username = prefs.getString(WEBDAV_USERNAME_KEY, null)
+                    val password = prefs.getString(WEBDAV_PASSWORD_KEY, null)
+                    if (url.isNullOrBlank() || username.isNullOrBlank() || password.isNullOrEmpty()) {
+                        result.success(null)
+                    } else {
+                        result.success(
+                            mapOf(
+                                "url" to url,
+                                "username" to username,
+                                "password" to password,
+                                "remoteDirectory" to prefs.getString(WEBDAV_REMOTE_DIRECTORY_KEY, "/MeloUnion/backups/"),
+                            ),
+                        )
+                    }
+                }
+
+                "writeWebDavConfig" -> {
+                    val url = call.argument<String>("url")
+                    val username = call.argument<String>("username")
+                    val password = call.argument<String>("password")
+                    val remoteDirectory = call.argument<String>("remoteDirectory")
+                    if (url.isNullOrBlank() || username.isNullOrBlank() || password.isNullOrEmpty()) {
+                        result.error("invalid_webdav_config", "WebDAV URL, username and password are required.", null)
+                        return@setMethodCallHandler
+                    }
+                    getEncryptedPrefs().edit()
+                        .putString(WEBDAV_URL_KEY, url)
+                        .putString(WEBDAV_USERNAME_KEY, username)
+                        .putString(WEBDAV_PASSWORD_KEY, password)
+                        .putString(
+                            WEBDAV_REMOTE_DIRECTORY_KEY,
+                            if (remoteDirectory.isNullOrBlank()) "/MeloUnion/backups/" else remoteDirectory,
+                        )
+                        .apply()
+                    result.success(true)
+                }
+
+                "deleteWebDavConfig" -> {
+                    getEncryptedPrefs().edit()
+                        .remove(WEBDAV_URL_KEY)
+                        .remove(WEBDAV_USERNAME_KEY)
+                        .remove(WEBDAV_PASSWORD_KEY)
+                        .remove(WEBDAV_REMOTE_DIRECTORY_KEY)
                         .apply()
                     result.success(true)
                 }

@@ -175,6 +175,38 @@ void main() {
         DateTime.utc(2026, 7, 7, 12, 2));
   });
 
+  test('snapshot round trips playback preferences and queue', () {
+    final queuedAt = DateTime.utc(2026, 7, 7, 12);
+    final snapshot = MeloDataSnapshot(
+      playbackPreferences: const PlaybackPreferencesSnapshot(
+        rememberQueue: true,
+        restorePlaybackState: true,
+      ),
+      playbackQueue: PlaybackQueueSnapshot(
+        entries: [
+          PlaybackQueueEntrySnapshot(track: track, queuedAt: queuedAt),
+        ],
+        currentIndex: 0,
+        position: const Duration(minutes: 1, seconds: 23),
+        shuffleEnabled: true,
+        repeatMode: 'one',
+        updatedAt: DateTime.utc(2026, 7, 7, 12, 1),
+      ),
+    );
+
+    final decoded = codec.decodeSnapshot(codec.encodeSnapshot(snapshot));
+
+    expect(decoded.playbackPreferences.rememberQueue, isTrue);
+    expect(decoded.playbackPreferences.restorePlaybackState, isTrue);
+    expect(decoded.playbackQueue?.entries.single.track.ref, sourceRef);
+    expect(decoded.playbackQueue?.entries.single.queuedAt, queuedAt);
+    expect(decoded.playbackQueue?.currentIndex, 0);
+    expect(decoded.playbackQueue?.position,
+        const Duration(minutes: 1, seconds: 23));
+    expect(decoded.playbackQueue?.shuffleEnabled, isTrue);
+    expect(decoded.playbackQueue?.repeatMode, 'one');
+  });
+
   test('JSON store reads and writes snapshots from disk', () async {
     final dir = await Directory.systemTemp.createTemp('melo_data_test_');
     addTearDown(() => dir.delete(recursive: true));

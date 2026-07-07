@@ -19,6 +19,12 @@ final class InMemoryLocalPlaylistRepository implements LocalPlaylistRepository {
     return List.unmodifiable(items);
   }
 
+  void replaceAll(List<LocalPlaylist> playlists) {
+    _playlists
+      ..clear()
+      ..addEntries(playlists.map((playlist) => MapEntry(playlist.id, playlist)));
+  }
+
   @override
   LocalPlaylist createPlaylist(String name) {
     final playlist = LocalPlaylist(

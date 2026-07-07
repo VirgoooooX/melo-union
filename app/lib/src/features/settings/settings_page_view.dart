@@ -4,6 +4,7 @@ enum _SettingsSection {
   sources('音乐来源', Icons.account_tree_outlined),
   playback('播放设置', Icons.play_circle_outline),
   downloads('下载设置', Icons.download_outlined),
+  backup('备份与恢复', Icons.backup_outlined),
   appearance('外观与快捷键', Icons.palette_outlined),
   about('关于', Icons.info_outline);
 
@@ -22,8 +23,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   _SettingsSection _selected = _SettingsSection.sources;
-  bool _autoPlay = true;
-  bool _rememberQueue = true;
   bool _wifiOnly = false;
 
   @override
@@ -59,14 +58,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       Expanded(
                         child: _SettingsContent(
                           section: _selected,
-                          autoPlay: _autoPlay,
-                          rememberQueue: _rememberQueue,
                           wifiOnly: _wifiOnly,
                           playbackQuality: repository.playbackQuality,
-                          onAutoPlayChanged: (value) =>
-                              setState(() => _autoPlay = value),
-                          onRememberQueueChanged: (value) =>
-                              setState(() => _rememberQueue = value),
                           onWifiOnlyChanged: (value) =>
                               setState(() => _wifiOnly = value),
                           onPlaybackQualityChanged:
@@ -90,14 +83,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       Expanded(
                         child: _SettingsContent(
                           section: _selected,
-                          autoPlay: _autoPlay,
-                          rememberQueue: _rememberQueue,
                           wifiOnly: _wifiOnly,
                           playbackQuality: repository.playbackQuality,
-                          onAutoPlayChanged: (value) =>
-                              setState(() => _autoPlay = value),
-                          onRememberQueueChanged: (value) =>
-                              setState(() => _rememberQueue = value),
                           onWifiOnlyChanged: (value) =>
                               setState(() => _wifiOnly = value),
                           onPlaybackQualityChanged:
@@ -162,11 +149,45 @@ class _MobileMineView extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
         _SettingsCard(
+          title: '播放恢复',
+          subtitle: '保留队列和进度；重新打开后不会自动播放。',
+          leading: Icons.queue_music_rounded,
+          child: Column(
+            children: [
+              _SettingsSwitchRow(
+                title: '记住播放队列',
+                subtitle: '保留当前播放列表、当前歌曲、循环和随机播放状态。',
+                value: repository.rememberQueue,
+                onChanged: repository.setRememberQueue,
+              ),
+              const _SettingsDivider(),
+              _SettingsSwitchRow(
+                title: '启动后恢复播放进度',
+                subtitle: '回到上次播放的歌曲和进度，点播放后继续。',
+                value:
+                    repository.restorePlaybackState && repository.rememberQueue,
+                onChanged: repository.rememberQueue
+                    ? repository.setRestorePlaybackState
+                    : null,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        _SettingsCard(
           title: '下载功能',
           subtitle: '管理下载队列、本地音乐和默认下载音质。',
           leading: Icons.download_done_outlined,
           trailing: Icons.chevron_right_rounded,
           onTap: () => context.go(AppDestination.downloads.path),
+        ),
+        const SizedBox(height: 10),
+        _SettingsCard(
+          title: '备份与恢复',
+          subtitle: '导出 .melobak 或使用 WebDAV 保存数据快照。',
+          leading: Icons.backup_outlined,
+          trailing: Icons.chevron_right_rounded,
+          onTap: () => _showMobileBackupSheet(context),
         ),
         const SizedBox(height: 18),
         const _MineSectionTitle('应用信息'),
@@ -682,23 +703,15 @@ class _SettingsNavItem extends StatelessWidget {
 class _SettingsContent extends StatelessWidget {
   const _SettingsContent({
     required this.section,
-    required this.autoPlay,
-    required this.rememberQueue,
     required this.wifiOnly,
     required this.playbackQuality,
-    required this.onAutoPlayChanged,
-    required this.onRememberQueueChanged,
     required this.onWifiOnlyChanged,
     required this.onPlaybackQualityChanged,
   });
 
   final _SettingsSection section;
-  final bool autoPlay;
-  final bool rememberQueue;
   final bool wifiOnly;
   final AudioQuality playbackQuality;
-  final ValueChanged<bool> onAutoPlayChanged;
-  final ValueChanged<bool> onRememberQueueChanged;
   final ValueChanged<bool> onWifiOnlyChanged;
   final Future<void> Function(AudioQuality quality) onPlaybackQualityChanged;
 
@@ -722,24 +735,32 @@ class _SettingsContent extends StatelessWidget {
             const SizedBox(height: MeloSpacing.md),
             _SettingsCard(
               title: '播放行为',
-              subtitle: '这些开关先作为本机偏好呈现，后续会随队列恢复一起持久化。',
+              subtitle: '保留本机播放队列和上次播放进度；启动后不会自动播放。',
               leading: Icons.queue_music_rounded,
-              child: Column(
-                children: [
-                  _SettingsSwitchRow(
-                    title: '启动后恢复播放状态',
-                    subtitle: '重新打开应用时恢复上一次播放上下文。',
-                    value: autoPlay,
-                    onChanged: onAutoPlayChanged,
-                  ),
-                  const _SettingsDivider(),
-                  _SettingsSwitchRow(
-                    title: '记住播放队列',
-                    subtitle: '保留当前队列与播放位置。',
-                    value: rememberQueue,
-                    onChanged: onRememberQueueChanged,
-                  ),
-                ],
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final repository = ref.watch(demoRepositoryProvider);
+                  return Column(
+                    children: [
+                      _SettingsSwitchRow(
+                        title: '记住播放队列',
+                        subtitle: '保留当前播放列表、当前歌曲、循环和随机播放状态。',
+                        value: repository.rememberQueue,
+                        onChanged: repository.setRememberQueue,
+                      ),
+                      const _SettingsDivider(),
+                      _SettingsSwitchRow(
+                        title: '启动后恢复播放进度',
+                        subtitle: '重新打开应用时回到上次播放的歌曲和进度，不会自动播放。',
+                        value: repository.restorePlaybackState &&
+                            repository.rememberQueue,
+                        onChanged: repository.rememberQueue
+                            ? repository.setRestorePlaybackState
+                            : null,
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -751,6 +772,7 @@ class _SettingsContent extends StatelessWidget {
             const _DownloadLocationSettingsCard(),
           ],
         ),
+      _SettingsSection.backup => const _BackupSettingsPanel(),
       _SettingsSection.appearance => const _SettingsPanel(
           title: '外观与快捷键',
           subtitle: '当前使用浅色桌面布局和自定义标题栏。',
@@ -952,6 +974,877 @@ class _DownloadLocationSettingsCard extends ConsumerWidget {
   }
 }
 
+const _melobakTypeGroup = XTypeGroup(
+  label: 'MeloUnion Backup',
+  extensions: ['melobak'],
+  mimeTypes: ['application/zip', 'application/octet-stream'],
+);
+
+void _showMobileBackupSheet(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (context) => const _MobileBackupSheet(),
+  );
+}
+
+final class _BackupOptions {
+  const _BackupOptions({
+    required this.includeAccounts,
+    this.password,
+  });
+
+  final bool includeAccounts;
+  final String? password;
+}
+
+final class _RestoreOptions {
+  const _RestoreOptions({
+    required this.mode,
+    this.password,
+  });
+
+  final BackupRestoreMode mode;
+  final String? password;
+}
+
+class _BackupSettingsPanel extends ConsumerStatefulWidget {
+  const _BackupSettingsPanel();
+
+  @override
+  ConsumerState<_BackupSettingsPanel> createState() =>
+      _BackupSettingsPanelState();
+}
+
+class _BackupSettingsPanelState extends ConsumerState<_BackupSettingsPanel> {
+  bool _busy = false;
+  WebDavConfig? _webDavConfig;
+  List<BackupRemoteEntry> _remoteEntries = const [];
+  String? _remoteError;
+
+  BackupCoordinator get _coordinator => BackupCoordinator.forRepository(
+        ref.read(demoRepositoryProvider),
+      );
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadWebDavConfig());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repository = ref.watch(demoRepositoryProvider);
+    final cacheCount = repository.lastFavoritesData?.length ?? 0;
+    return _SettingsPanel(
+      title: '备份与恢复',
+      subtitle: '导出数据快照，或将备份包保存到 WebDAV。',
+      children: [
+        _SettingsCard(
+          title: '概览',
+          subtitle:
+              '${repository.playlistList.length} 个本地歌单 · ${repository.downloadCoordinator.localItems.length} 条本地媒体记录 · $cacheCount 首缓存喜欢',
+          leading: Icons.inventory_2_outlined,
+        ),
+        const SizedBox(height: MeloSpacing.md),
+        _SettingsCard(
+          title: '本地备份',
+          subtitle: '创建或导入 .melobak 文件。',
+          leading: Icons.save_alt_rounded,
+          child: Wrap(
+            spacing: MeloSpacing.xs,
+            runSpacing: MeloSpacing.xs,
+            children: [
+              FilledButton.icon(
+                onPressed: _busy ? null : _createLocalBackup,
+                icon: const Icon(Icons.upload_file_rounded, size: 18),
+                label: const Text('导出备份'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _restoreFromLocalFile,
+                icon: const Icon(Icons.restore_rounded, size: 18),
+                label: const Text('从文件恢复'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: MeloSpacing.md),
+        _SettingsCard(
+          title: 'WebDAV',
+          subtitle: _webDavConfig == null
+              ? '未配置远端目录。'
+              : '${_webDavConfig!.baseUri} · ${_webDavConfig!.remoteDirectory}',
+          leading: Icons.cloud_sync_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: MeloSpacing.xs,
+                runSpacing: MeloSpacing.xs,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _configureWebDav,
+                    icon: const Icon(Icons.settings_ethernet_rounded, size: 18),
+                    label: Text(_webDavConfig == null ? '配置 WebDAV' : '修改配置'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed:
+                        _busy || _webDavConfig == null ? null : _uploadWebDav,
+                    icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+                    label: const Text('上传备份'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed:
+                        _busy || _webDavConfig == null ? null : _refreshRemote,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('刷新列表'),
+                  ),
+                  if (_webDavConfig != null)
+                    TextButton.icon(
+                      onPressed: _busy ? null : _clearWebDav,
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                      label: const Text('清除配置'),
+                    ),
+                ],
+              ),
+              if (_remoteError != null) ...[
+                const SizedBox(height: MeloSpacing.sm),
+                Text(
+                  _remoteError!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: MeloColors.error,
+                      ),
+                ),
+              ],
+              if (_remoteEntries.isNotEmpty) ...[
+                const SizedBox(height: MeloSpacing.md),
+                _RemoteBackupTable(
+                  entries: _remoteEntries,
+                  onRestore: _busy ? null : _restoreRemoteEntry,
+                  onDelete: _busy ? null : _deleteRemoteEntry,
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: MeloSpacing.md),
+        const _SettingsCard(
+          title: '安全',
+          subtitle: '账号保险箱只在勾选账号备份时写入备份包，并且必须输入密码加密；WebDAV 密码仅保存到平台安全存储。',
+          leading: Icons.enhanced_encryption_outlined,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _loadWebDavConfig() async {
+    final config = await _coordinator.readWebDavConfig();
+    if (!mounted) return;
+    setState(() => _webDavConfig = config);
+    if (config != null) {
+      unawaited(_refreshRemote());
+    }
+  }
+
+  Future<void> _createLocalBackup() async {
+    final options = await _askBackupOptions(context);
+    if (options == null || !mounted) return;
+    await _runTask(() async {
+      final backup = await _coordinator.createBackup(
+        includeAccounts: options.includeAccounts,
+        accountPassword: options.password,
+      );
+      final target = await getSaveLocation(
+        acceptedTypeGroups: const [_melobakTypeGroup],
+        suggestedName: backup.fileName,
+        confirmButtonText: '保存备份',
+      );
+      if (target == null) return;
+      await XFile.fromData(
+        backup.bytes,
+        name: backup.fileName,
+        mimeType: 'application/zip',
+      ).saveTo(target.path);
+      _showToast('已导出备份：${backup.fileName}');
+    });
+  }
+
+  Future<void> _restoreFromLocalFile() async {
+    final file = await openFile(
+      acceptedTypeGroups: const [_melobakTypeGroup],
+      confirmButtonText: '选择备份',
+    );
+    if (file == null || !mounted) return;
+    await _restoreBytes(await file.readAsBytes());
+  }
+
+  Future<void> _configureWebDav() async {
+    final config = await _askWebDavConfig(context, initial: _webDavConfig);
+    if (config == null || !mounted) return;
+    await _runTask(() async {
+      await _coordinator.testWebDav(config);
+      await _coordinator.saveWebDavConfig(config);
+      if (!mounted) return;
+      setState(() {
+        _webDavConfig = config;
+        _remoteError = null;
+      });
+      await _refreshRemoteEntries();
+      _showToast('WebDAV 配置已保存。');
+    });
+  }
+
+  Future<void> _uploadWebDav() async {
+    final options = await _askBackupOptions(context);
+    if (options == null || !mounted) return;
+    await _runTask(() async {
+      await _coordinator.uploadBackupToWebDav(
+        includeAccounts: options.includeAccounts,
+        accountPassword: options.password,
+      );
+      await _refreshRemoteEntries();
+      _showToast('备份已上传到 WebDAV。');
+    });
+  }
+
+  Future<void> _refreshRemote() async {
+    if (_webDavConfig == null) return;
+    await _runTask(() async {
+      await _refreshRemoteEntries();
+    }, showError: false);
+  }
+
+  Future<void> _refreshRemoteEntries() async {
+    final entries = await _coordinator.listWebDavBackups();
+    if (!mounted) return;
+    setState(() {
+      _remoteEntries = entries;
+      _remoteError = null;
+    });
+  }
+
+  Future<void> _restoreRemoteEntry(BackupRemoteEntry entry) async {
+    await _runTask(() async {
+      final bytes = await _coordinator.downloadWebDavBackup(entry);
+      await _restoreBytes(bytes);
+    });
+  }
+
+  Future<void> _deleteRemoteEntry(BackupRemoteEntry entry) async {
+    final confirmed = await _confirm(
+      context,
+      title: '删除远端备份？',
+      message: entry.name,
+      confirmLabel: '删除',
+    );
+    if (!confirmed || !mounted) return;
+    await _runTask(() async {
+      await _coordinator.deleteWebDavBackup(entry);
+      await _refreshRemoteEntries();
+      _showToast('已删除远端备份。');
+    });
+  }
+
+  Future<void> _clearWebDav() async {
+    final confirmed = await _confirm(
+      context,
+      title: '清除 WebDAV 配置？',
+      message: '远端备份文件不会被删除。',
+      confirmLabel: '清除',
+    );
+    if (!confirmed || !mounted) return;
+    await _runTask(() async {
+      await _coordinator.clearWebDavConfig();
+      if (!mounted) return;
+      setState(() {
+        _webDavConfig = null;
+        _remoteEntries = const [];
+        _remoteError = null;
+      });
+      _showToast('已清除 WebDAV 配置。');
+    });
+  }
+
+  Future<void> _restoreBytes(List<int> rawBytes) async {
+    final bytes = Uint8List.fromList(rawBytes);
+    final payload = _coordinator.readBackup(bytes);
+    if (!mounted) return;
+    final options = await _askRestoreOptions(
+      context,
+      includesAccountVault: payload.manifest.includesAccountVault,
+    );
+    if (options == null || !mounted) return;
+    final confirmed = await _confirm(
+      context,
+      title: '确认恢复备份？',
+      message: '恢复数据前会自动保存当前状态备份。',
+      confirmLabel: '恢复',
+    );
+    if (!confirmed || !mounted) return;
+    await _runTask(() async {
+      final result = await _coordinator.restoreFromBackupBytes(
+        bytes: bytes,
+        mode: options.mode,
+        accountPassword: options.password,
+      );
+      final suffix =
+          result.preRestoreBackupPath == null ? '' : ' 当前状态已保存到预恢复备份。';
+      _showToast('恢复完成。$suffix');
+    });
+  }
+
+  Future<void> _runTask(
+    Future<void> Function() task, {
+    bool showError = true,
+  }) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await task();
+    } catch (error) {
+      if (!mounted) return;
+      if (showError) {
+        _showToast('操作失败：$error');
+      } else {
+        setState(() => _remoteError = error.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  void _showToast(String message) {
+    if (!mounted) return;
+    MeloSnackbar.show(context: context, message: message);
+  }
+}
+
+class _MobileBackupSheet extends StatelessWidget {
+  const _MobileBackupSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.86,
+        ),
+        child: const _BackupSettingsPanel(),
+      ),
+    );
+  }
+}
+
+class _RemoteBackupTable extends StatelessWidget {
+  const _RemoteBackupTable({
+    required this.entries,
+    required this.onRestore,
+    required this.onDelete,
+  });
+
+  final List<BackupRemoteEntry> entries;
+  final Future<void> Function(BackupRemoteEntry entry)? onRestore;
+  final Future<void> Function(BackupRemoteEntry entry)? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 960;
+    if (mobile) {
+      return Column(
+        children: [
+          for (final entry in entries)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.archive_outlined),
+              title: Text(entry.name,
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: Text(_backupEntrySubtitle(entry)),
+              trailing: Wrap(
+                spacing: 2,
+                children: [
+                  IconButton(
+                    tooltip: '恢复',
+                    onPressed:
+                        onRestore == null ? null : () => onRestore!(entry),
+                    icon: const Icon(Icons.restore_rounded),
+                  ),
+                  IconButton(
+                    tooltip: '删除',
+                    onPressed: onDelete == null ? null : () => onDelete!(entry),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      );
+    }
+    return Table(
+      columnWidths: const {
+        0: FlexColumnWidth(2.3),
+        1: FlexColumnWidth(1.4),
+        2: FixedColumnWidth(108),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: [
+        _remoteTableRow(
+          context,
+          name: '备份文件',
+          detail: '时间 / 大小',
+          actions: const SizedBox.shrink(),
+          header: true,
+        ),
+        for (final entry in entries)
+          _remoteTableRow(
+            context,
+            name: entry.name,
+            detail: _backupEntrySubtitle(entry),
+            actions: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  tooltip: '恢复',
+                  onPressed: onRestore == null ? null : () => onRestore!(entry),
+                  icon: const Icon(Icons.restore_rounded),
+                ),
+                IconButton(
+                  tooltip: '删除',
+                  onPressed: onDelete == null ? null : () => onDelete!(entry),
+                  icon: const Icon(Icons.delete_outline_rounded),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  TableRow _remoteTableRow(
+    BuildContext context, {
+    required String name,
+    required String detail,
+    required Widget actions,
+    bool header = false,
+  }) {
+    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: header ? MeloColors.textSecondary : MeloColors.textPrimary,
+          fontWeight: header ? FontWeight.w800 : FontWeight.w600,
+        );
+    return TableRow(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: MeloColors.border.withValues(alpha: .7)),
+        ),
+      ),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Text(name,
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Text(detail,
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+        ),
+        actions,
+      ],
+    );
+  }
+}
+
+String _backupEntrySubtitle(BackupRemoteEntry entry) {
+  final size = entry.size == null ? '未知大小' : _formatBytes(entry.size!);
+  final modified = entry.modifiedAt == null
+      ? '未知时间'
+      : _formatDateTime(entry.modifiedAt!.toLocal());
+  return '$modified · $size';
+}
+
+String _formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+}
+
+String _formatDateTime(DateTime value) {
+  String two(int part) => part.toString().padLeft(2, '0');
+  return '${value.year}-${two(value.month)}-${two(value.day)} '
+      '${two(value.hour)}:${two(value.minute)}';
+}
+
+Future<_BackupOptions?> _askBackupOptions(BuildContext context) async {
+  var includeAccounts = false;
+  final passwordController = TextEditingController();
+  final result = await showDialog<_BackupOptions>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: const Text('创建备份'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: includeAccounts,
+              onChanged: (value) =>
+                  setState(() => includeAccounts = value ?? false),
+              title: const Text('包含账号保险箱'),
+              subtitle: const Text('需要输入密码加密。'),
+            ),
+            if (includeAccounts)
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: '备份密码'),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (includeAccounts && passwordController.text.trim().isEmpty) {
+                return;
+              }
+              Navigator.pop(
+                context,
+                _BackupOptions(
+                  includeAccounts: includeAccounts,
+                  password: includeAccounts ? passwordController.text : null,
+                ),
+              );
+            },
+            child: const Text('继续'),
+          ),
+        ],
+      ),
+    ),
+  );
+  passwordController.dispose();
+  return result;
+}
+
+Future<_RestoreOptions?> _askRestoreOptions(
+  BuildContext context, {
+  required bool includesAccountVault,
+}) async {
+  var mode = includesAccountVault
+      ? BackupRestoreMode.dataAndAccounts
+      : BackupRestoreMode.dataOnly;
+  final passwordController = TextEditingController();
+  final result = await showDialog<_RestoreOptions>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: const Text('恢复选项'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioGroup<BackupRestoreMode>(
+              groupValue: mode,
+              onChanged: (value) {
+                if (value == null) return;
+                if (!includesAccountVault && value.restoresAccounts) return;
+                setState(() => mode = value);
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const RadioListTile<BackupRestoreMode>(
+                    contentPadding: EdgeInsets.zero,
+                    value: BackupRestoreMode.dataOnly,
+                    title: Text('只恢复数据'),
+                  ),
+                  RadioListTile<BackupRestoreMode>(
+                    contentPadding: EdgeInsets.zero,
+                    value: BackupRestoreMode.accountsOnly,
+                    enabled: includesAccountVault,
+                    title: const Text('只恢复账号'),
+                  ),
+                  RadioListTile<BackupRestoreMode>(
+                    contentPadding: EdgeInsets.zero,
+                    value: BackupRestoreMode.dataAndAccounts,
+                    enabled: includesAccountVault,
+                    title: const Text('数据和账号都恢复'),
+                  ),
+                ],
+              ),
+            ),
+            if (mode.restoresAccounts)
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: '备份密码'),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (mode.restoresAccounts &&
+                  passwordController.text.trim().isEmpty) {
+                return;
+              }
+              Navigator.pop(
+                context,
+                _RestoreOptions(
+                  mode: mode,
+                  password:
+                      mode.restoresAccounts ? passwordController.text : null,
+                ),
+              );
+            },
+            child: const Text('继续'),
+          ),
+        ],
+      ),
+    ),
+  );
+  passwordController.dispose();
+  return result;
+}
+
+Future<WebDavConfig?> _askWebDavConfig(
+  BuildContext context, {
+  WebDavConfig? initial,
+}) async {
+  final urlController = TextEditingController(
+    text: initial?.baseUri.toString() ?? '',
+  );
+  final usernameController =
+      TextEditingController(text: initial?.username ?? '');
+  final passwordController =
+      TextEditingController(text: initial?.password ?? '');
+  final directoryController = TextEditingController(
+    text: initial?.remoteDirectory ?? '/MeloUnion/backups/',
+  );
+  var obscurePassword = true;
+  final result = await showDialog<WebDavConfig>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: MeloSpacing.lg,
+          vertical: MeloSpacing.lg,
+        ),
+        shape: const RoundedRectangleBorder(borderRadius: MeloRadii.xl),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 22, 24, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const BoxDecoration(
+                        color: MeloColors.primary50,
+                        borderRadius: MeloRadii.md,
+                      ),
+                      child: const Icon(
+                        Icons.cloud_sync_outlined,
+                        color: MeloColors.primary700,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: MeloSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'WebDAV 设置',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: MeloColors.textPrimary,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0,
+                            ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: MeloSpacing.lg),
+                TextField(
+                  controller: urlController,
+                  keyboardType: TextInputType.url,
+                  textInputAction: TextInputAction.next,
+                  decoration: _webDavFieldDecoration(
+                    icon: Icons.link_rounded,
+                    label: '服务器 URL',
+                    hint: 'https://dav.example.com',
+                  ),
+                ),
+                const SizedBox(height: MeloSpacing.sm),
+                TextField(
+                  controller: usernameController,
+                  textInputAction: TextInputAction.next,
+                  decoration: _webDavFieldDecoration(
+                    icon: Icons.person_outline_rounded,
+                    label: '用户名',
+                  ),
+                ),
+                const SizedBox(height: MeloSpacing.sm),
+                TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  textInputAction: TextInputAction.next,
+                  decoration: _webDavFieldDecoration(
+                    icon: Icons.lock_outline_rounded,
+                    label: '密码',
+                    suffix: IconButton(
+                      tooltip: obscurePassword ? '显示密码' : '隐藏密码',
+                      onPressed: () {
+                        setState(() => obscurePassword = !obscurePassword);
+                      },
+                      icon: Icon(
+                        obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: MeloSpacing.sm),
+                TextField(
+                  controller: directoryController,
+                  textInputAction: TextInputAction.done,
+                  decoration: _webDavFieldDecoration(
+                    icon: Icons.folder_outlined,
+                    label: '远端目录',
+                    hint: '/MeloUnion/backups/',
+                  ),
+                ),
+                const SizedBox(height: MeloSpacing.xl),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('取消'),
+                    ),
+                    const SizedBox(width: MeloSpacing.sm),
+                    FilledButton.icon(
+                      onPressed: () {
+                        final url = urlController.text.trim();
+                        final username = usernameController.text.trim();
+                        final password = passwordController.text;
+                        if (url.isEmpty ||
+                            username.isEmpty ||
+                            password.isEmpty) {
+                          return;
+                        }
+                        Navigator.pop(
+                          context,
+                          WebDavConfig(
+                            baseUri: Uri.parse(url),
+                            username: username,
+                            password: password,
+                            remoteDirectory:
+                                directoryController.text.trim().isEmpty
+                                    ? '/MeloUnion/backups/'
+                                    : directoryController.text.trim(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.check_rounded, size: 18),
+                      label: const Text('测试并保存'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  urlController.dispose();
+  usernameController.dispose();
+  passwordController.dispose();
+  directoryController.dispose();
+  return result;
+}
+
+InputDecoration _webDavFieldDecoration({
+  required IconData icon,
+  required String label,
+  String? hint,
+  Widget? suffix,
+}) {
+  return InputDecoration(
+    labelText: label,
+    hintText: hint,
+    prefixIcon: Icon(icon, size: 20),
+    suffixIcon: suffix,
+    filled: true,
+    fillColor: MeloColors.surfaceMuted,
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: MeloSpacing.md,
+      vertical: 17,
+    ),
+    border: OutlineInputBorder(
+      borderRadius: MeloRadii.md,
+      borderSide: const BorderSide(color: MeloColors.border),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: MeloRadii.md,
+      borderSide: const BorderSide(color: MeloColors.border),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: MeloRadii.md,
+      borderSide: const BorderSide(
+        color: MeloColors.primary500,
+        width: 1.5,
+      ),
+    ),
+  );
+}
+
+Future<bool> _confirm(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String confirmLabel,
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(confirmLabel),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
+}
+
 class _SettingsPanel extends StatelessWidget {
   const _SettingsPanel({
     required this.title,
@@ -1109,7 +2002,7 @@ class _SettingsSwitchRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {

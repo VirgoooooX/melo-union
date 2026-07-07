@@ -132,6 +132,9 @@ class DemoRepository extends ChangeNotifier {
     this.notificationPermissionBridge = const NotificationPermissionBridge(),
     AudioQuality playbackQuality = AudioQuality.standard,
     double volume = 1.0,
+    PlaybackPreferencesSnapshot playbackPreferences =
+        const PlaybackPreferencesSnapshot(),
+    PlaybackQueueSnapshot? playbackQueue,
     String? downloadDirectory,
   })  : favoritesOverrideRegistry =
             favoritesOverrideRegistry ?? FavoritesOverrideRegistry(),
@@ -148,6 +151,9 @@ class DemoRepository extends ChangeNotifier {
         _neteaseCredentials = neteaseCredentials,
         _qqMusicCredentials = qqMusicCredentials,
         _volume = volume.clamp(0.0, 1.0).toDouble(),
+        _rememberQueue = playbackPreferences.rememberQueue,
+        _restorePlaybackState = playbackPreferences.restorePlaybackState &&
+            playbackPreferences.rememberQueue,
         _downloadDirectory = _normalizeConfiguredDirectory(downloadDirectory),
         _selectedPlaylistId = playlists.listPlaylists().isEmpty
             ? null
@@ -161,7 +167,19 @@ class DemoRepository extends ChangeNotifier {
       seedTasks: seedDownloadTasks,
       seedLocalItems: seedLocalMediaItems,
     );
+    _restorePlaybackQueue(playbackQueue);
     unawaited(_audioPlayer.setVolume(_volume));
+    _audioPlayer.positionStream.listen((position) {
+      _lastKnownPlaybackPosition = position;
+      if (!_rememberQueue || !_restorePlaybackState) return;
+      final now = DateTime.now();
+      final previous = _lastPlaybackPositionPersistAt;
+      if (previous != null && now.difference(previous).inSeconds < 5) {
+        return;
+      }
+      _lastPlaybackPositionPersistAt = now;
+      _persistSoon();
+    });
     // Notify UI when audio player state changes (play/pause/complete)
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
@@ -178,6 +196,7 @@ class DemoRepository extends ChangeNotifier {
               state.processingState == ProcessingState.completed)) {
         _playbackRequested = false;
       }
+      _persistPlaybackStateSoon();
       notifyListeners();
     });
     _audioPlayer.currentIndexStream.listen((index) {
@@ -342,22 +361,22 @@ class DemoRepository extends ChangeNotifier {
       notificationPermissionBridge: const NotificationPermissionBridge(),
       playbackQuality: snapshot?.playbackQuality ?? AudioQuality.standard,
       volume: snapshot?.volume ?? 1.0,
+      playbackPreferences:
+          snapshot?.playbackPreferences ?? const PlaybackPreferencesSnapshot(),
+      playbackQueue: snapshot?.playbackQueue,
       downloadDirectory: snapshot?.downloadDirectory,
     );
     final allSeededTracks = [
       for (final provider in additionalProviders.whereType<FakeMusicProvider>())
         if (provider.allTracks().isNotEmpty) provider.allTracks().first,
     ];
-    if (allSeededTracks.isNotEmpty) {
+    if (allSeededTracks.isNotEmpty && snapshot?.playbackQueue == null) {
       repo.playbackCoordinator.setQueue(allSeededTracks);
     }
     final cachedFavorites = snapshot?.unifiedFavoritesCache?.tracks;
     if (cachedFavorites != null && cachedFavorites.isNotEmpty) {
-      final eligibleCached =
-          repo._filterUnifiedTracksByEligible(cachedFavorites);
-      repo._lastFavoritesData =
-          eligibleCached.isEmpty ? null : List.unmodifiable(eligibleCached);
-      for (final track in eligibleCached) {
+      repo._lastFavoritesData = List.unmodifiable(cachedFavorites);
+      for (final track in cachedFavorites) {
         repo._rememberTracks(track.variants);
       }
     }
@@ -395,6 +414,11 @@ class DemoRepository extends ChangeNotifier {
   String? _playingTrackId;
   PlaybackIssue? _playbackIssue;
   double _volume;
+  bool _rememberQueue;
+  bool _restorePlaybackState;
+  Duration _lastKnownPlaybackPosition = Duration.zero;
+  Duration? _pendingRestorePosition;
+  DateTime? _lastPlaybackPositionPersistAt;
   String? _downloadDirectory;
   List<ProviderTrackRef> _nativeAudioSourceRefs = const [];
   bool _updatingNativeAudioSource = false;
@@ -432,6 +456,10 @@ class DemoRepository extends ChangeNotifier {
   double get volume => _volume;
 
   AudioQuality get playbackQuality => playbackCoordinator.quality;
+
+  bool get rememberQueue => _rememberQueue;
+
+  bool get restorePlaybackState => _restorePlaybackState;
 
   bool get shuffleEnabled => _shuffleEnabled;
 
@@ -684,13 +712,171 @@ class DemoRepository extends ChangeNotifier {
           _favoriteProviderStates.values.toList(growable: false),
       playbackQuality: playbackQuality,
       volume: volume,
+      playbackPreferences: PlaybackPreferencesSnapshot(
+        rememberQueue: _rememberQueue,
+        restorePlaybackState: _restorePlaybackState,
+      ),
+      playbackQueue: _rememberQueue ? _currentPlaybackQueueSnapshot() : null,
       downloadDirectory: _downloadDirectory,
       favoritesOverrides: favoritesOverrideRegistry,
     );
   }
 
+  Future<void> restoreFromSnapshot(MeloDataSnapshot snapshot) async {
+    playlists.replaceAll(snapshot.playlists);
+    _selectedPlaylistId = playlistList.isEmpty ? null : playlistList.first.id;
+    downloadCoordinator.replaceState(
+      tasks: snapshot.downloadTasks,
+      localItems: snapshot.localMediaItems,
+    );
+    favoritesOverrideRegistry.replaceWith(snapshot.favoritesOverrides);
+    favoriteLikedAtLedger.replaceAll(snapshot.favoriteLikedAtLedger.entries);
+    _favoriteProviderSnapshots
+      ..clear()
+      ..addEntries(
+        snapshot.favoriteProviderSnapshots.map(
+          (item) => MapEntry(item.providerId, item),
+        ),
+      );
+    _favoriteProviderStates
+      ..clear()
+      ..addEntries(
+        snapshot.favoriteProviderStates.map(
+          (item) => MapEntry(item.providerId, item),
+        ),
+      );
+    _unifiedFavoritesCache = snapshot.unifiedFavoritesCache;
+    _lastFavoritesData = snapshot.unifiedFavoritesCache?.tracks;
+    if (_lastFavoritesData?.isEmpty ?? false) {
+      _lastFavoritesData = null;
+    }
+    for (final track in _lastFavoritesData ?? const <UnifiedFavoriteTrack>[]) {
+      _rememberTracks(track.variants);
+    }
+    playbackCoordinator.quality = snapshot.playbackQuality;
+    _volume = snapshot.volume.clamp(0.0, 1.0).toDouble();
+    await _audioPlayer.setVolume(_volume);
+    _playingTrackId = null;
+    _playbackRequested = false;
+    await _audioPlayer.stop();
+    _rememberQueue = snapshot.playbackPreferences.rememberQueue;
+    _restorePlaybackState = snapshot.playbackPreferences.restorePlaybackState &&
+        snapshot.playbackPreferences.rememberQueue;
+    _restorePlaybackQueue(snapshot.playbackQueue);
+    _downloadDirectory = _normalizeConfiguredDirectory(
+      snapshot.downloadDirectory,
+    );
+    _favoritesVersion++;
+    await persistNow();
+    notifyListeners();
+  }
+
+  Future<void> refreshFavoritesAfterRestore() async {
+    try {
+      await loadAllFavorites();
+    } finally {
+      _favoritesVersion++;
+      notifyListeners();
+    }
+  }
+
   Future<void> persistNow() async {
     await snapshotStore?.write(toSnapshot());
+  }
+
+  Future<void> setRememberQueue(bool value) async {
+    _rememberQueue = value;
+    if (!value) {
+      _restorePlaybackState = false;
+      _pendingRestorePosition = null;
+    }
+    await persistNow();
+    notifyListeners();
+  }
+
+  Future<void> setRestorePlaybackState(bool value) async {
+    _restorePlaybackState = value && _rememberQueue;
+    await persistNow();
+    notifyListeners();
+  }
+
+  PlaybackQueueSnapshot? _currentPlaybackQueueSnapshot() {
+    final queueState = playbackCoordinator.queueState;
+    if (queueState.entries.isEmpty) return null;
+    return PlaybackQueueSnapshot(
+      entries: [
+        for (final entry in queueState.entries)
+          PlaybackQueueEntrySnapshot(
+            track: entry.track,
+            queuedAt: entry.queuedAt,
+          ),
+      ],
+      currentIndex: queueState.currentIndex,
+      position: _restorePlaybackState
+          ? _playbackPositionForSnapshot()
+          : Duration.zero,
+      shuffleEnabled: _shuffleEnabled,
+      repeatMode: _repeatMode.name,
+    );
+  }
+
+  Duration _playbackPositionForSnapshot() {
+    final pending = _pendingRestorePosition;
+    if (pending != null) return pending;
+    final livePosition = _audioPlayer.position;
+    if (livePosition > Duration.zero) return livePosition;
+    return _lastKnownPlaybackPosition;
+  }
+
+  void _restorePlaybackQueue(PlaybackQueueSnapshot? snapshot) {
+    _pendingRestorePosition = null;
+    _lastKnownPlaybackPosition = Duration.zero;
+    if (!_rememberQueue || snapshot == null || snapshot.entries.isEmpty) {
+      playbackCoordinator.restoreQueue(PlaybackQueueState.empty());
+      _shuffleEnabled = false;
+      _repeatMode = PlaybackRepeatMode.off;
+      return;
+    }
+
+    final entries = [
+      for (final entry in snapshot.entries)
+        PlaybackQueueEntry(track: entry.track, queuedAt: entry.queuedAt),
+    ];
+    final currentIndex =
+        snapshot.currentIndex >= 0 && snapshot.currentIndex < entries.length
+            ? snapshot.currentIndex
+            : 0;
+    playbackCoordinator.restoreQueue(
+      PlaybackQueueState(
+        entries: List.unmodifiable(entries),
+        currentIndex: currentIndex,
+      ),
+    );
+    _rememberTracks(entries.map((entry) => entry.track));
+    _shuffleEnabled = snapshot.shuffleEnabled;
+    _repeatMode = _playbackRepeatModeFromName(snapshot.repeatMode);
+    if (_restorePlaybackState && snapshot.position > Duration.zero) {
+      _pendingRestorePosition = snapshot.position;
+      _lastKnownPlaybackPosition = snapshot.position;
+    }
+  }
+
+  PlaybackRepeatMode _playbackRepeatModeFromName(String value) {
+    for (final mode in PlaybackRepeatMode.values) {
+      if (mode.name == value) return mode;
+    }
+    return PlaybackRepeatMode.off;
+  }
+
+  void _clearPendingRestorePosition() {
+    _pendingRestorePosition = null;
+    _lastKnownPlaybackPosition = Duration.zero;
+  }
+
+  void _persistPlaybackStateSoon() {
+    if (_rememberQueue) {
+      _persistSoon();
+    }
   }
 
   Future<List<ProviderSearchResults>> search(String query) {
@@ -1112,10 +1298,12 @@ class DemoRepository extends ChangeNotifier {
     if (!track.isPlayable) return;
 
     _rememberTrack(track);
+    _clearPendingRestorePosition();
     playbackCoordinator.setQueue([track]);
     await playbackCoordinator.selectTrack(track.ref);
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
@@ -1133,10 +1321,12 @@ class DemoRepository extends ChangeNotifier {
     if (playableTracks.isEmpty) return;
 
     _rememberTracks(playableTracks);
+    _clearPendingRestorePosition();
     playbackCoordinator.setQueue(playableTracks);
     await playbackCoordinator.selectTrack(playableTracks.first.ref);
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
@@ -1152,10 +1342,12 @@ class DemoRepository extends ChangeNotifier {
         ? selectedRef
         : playableTracks.first.ref;
     _rememberTracks(playableTracks);
+    _clearPendingRestorePosition();
     playbackCoordinator.setQueue(playableTracks);
     await playbackCoordinator.selectTrack(selected);
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
@@ -1166,12 +1358,14 @@ class DemoRepository extends ChangeNotifier {
     if (playableVariants.isEmpty) return;
 
     _rememberTracks(playableVariants);
+    _clearPendingRestorePosition();
     playbackCoordinator.setQueue(playableVariants);
     if (playableVariants.isNotEmpty) {
       await playbackCoordinator.selectTrack(playableVariants.first.ref);
     }
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
@@ -1188,6 +1382,7 @@ class DemoRepository extends ChangeNotifier {
   void enqueueTrack(SourceTrack track) {
     _rememberTrack(track);
     playbackCoordinator.enqueue(track);
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
@@ -1200,14 +1395,17 @@ class DemoRepository extends ChangeNotifier {
     playbackCoordinator.removeAt(index);
 
     if (!wasCurrent) {
+      _persistPlaybackStateSoon();
       notifyListeners();
       return;
     }
 
     _playingTrackId = null;
     if (queue.current == null) {
+      _clearPendingRestorePosition();
       _playbackRequested = false;
       await _audioPlayer.stop();
+      _persistPlaybackStateSoon();
       notifyListeners();
       return;
     }
@@ -1217,21 +1415,28 @@ class DemoRepository extends ChangeNotifier {
     } else {
       await _audioPlayer.stop();
     }
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
   void clearQueue() {
+    _clearPendingRestorePosition();
     playbackCoordinator.setQueue([]);
     _playingTrackId = null;
     _playbackRequested = false;
     unawaited(_audioPlayer.stop());
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
   Future<void> selectTrackInQueue(ProviderTrackRef ref) async {
+    if (queue.current?.track.ref != ref) {
+      _clearPendingRestorePosition();
+    }
     await playbackCoordinator.selectTrack(ref);
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
@@ -1262,8 +1467,10 @@ class DemoRepository extends ChangeNotifier {
     }
 
     await playbackCoordinator.selectTrack(nextRef);
+    _clearPendingRestorePosition();
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
@@ -1281,8 +1488,10 @@ class DemoRepository extends ChangeNotifier {
     if (previousRef == null) return;
 
     await playbackCoordinator.selectTrack(previousRef);
+    _clearPendingRestorePosition();
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
@@ -1421,7 +1630,12 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> seek(Duration position) => _audioPlayer.seek(position);
+  Future<void> seek(Duration position) async {
+    _pendingRestorePosition = null;
+    _lastKnownPlaybackPosition = position;
+    await _audioPlayer.seek(position);
+    _persistPlaybackStateSoon();
+  }
 
   Future<void> setVolume(double value) async {
     _volume = value.clamp(0.0, 1.0).toDouble();
@@ -1440,6 +1654,7 @@ class DemoRepository extends ChangeNotifier {
 
   void toggleShuffle() {
     _shuffleEnabled = !_shuffleEnabled;
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
@@ -1449,6 +1664,7 @@ class DemoRepository extends ChangeNotifier {
       PlaybackRepeatMode.all => PlaybackRepeatMode.one,
       PlaybackRepeatMode.one => PlaybackRepeatMode.off,
     };
+    _persistPlaybackStateSoon();
     notifyListeners();
   }
 
@@ -1515,6 +1731,14 @@ class DemoRepository extends ChangeNotifier {
           audioSource,
           initialIndex: nativeWindow.currentIndex,
         );
+        final restorePosition = _pendingRestorePosition;
+        if (_restorePlaybackState &&
+            restorePosition != null &&
+            restorePosition > Duration.zero) {
+          await _audioPlayer.seek(restorePosition);
+          _lastKnownPlaybackPosition = restorePosition;
+        }
+        _pendingRestorePosition = null;
         _updatingNativeAudioSource = false;
         _playbackIssue = null;
         await notificationPermissionBridge.requestPostNotifications();
@@ -1537,8 +1761,10 @@ class DemoRepository extends ChangeNotifier {
     _handlingNativeAudioIndexChange = true;
     try {
       await playbackCoordinator.selectTrack(ref);
+      _clearPendingRestorePosition();
       _playingTrackId = null;
       await _syncNativePlayback(playWhenReady: true);
+      _persistPlaybackStateSoon();
       notifyListeners();
     } finally {
       _handlingNativeAudioIndexChange = false;
@@ -2279,18 +2505,6 @@ class DemoRepository extends ChangeNotifier {
     return [
       for (final entry in _favoriteProviderSnapshots.entries)
         if (eligible.contains(entry.key)) entry.value,
-    ];
-  }
-
-  List<UnifiedFavoriteTrack> _filterUnifiedTracksByEligible(
-    List<UnifiedFavoriteTrack> tracks,
-  ) {
-    final eligible = _eligibleFavoriteProviderIds();
-    return [
-      for (final track in tracks)
-        if (track.variants
-            .any((variant) => eligible.contains(variant.ref.providerId)))
-          track,
     ];
   }
 

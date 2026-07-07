@@ -38,6 +38,12 @@ final class MeloJsonCodec {
       ],
       'playbackQuality': snapshot.playbackQuality.name,
       'volume': snapshot.volume,
+      'playbackPreferences': _encodePlaybackPreferences(
+        snapshot.playbackPreferences,
+      ),
+      'playbackQueue': snapshot.playbackQueue == null
+          ? null
+          : _encodePlaybackQueue(snapshot.playbackQueue!),
       'downloadDirectory': snapshot.downloadDirectory,
       'favoritesOverrides': _encodeFavoritesOverrides(
         snapshot.favoritesOverrides,
@@ -114,6 +120,10 @@ final class MeloJsonCodec {
         json['playbackQuality'] as String? ?? AudioQuality.standard.name,
       ),
       volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
+      playbackPreferences: _decodePlaybackPreferences(
+        json['playbackPreferences'],
+      ),
+      playbackQueue: _decodeOptionalPlaybackQueue(json['playbackQueue']),
       downloadDirectory: json['downloadDirectory'] as String?,
       favoritesOverrides: overrides,
     );
@@ -304,6 +314,72 @@ final class MeloJsonCodec {
       lastSuccessAt: _optionalDateTime(json['lastSuccessAt']?.toString()),
       lastFailureAt: _optionalDateTime(json['lastFailureAt']?.toString()),
       lastFailureMessage: json['lastFailureMessage'] as String?,
+    );
+  }
+
+  Map<String, Object?> _encodePlaybackPreferences(
+    PlaybackPreferencesSnapshot preferences,
+  ) {
+    return {
+      'rememberQueue': preferences.rememberQueue,
+      'restorePlaybackState': preferences.restorePlaybackState,
+    };
+  }
+
+  PlaybackPreferencesSnapshot _decodePlaybackPreferences(Object? raw) {
+    final json = _stringKeyedMap(raw as Map<Object?, Object?>?);
+    return PlaybackPreferencesSnapshot(
+      rememberQueue: json['rememberQueue'] as bool? ?? false,
+      restorePlaybackState: json['restorePlaybackState'] as bool? ?? false,
+    );
+  }
+
+  Map<String, Object?> _encodePlaybackQueue(PlaybackQueueSnapshot queue) {
+    return {
+      'entries': [
+        for (final entry in queue.entries) _encodePlaybackQueueEntry(entry),
+      ],
+      'currentIndex': queue.currentIndex,
+      'positionMs': queue.position.inMilliseconds,
+      'shuffleEnabled': queue.shuffleEnabled,
+      'repeatMode': queue.repeatMode,
+      'updatedAt': queue.updatedAt.toUtc().toIso8601String(),
+    };
+  }
+
+  PlaybackQueueSnapshot? _decodeOptionalPlaybackQueue(Object? raw) {
+    if (raw == null) return null;
+    final json = _stringKeyedMap(raw as Map<Object?, Object?>);
+    return PlaybackQueueSnapshot(
+      entries: [
+        for (final item in _listOfMaps(json['entries']))
+          _decodePlaybackQueueEntry(item),
+      ],
+      currentIndex: (json['currentIndex'] as num?)?.toInt() ?? -1,
+      position: Duration(
+        milliseconds: (json['positionMs'] as num?)?.toInt() ?? 0,
+      ),
+      shuffleEnabled: json['shuffleEnabled'] as bool? ?? false,
+      repeatMode: json['repeatMode']?.toString() ?? 'off',
+      updatedAt: _optionalDateTime(json['updatedAt']?.toString()),
+    );
+  }
+
+  Map<String, Object?> _encodePlaybackQueueEntry(
+    PlaybackQueueEntrySnapshot entry,
+  ) {
+    return {
+      'track': _encodeSourceTrack(entry.track),
+      'queuedAt': entry.queuedAt.toUtc().toIso8601String(),
+    };
+  }
+
+  PlaybackQueueEntrySnapshot _decodePlaybackQueueEntry(
+    Map<String, Object?> json,
+  ) {
+    return PlaybackQueueEntrySnapshot(
+      track: _decodeSourceTrack(_requiredMap(json, 'track')),
+      queuedAt: DateTime.parse(_requiredString(json, 'queuedAt')).toUtc(),
     );
   }
 

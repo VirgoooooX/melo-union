@@ -81,6 +81,17 @@ class LikedAtLedger {
 
   bool get isEmpty => _entries.isEmpty;
 
+  void clear() {
+    _entries.clear();
+  }
+
+  void replaceAll(Iterable<LikedAtLedgerEntry> entries) {
+    clear();
+    for (final entry in entries) {
+      record(entry.ref, entry.metadata, updatedAt: entry.updatedAt);
+    }
+  }
+
   void record(
     ProviderTrackRef ref,
     LikedAtMetadata metadata, {
@@ -199,6 +210,21 @@ class FavoritesOverrideRegistry {
   /// - **sync_detected**: first seen in a pullFavorites diff → approximate
   /// - **qq_import / unknown**: bulk import, no reliable timestamp → no timestamp
   final Map<ProviderTrackRef, LikedAtMetadata> likedAtTracking = {};
+
+  void replaceWith(FavoritesOverrideRegistry other) {
+    mergeOverrides
+      ..clear()
+      ..addAll(other.mergeOverrides.map((refs) => {...refs}));
+    splitOverrides
+      ..clear()
+      ..addAll(other.splitOverrides.map((refs) => {...refs}));
+    hiddenTracks
+      ..clear()
+      ..addAll(other.hiddenTracks);
+    likedAtTracking
+      ..clear()
+      ..addAll(other.likedAtTracking);
+  }
 
   void addMergeOverride(ProviderTrackRef a, ProviderTrackRef b) {
     Set<ProviderTrackRef>? targetSet;

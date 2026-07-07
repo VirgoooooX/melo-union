@@ -6,6 +6,7 @@
 #include <flutter/standard_method_codec.h>
 #include <wincred.h>
 #include <string>
+#include <vector>
 
 #pragma comment(lib, "Advapi32.lib")
 
@@ -229,6 +230,78 @@ bool FlutterWindow::OnCreate() {
         }
         else if (call.method_name() == "deleteKugouCredentials") {
           DeleteCredentials(L"MeloUnion/Kugou");
+          result->Success(flutter::EncodableValue(true));
+        }
+        else if (call.method_name() == "readWebDavConfig") {
+          std::wstring serialized = ReadCredentials(L"MeloUnion/WebDAV");
+          if (serialized.empty()) {
+            result->Success(flutter::EncodableValue());
+            return;
+          }
+
+          std::string utf8_serialized = Utf16ToUtf8(serialized);
+          std::vector<std::string> parts;
+          size_t start = 0;
+          while (start <= utf8_serialized.size()) {
+            size_t pos = utf8_serialized.find('\n', start);
+            if (pos == std::string::npos) {
+              parts.push_back(utf8_serialized.substr(start));
+              break;
+            }
+            parts.push_back(utf8_serialized.substr(start, pos - start));
+            start = pos + 1;
+          }
+          if (parts.size() < 3 || parts[0].empty() || parts[1].empty() || parts[2].empty()) {
+            result->Success(flutter::EncodableValue());
+            return;
+          }
+
+          flutter::EncodableMap response;
+          response[flutter::EncodableValue("url")] = flutter::EncodableValue(parts[0]);
+          response[flutter::EncodableValue("username")] = flutter::EncodableValue(parts[1]);
+          response[flutter::EncodableValue("password")] = flutter::EncodableValue(parts[2]);
+          response[flutter::EncodableValue("remoteDirectory")] =
+              flutter::EncodableValue(parts.size() >= 4 && !parts[3].empty() ? parts[3] : "/MeloUnion/backups/");
+          result->Success(flutter::EncodableValue(response));
+        }
+        else if (call.method_name() == "writeWebDavConfig") {
+          const auto* arguments = std::get_if<flutter::EncodableMap>(call.arguments());
+          if (!arguments) {
+            result->Error("invalid_arguments", "Arguments must be a map.");
+            return;
+          }
+
+          auto stringArg = [&](const char* key) -> std::string {
+            auto it = arguments->find(flutter::EncodableValue(key));
+            if (it != arguments->end() && !it->second.IsNull()) {
+              if (auto val = std::get_if<std::string>(&it->second)) {
+                return *val;
+              }
+            }
+            return "";
+          };
+
+          std::string url = stringArg("url");
+          std::string username = stringArg("username");
+          std::string password = stringArg("password");
+          std::string remoteDirectory = stringArg("remoteDirectory");
+          if (url.empty() || username.empty() || password.empty()) {
+            result->Error("invalid_webdav_config", "WebDAV URL, username and password are required.");
+            return;
+          }
+          if (remoteDirectory.empty()) {
+            remoteDirectory = "/MeloUnion/backups/";
+          }
+
+          std::wstring serialized = Utf8ToUtf16(url + "\n" + username + "\n" + password + "\n" + remoteDirectory);
+          if (WriteCredentials(L"MeloUnion/WebDAV", serialized)) {
+            result->Success(flutter::EncodableValue(true));
+          } else {
+            result->Error("storage_error", "Failed to write WebDAV config to Windows Credential Manager.");
+          }
+        }
+        else if (call.method_name() == "deleteWebDavConfig") {
+          DeleteCredentials(L"MeloUnion/WebDAV");
           result->Success(flutter::EncodableValue(true));
         }
         else {

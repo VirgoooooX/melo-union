@@ -21,6 +21,18 @@ class DownloadCoordinator {
   List<DownloadTask> get allTasks => _tasks.values.toList();
   List<LocalMediaItem> get localItems => _localLibrary.values.toList();
 
+  void replaceState({
+    List<DownloadTask> tasks = const [],
+    List<LocalMediaItem> localItems = const [],
+  }) {
+    _tasks
+      ..clear()
+      ..addEntries(tasks.map((task) => MapEntry(task.track.ref, task)));
+    _localLibrary
+      ..clear()
+      ..addEntries(localItems.map((item) => MapEntry(item.sourceRef, item)));
+  }
+
   bool isAvailableLocally(ProviderTrackRef ref) =>
       _localLibrary.containsKey(ref);
   LocalMediaItem? getLocalItem(ProviderTrackRef ref) => _localLibrary[ref];

@@ -34,6 +34,13 @@ class PlaybackCoordinator {
     _currentError = null;
   }
 
+  void restoreQueue(PlaybackQueueState state) {
+    _queueState = state;
+    _currentTicket = null;
+    _nextTicket = null;
+    _currentError = null;
+  }
+
   void enqueue(SourceTrack track) {
     _queueState = _queueState.enqueue(track);
     _nextTicket = null;
