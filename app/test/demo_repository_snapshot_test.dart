@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:melo_union_app/src/bootstrap/demo_repository.dart';
+import 'package:melo_union_app/src/bootstrap/demo_repository_extensions.dart';
 import 'package:melo_union_app/src/fakes/fake_music_provider.dart';
 import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
@@ -60,6 +62,7 @@ void main() {
         ],
         localMediaItems: [downloaded],
         playbackQuality: AudioQuality.lossless,
+        downloadQuality: AudioQuality.high,
         volume: 0.35,
         favoritesOverrides: overrides,
       ),
@@ -68,6 +71,7 @@ void main() {
     expect(repository.playlistList.single.id, 'playlist_saved');
     expect(repository.downloadCoordinator.isAvailableLocally(ref), isTrue);
     expect(repository.playbackQuality, AudioQuality.lossless);
+    expect(repository.downloadQuality, AudioQuality.high);
     expect(repository.volume, closeTo(0.35, 0.001));
     expect(repository.favoritesOverrideRegistry.hiddenTracks, contains(ref));
 
@@ -77,6 +81,7 @@ void main() {
     expect(exported.downloadTasks.single.status, DownloadStatus.completed);
     expect(exported.localMediaItems.single.filePath, downloaded.filePath);
     expect(exported.playbackQuality, AudioQuality.lossless);
+    expect(exported.downloadQuality, AudioQuality.high);
     expect(exported.volume, closeTo(0.35, 0.001));
     expect(exported.favoritesOverrides.hiddenTracks, contains(ref));
   });
@@ -213,6 +218,132 @@ void main() {
     expect(disabled.playbackPreferences.rememberQueue, isFalse);
     expect(disabled.playbackPreferences.restorePlaybackState, isFalse);
     expect(disabled.playbackQueue, isNull);
+  });
+
+  test(
+      'DemoRepository falls back when preferred playback source cannot resolve',
+      () async {
+    final firstProviderId = ProviderId('first_source');
+    final fallbackProviderId = ProviderId('fallback_source');
+    final first = SourceTrack(
+      ref: ProviderTrackRef(providerId: firstProviderId, trackId: 'same_song'),
+      title: 'Same Song',
+      artists: const ['Melo Artist'],
+      duration: const Duration(minutes: 3),
+      isFavorited: false,
+      isPlayable: true,
+    );
+    final fallback = SourceTrack(
+      ref: ProviderTrackRef(
+          providerId: fallbackProviderId, trackId: 'same_song'),
+      title: 'Same Song',
+      artists: const ['Melo Artist'],
+      duration: const Duration(minutes: 3),
+      isFavorited: false,
+      isPlayable: true,
+    );
+    final repository = DemoRepository.seeded(
+      additionalProviders: [
+        FakeMusicProvider(
+          descriptor: ProviderDescriptor(
+            id: firstProviderId,
+            displayName: 'First Source',
+            capabilities: const {},
+          ),
+          profile: null,
+          seedTracks: [first],
+        ),
+        FakeMusicProvider(
+          descriptor: ProviderDescriptor(
+            id: fallbackProviderId,
+            displayName: 'Fallback Source',
+            capabilities: const {ProviderCapability.resolvePlayback},
+          ),
+          profile: null,
+          seedTracks: [fallback],
+        ),
+      ],
+    );
+
+    await repository.playTracksFrom([first, fallback], first.ref);
+
+    expect(repository.queue.current?.track.ref, fallback.ref);
+    expect(
+        repository.playbackCoordinator.currentTicket?.trackRef, fallback.ref);
+  });
+
+  test('Unified favorite row playback does not enqueue the visible list',
+      () async {
+    final providerId = ProviderId('aurora_stream');
+    final first = SourceTrack(
+      ref: ProviderTrackRef(providerId: providerId, trackId: 'song_1'),
+      title: 'First Song',
+      artists: const ['Melo Artist'],
+      duration: const Duration(minutes: 3),
+      isFavorited: true,
+      isPlayable: true,
+    );
+    final second = SourceTrack(
+      ref: ProviderTrackRef(providerId: providerId, trackId: 'song_2'),
+      title: 'Second Song',
+      artists: const ['Melo Artist'],
+      duration: const Duration(minutes: 4),
+      isFavorited: true,
+      isPlayable: true,
+    );
+    final firstUnified = UnifiedFavoriteTrack(
+      unifiedId: 'first',
+      title: first.title,
+      artists: first.artists,
+      duration: first.duration,
+      variants: [first],
+    );
+    final secondUnified = UnifiedFavoriteTrack(
+      unifiedId: 'second',
+      title: second.title,
+      artists: second.artists,
+      duration: second.duration,
+      variants: [second],
+    );
+    final repository = DemoRepository.seeded(
+      additionalProviders: [
+        FakeMusicProvider(
+          descriptor: ProviderDescriptor(
+            id: providerId,
+            displayName: 'Aurora Stream',
+            capabilities: const {ProviderCapability.resolvePlayback},
+          ),
+          profile: null,
+          seedTracks: [first, second],
+        ),
+      ],
+    );
+
+    await repository.playUnifiedTracksFrom(
+      [firstUnified, secondUnified],
+      secondUnified,
+    );
+
+    expect(repository.queue.entries, hasLength(1));
+    expect(repository.queue.current?.track.ref, second.ref);
+  });
+
+  test('DemoRepository repeat one keeps native loop off for manual restart',
+      () async {
+    final repository = DemoRepository.seeded();
+
+    expect(repository.repeatMode, PlaybackRepeatMode.off);
+    expect(repository.audioPlayer.loopMode, LoopMode.off);
+
+    repository.cycleRepeatMode();
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.repeatMode, PlaybackRepeatMode.all);
+    expect(repository.audioPlayer.loopMode, LoopMode.off);
+
+    repository.cycleRepeatMode();
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.repeatMode, PlaybackRepeatMode.one);
+    expect(repository.audioPlayer.loopMode, LoopMode.off);
   });
 
   test('DemoRepository reports playback issue and can retry current track',

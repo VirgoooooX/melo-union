@@ -1276,31 +1276,30 @@ class MeloAddToPlaylistDialog extends ConsumerWidget {
     );
   }
 
-  Future<String?> _askForPlaylistName(BuildContext context) async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
+  Future<String?> _askForPlaylistName(BuildContext context) {
+    return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('新建本地歌单'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: '歌单名称'),
+      builder: (context) => MeloDialogControllerWrapper(
+        builder: (context, controller) => AlertDialog(
+          title: const Text('新建本地歌单'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: '歌单名称'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text),
+              child: const Text('创建'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('创建'),
-          ),
-        ],
       ),
     );
-    controller.dispose();
-    return name;
   }
 }
 
@@ -1633,5 +1632,42 @@ class MeloBrandIcon extends StatelessWidget {
       height: 18,
       fit: BoxFit.contain,
     );
+  }
+}
+
+class MeloDialogControllerWrapper extends StatefulWidget {
+  const MeloDialogControllerWrapper({
+    super.key,
+    this.initialText,
+    required this.builder,
+  });
+
+  final String? initialText;
+  final Widget Function(BuildContext context, TextEditingController controller) builder;
+
+  @override
+  State<MeloDialogControllerWrapper> createState() =>
+      _MeloDialogControllerWrapperState();
+}
+
+class _MeloDialogControllerWrapperState
+    extends State<MeloDialogControllerWrapper> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.builder(context, _controller);
   }
 }

@@ -109,16 +109,23 @@ class MainActivity : AudioServiceActivity() {
                     } else {
                         editor.putString(NETEASE_USER_ID_KEY, userId)
                     }
-                    editor.apply()
-                    result.success(true)
+                    if (editor.commit()) {
+                        result.success(true)
+                    } else {
+                        result.error("storage_error", "Failed to write NetEase credentials.", null)
+                    }
                 }
 
                 "deleteNeteaseCredentials" -> {
-                    getEncryptedPrefs().edit()
+                    val ok = getEncryptedPrefs().edit()
                         .remove(NETEASE_COOKIE_KEY)
                         .remove(NETEASE_USER_ID_KEY)
-                        .apply()
-                    result.success(true)
+                        .commit()
+                    if (ok) {
+                        result.success(true)
+                    } else {
+                        result.error("storage_error", "Failed to delete NetEase credentials.", null)
+                    }
                 }
 
                 "readQqMusicCredentials" -> {
@@ -136,17 +143,25 @@ class MainActivity : AudioServiceActivity() {
                         result.error("invalid_credentials", "QQ Music cookie must not be empty.", null)
                         return@setMethodCallHandler
                     }
-                    getEncryptedPrefs().edit()
+                    val ok = getEncryptedPrefs().edit()
                         .putString(QQ_MUSIC_COOKIE_KEY, cookie)
-                        .apply()
-                    result.success(true)
+                        .commit()
+                    if (ok) {
+                        result.success(true)
+                    } else {
+                        result.error("storage_error", "Failed to write QQ Music credentials.", null)
+                    }
                 }
 
                 "deleteQqMusicCredentials" -> {
-                    getEncryptedPrefs().edit()
+                    val ok = getEncryptedPrefs().edit()
                         .remove(QQ_MUSIC_COOKIE_KEY)
-                        .apply()
-                    result.success(true)
+                        .commit()
+                    if (ok) {
+                        result.success(true)
+                    } else {
+                        result.error("storage_error", "Failed to delete QQ Music credentials.", null)
+                    }
                 }
 
                 "readKugouCredentials" -> {
@@ -164,17 +179,25 @@ class MainActivity : AudioServiceActivity() {
                         result.error("invalid_credentials", "Kugou session must not be empty.", null)
                         return@setMethodCallHandler
                     }
-                    getEncryptedPrefs().edit()
+                    val ok = getEncryptedPrefs().edit()
                         .putString(KUGOU_SESSION_KEY, session)
-                        .apply()
-                    result.success(true)
+                        .commit()
+                    if (ok) {
+                        result.success(true)
+                    } else {
+                        result.error("storage_error", "Failed to write Kugou credentials.", null)
+                    }
                 }
 
                 "deleteKugouCredentials" -> {
-                    getEncryptedPrefs().edit()
+                    val ok = getEncryptedPrefs().edit()
                         .remove(KUGOU_SESSION_KEY)
-                        .apply()
-                    result.success(true)
+                        .commit()
+                    if (ok) {
+                        result.success(true)
+                    } else {
+                        result.error("storage_error", "Failed to delete Kugou credentials.", null)
+                    }
                 }
 
                 "readWebDavConfig" -> {

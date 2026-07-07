@@ -215,7 +215,7 @@ void main() {
       },
     );
     final likedAt = DateTime.utc(2026, 7, 5, 8, 30);
-    repository.favoritesOverrideRegistry.recordLikedAt(
+    repository.favoriteLikedAtLedger.record(
       qqRef,
       LikedAtMetadata(
         likedAt: likedAt,
@@ -232,17 +232,19 @@ void main() {
     );
 
     await repository.saveQqMusicCredentials(
-      const QqMusicCredentials(cookie: 'uin=o12345; qqmusic_key=abc'),
+      const QqMusicCredentials(cookie: 'uin=o12345; p_skey=abc'),
     );
 
-    expect(qqStore.credentials?.cookie, 'uin=o12345; qqmusic_key=abc');
+    expect(qqStore.credentials?.cookie, contains('p_skey=abc'));
+    expect(qqStore.credentials?.cookie, contains('qqmusic_key=abc'));
+    expect(qqStore.credentials?.cookie, contains('qm_keyst=abc'));
     expect(repository.hasQqMusicSession, isTrue);
     expect(
       repository.registry.entryOf(qqMusicProviderId)!.provider.isAuthenticated,
       isTrue,
     );
     expect(
-      repository.favoritesOverrideRegistry.likedAtFor(qqRef)?.likedAt,
+      repository.favoriteLikedAtLedger.likedAtFor(qqRef)?.likedAt,
       likedAt,
     );
 
@@ -251,7 +253,7 @@ void main() {
     expect(qqStore.credentials, isNull);
     expect(repository.hasQqMusicSession, isFalse);
     expect(
-      repository.favoritesOverrideRegistry.likedAtFor(qqRef)?.likedAt,
+      repository.favoriteLikedAtLedger.likedAtFor(qqRef)?.likedAt,
       likedAt,
     );
   });

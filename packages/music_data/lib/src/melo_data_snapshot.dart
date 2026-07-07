@@ -11,6 +11,7 @@ final class MeloDataSnapshot {
     this.unifiedFavoritesCache,
     this.favoriteProviderStates = const [],
     this.playbackQuality = AudioQuality.standard,
+    this.downloadQuality = AudioQuality.standard,
     this.volume = 1.0,
     this.playbackPreferences = const PlaybackPreferencesSnapshot(),
     this.playbackQueue,
@@ -27,6 +28,7 @@ final class MeloDataSnapshot {
   final CachedUnifiedFavorites? unifiedFavoritesCache;
   final List<FavoriteProviderStateSnapshot> favoriteProviderStates;
   final AudioQuality playbackQuality;
+  final AudioQuality downloadQuality;
   final double volume;
   final PlaybackPreferencesSnapshot playbackPreferences;
   final PlaybackQueueSnapshot? playbackQueue;

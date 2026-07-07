@@ -479,12 +479,9 @@ class KugouApiClient {
           body,
         );
 
-        final uri =
-            (endpoint ?? Uri.parse('https://gateway.kugou.com$path')).replace(
-          queryParameters: {
-            for (final entry in requestParams.entries)
-              entry.key: entry.value.toString(),
-          },
+        final uri = _withQueryParameters(
+          endpoint ?? Uri.parse('https://gateway.kugou.com$path'),
+          requestParams,
         );
         final requestHeaders = await _buildHeaders(headers, false);
         requestHeaders.addAll({
@@ -573,11 +570,9 @@ class KugouApiClient {
         }
         requestParams['signature'] = _signatureAndroidParams(requestParams, '');
 
-        final uri = Uri.parse('https://gateway.kugou.com$path').replace(
-          queryParameters: {
-            for (final entry in requestParams.entries)
-              entry.key: entry.value.toString(),
-          },
+        final uri = _withQueryParameters(
+          Uri.parse('https://gateway.kugou.com$path'),
+          requestParams,
         );
         final requestHeaders = await _buildHeaders(headers, false);
         requestHeaders.addAll({
@@ -616,6 +611,14 @@ class KugouApiClient {
   String _normalizedDeviceValue(String? value) {
     final trimmed = value?.trim() ?? '';
     return trimmed.isEmpty ? '-' : trimmed;
+  }
+
+  Uri _withQueryParameters(Uri base, Map<String, Object?> params) {
+    final query = params.entries.map((entry) {
+      return '${Uri.encodeQueryComponent(entry.key)}='
+          '${Uri.encodeQueryComponent(entry.value?.toString() ?? '')}';
+    }).join('&');
+    return base.replace(query: query);
   }
 
   String _gatewayDfidForPath(String path, String? sessionDfid) {

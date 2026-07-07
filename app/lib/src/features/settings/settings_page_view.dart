@@ -184,7 +184,7 @@ class _MobileMineView extends ConsumerWidget {
         const SizedBox(height: 10),
         _SettingsCard(
           title: '备份与恢复',
-          subtitle: '导出 .melobak 或使用 WebDAV 保存数据快照。',
+          subtitle: '导出 zip 备份或使用 WebDAV 保存数据快照。',
           leading: Icons.backup_outlined,
           trailing: Icons.chevron_right_rounded,
           onTap: () => _showMobileBackupSheet(context),
@@ -232,60 +232,26 @@ class _MobileMineHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 14, 14),
-      decoration: BoxDecoration(
-        color: MeloColors.mobileSurfaceSoft,
-        borderRadius: MeloRadii.xl,
-        border: Border.all(color: MeloColors.mobileSurfaceBorder),
-        boxShadow: MeloShadows.card,
-      ),
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Text(
                   '我的',
                   style: Theme.of(context).textTheme.displaySmall?.copyWith(
                         color: MeloColors.textPrimary,
-                        fontSize: 38,
-                        height: 1,
+                        fontSize: 48,
+                        height: 1.0,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0,
                       ),
                 ),
               ),
-              Container(
-                width: 62,
-                height: 62,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      MeloColors.primary600,
-                      MeloColors.kugouForeground,
-                    ],
-                  ),
-                  borderRadius: MeloRadii.lg,
-                  boxShadow: [
-                    BoxShadow(
-                      color: MeloColors.primary600.withValues(alpha: 0.20),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                alignment: Alignment.center,
-                child: Image.asset(
-                  'assets/images/melo_logo_inverse.png',
-                  width: 42,
-                  height: 42,
-                  fit: BoxFit.contain,
-                ),
-              ),
+              const MeloLogoMark(size: 48),
             ],
           ),
           const SizedBox(height: 18),
@@ -919,40 +885,12 @@ class _DownloadLocationSettingsCard extends ConsumerWidget {
     DemoRepository repository, {
     required String? directory,
   }) async {
-    final controller = TextEditingController(
-      text: repository.customDownloadDirectory ?? directory ?? '',
-    );
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('设置下载位置'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '文件夹路径',
-            hintText: r'C:\Music\MeloUnion',
-          ),
-          minLines: 1,
-          maxLines: 2,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(''),
-            child: const Text('恢复默认'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('保存'),
-          ),
-        ],
+      builder: (context) => _DownloadDirectoryDialog(
+        initialPath: repository.customDownloadDirectory ?? directory ?? '',
       ),
     );
-    controller.dispose();
     if (result == null || !context.mounted) return;
 
     try {
@@ -974,10 +912,67 @@ class _DownloadLocationSettingsCard extends ConsumerWidget {
   }
 }
 
-const _melobakTypeGroup = XTypeGroup(
+class _DownloadDirectoryDialog extends StatefulWidget {
+  const _DownloadDirectoryDialog({required this.initialPath});
+
+  final String initialPath;
+
+  @override
+  State<_DownloadDirectoryDialog> createState() =>
+      _DownloadDirectoryDialogState();
+}
+
+class _DownloadDirectoryDialogState extends State<_DownloadDirectoryDialog> {
+  late final TextEditingController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = TextEditingController(text: widget.initialPath);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('设置下载位置'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        decoration: const InputDecoration(
+          labelText: '文件夹路径',
+          hintText: r'C:\Music\MeloUnion',
+        ),
+        minLines: 1,
+        maxLines: 2,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(''),
+          child: const Text('恢复默认'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(controller.text),
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+}
+
+const _backupZipTypeGroup = XTypeGroup(
   label: 'MeloUnion Backup',
-  extensions: ['melobak'],
-  mimeTypes: ['application/zip', 'application/octet-stream'],
+  extensions: ['zip'],
+  mimeTypes: ['application/zip'],
 );
 
 void _showMobileBackupSheet(BuildContext context) {
@@ -1051,7 +1046,7 @@ class _BackupSettingsPanelState extends ConsumerState<_BackupSettingsPanel> {
         const SizedBox(height: MeloSpacing.md),
         _SettingsCard(
           title: '本地备份',
-          subtitle: '创建或导入 .melobak 文件。',
+          subtitle: '创建或导入 .zip 备份文件。',
           leading: Icons.save_alt_rounded,
           child: Wrap(
             spacing: MeloSpacing.xs,
@@ -1157,7 +1152,7 @@ class _BackupSettingsPanelState extends ConsumerState<_BackupSettingsPanel> {
         accountPassword: options.password,
       );
       final target = await getSaveLocation(
-        acceptedTypeGroups: const [_melobakTypeGroup],
+        acceptedTypeGroups: const [_backupZipTypeGroup],
         suggestedName: backup.fileName,
         confirmButtonText: '保存备份',
       );
@@ -1173,7 +1168,7 @@ class _BackupSettingsPanelState extends ConsumerState<_BackupSettingsPanel> {
 
   Future<void> _restoreFromLocalFile() async {
     final file = await openFile(
-      acceptedTypeGroups: const [_melobakTypeGroup],
+      acceptedTypeGroups: const [_backupZipTypeGroup],
       confirmButtonText: '选择备份',
     );
     if (file == null || !mounted) return;
@@ -1226,10 +1221,12 @@ class _BackupSettingsPanelState extends ConsumerState<_BackupSettingsPanel> {
   }
 
   Future<void> _restoreRemoteEntry(BackupRemoteEntry entry) async {
+    Uint8List? bytes;
     await _runTask(() async {
-      final bytes = await _coordinator.downloadWebDavBackup(entry);
-      await _restoreBytes(bytes);
+      bytes = await _coordinator.downloadWebDavBackup(entry);
     });
+    if (!mounted || bytes == null) return;
+    await _restoreBytes(bytes!);
   }
 
   Future<void> _deleteRemoteEntry(BackupRemoteEntry entry) async {
@@ -1479,14 +1476,46 @@ String _formatDateTime(DateTime value) {
 }
 
 Future<_BackupOptions?> _askBackupOptions(BuildContext context) async {
-  var includeAccounts = false;
-  final passwordController = TextEditingController();
-  final result = await showDialog<_BackupOptions>(
+  return showDialog<_BackupOptions>(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: const Text('创建备份'),
-        content: Column(
+    builder: (context) => const _BackupOptionsDialog(),
+  );
+}
+
+Future<_RestoreOptions?> _askRestoreOptions(
+  BuildContext context, {
+  required bool includesAccountVault,
+}) async {
+  return showDialog<_RestoreOptions>(
+    context: context,
+    builder: (context) =>
+        _RestoreOptionsDialog(includesAccountVault: includesAccountVault),
+  );
+}
+
+class _BackupOptionsDialog extends StatefulWidget {
+  const _BackupOptionsDialog();
+
+  @override
+  State<_BackupOptionsDialog> createState() => _BackupOptionsDialogState();
+}
+
+class _BackupOptionsDialogState extends State<_BackupOptionsDialog> {
+  final passwordController = TextEditingController();
+  var includeAccounts = false;
+
+  @override
+  void dispose() {
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('创建备份'),
+      content: SingleChildScrollView(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             CheckboxListTile(
@@ -1498,62 +1527,79 @@ Future<_BackupOptions?> _askBackupOptions(BuildContext context) async {
               subtitle: const Text('需要输入密码加密。'),
             ),
             if (includeAccounts)
-              TextField(
+              _BackupPasswordField(
                 controller: passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: '备份密码'),
               ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (includeAccounts && passwordController.text.trim().isEmpty) {
-                return;
-              }
-              Navigator.pop(
-                context,
-                _BackupOptions(
-                  includeAccounts: includeAccounts,
-                  password: includeAccounts ? passwordController.text : null,
-                ),
-              );
-            },
-            child: const Text('继续'),
-          ),
-        ],
       ),
-    ),
-  );
-  passwordController.dispose();
-  return result;
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (includeAccounts && passwordController.text.trim().isEmpty) {
+              return;
+            }
+            Navigator.pop(
+              context,
+              _BackupOptions(
+                includeAccounts: includeAccounts,
+                password: includeAccounts ? passwordController.text : null,
+              ),
+            );
+          },
+          child: const Text('继续'),
+        ),
+      ],
+    );
+  }
 }
 
-Future<_RestoreOptions?> _askRestoreOptions(
-  BuildContext context, {
-  required bool includesAccountVault,
-}) async {
-  var mode = includesAccountVault
-      ? BackupRestoreMode.dataAndAccounts
-      : BackupRestoreMode.dataOnly;
+class _RestoreOptionsDialog extends StatefulWidget {
+  const _RestoreOptionsDialog({required this.includesAccountVault});
+
+  final bool includesAccountVault;
+
+  @override
+  State<_RestoreOptionsDialog> createState() => _RestoreOptionsDialogState();
+}
+
+class _RestoreOptionsDialogState extends State<_RestoreOptionsDialog> {
   final passwordController = TextEditingController();
-  final result = await showDialog<_RestoreOptions>(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: const Text('恢复选项'),
-        content: Column(
+  late BackupRestoreMode mode;
+
+  @override
+  void initState() {
+    super.initState();
+    mode = widget.includesAccountVault
+        ? BackupRestoreMode.dataAndAccounts
+        : BackupRestoreMode.dataOnly;
+  }
+
+  @override
+  void dispose() {
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('恢复选项'),
+      content: SingleChildScrollView(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             RadioGroup<BackupRestoreMode>(
               groupValue: mode,
               onChanged: (value) {
                 if (value == null) return;
-                if (!includesAccountVault && value.restoresAccounts) return;
+                if (!widget.includesAccountVault && value.restoresAccounts) {
+                  return;
+                }
                 setState(() => mode = value);
               },
               child: Column(
@@ -1567,221 +1613,290 @@ Future<_RestoreOptions?> _askRestoreOptions(
                   RadioListTile<BackupRestoreMode>(
                     contentPadding: EdgeInsets.zero,
                     value: BackupRestoreMode.accountsOnly,
-                    enabled: includesAccountVault,
+                    enabled: widget.includesAccountVault,
                     title: const Text('只恢复账号'),
                   ),
                   RadioListTile<BackupRestoreMode>(
                     contentPadding: EdgeInsets.zero,
                     value: BackupRestoreMode.dataAndAccounts,
-                    enabled: includesAccountVault,
+                    enabled: widget.includesAccountVault,
                     title: const Text('数据和账号都恢复'),
                   ),
                 ],
               ),
             ),
             if (mode.restoresAccounts)
-              TextField(
+              _BackupPasswordField(
                 controller: passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: '备份密码'),
               ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (mode.restoresAccounts &&
-                  passwordController.text.trim().isEmpty) {
-                return;
-              }
-              Navigator.pop(
-                context,
-                _RestoreOptions(
-                  mode: mode,
-                  password:
-                      mode.restoresAccounts ? passwordController.text : null,
-                ),
-              );
-            },
-            child: const Text('继续'),
-          ),
-        ],
       ),
-    ),
-  );
-  passwordController.dispose();
-  return result;
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (mode.restoresAccounts &&
+                passwordController.text.trim().isEmpty) {
+              return;
+            }
+            Navigator.pop(
+              context,
+              _RestoreOptions(
+                mode: mode,
+                password:
+                    mode.restoresAccounts ? passwordController.text : null,
+              ),
+            );
+          },
+          child: const Text('继续'),
+        ),
+      ],
+    );
+  }
+}
+
+class _BackupPasswordField extends StatefulWidget {
+  const _BackupPasswordField({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  State<_BackupPasswordField> createState() => _BackupPasswordFieldState();
+}
+
+class _BackupPasswordFieldState extends State<_BackupPasswordField> {
+  var obscureText = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final android = Theme.of(context).platform == TargetPlatform.android;
+    return TextField(
+      controller: widget.controller,
+      keyboardType:
+          android ? TextInputType.text : TextInputType.visiblePassword,
+      textInputAction: TextInputAction.done,
+      obscureText: android ? false : obscureText,
+      enableSuggestions: false,
+      autocorrect: false,
+      enableIMEPersonalizedLearning: false,
+      smartDashesType: SmartDashesType.disabled,
+      smartQuotesType: SmartQuotesType.disabled,
+      autofillHints: const <String>[],
+      decoration: InputDecoration(
+        labelText: '备份口令',
+        suffixIcon: android
+            ? null
+            : IconButton(
+                tooltip: obscureText ? '显示' : '隐藏',
+                onPressed: () => setState(() => obscureText = !obscureText),
+                icon: Icon(
+                  obscureText
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                ),
+              ),
+      ),
+    );
+  }
 }
 
 Future<WebDavConfig?> _askWebDavConfig(
   BuildContext context, {
   WebDavConfig? initial,
-}) async {
-  final urlController = TextEditingController(
-    text: initial?.baseUri.toString() ?? '',
-  );
-  final usernameController =
-      TextEditingController(text: initial?.username ?? '');
-  final passwordController =
-      TextEditingController(text: initial?.password ?? '');
-  final directoryController = TextEditingController(
-    text: initial?.remoteDirectory ?? '/MeloUnion/backups/',
-  );
-  var obscurePassword = true;
-  final result = await showDialog<WebDavConfig>(
+}) {
+  return showDialog<WebDavConfig>(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(
-          horizontal: MeloSpacing.lg,
-          vertical: MeloSpacing.lg,
-        ),
-        shape: const RoundedRectangleBorder(borderRadius: MeloRadii.xl),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 22, 24, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: MeloColors.primary50,
-                        borderRadius: MeloRadii.md,
-                      ),
-                      child: const Icon(
-                        Icons.cloud_sync_outlined,
-                        color: MeloColors.primary700,
-                        size: 22,
-                      ),
+    builder: (context) => _WebDavConfigDialog(initial: initial),
+  );
+}
+
+class _WebDavConfigDialog extends StatefulWidget {
+  const _WebDavConfigDialog({this.initial});
+
+  final WebDavConfig? initial;
+
+  @override
+  State<_WebDavConfigDialog> createState() => _WebDavConfigDialogState();
+}
+
+class _WebDavConfigDialogState extends State<_WebDavConfigDialog> {
+  late final TextEditingController urlController;
+  late final TextEditingController usernameController;
+  late final TextEditingController passwordController;
+  late final TextEditingController directoryController;
+  var obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    urlController = TextEditingController(
+      text: widget.initial?.baseUri.toString() ?? '',
+    );
+    usernameController = TextEditingController(
+      text: widget.initial?.username ?? '',
+    );
+    passwordController = TextEditingController(
+      text: widget.initial?.password ?? '',
+    );
+    directoryController = TextEditingController(
+      text: widget.initial?.remoteDirectory ?? '/MeloUnion/backups/',
+    );
+  }
+
+  @override
+  void dispose() {
+    urlController.dispose();
+    usernameController.dispose();
+    passwordController.dispose();
+    directoryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: MeloSpacing.lg,
+        vertical: MeloSpacing.lg,
+      ),
+      shape: const RoundedRectangleBorder(borderRadius: MeloRadii.xl),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: MeloColors.primary50,
+                      borderRadius: MeloRadii.md,
                     ),
-                    const SizedBox(width: MeloSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        'WebDAV 设置',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: MeloColors.textPrimary,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0,
-                            ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: '关闭',
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: MeloSpacing.lg),
-                TextField(
-                  controller: urlController,
-                  keyboardType: TextInputType.url,
-                  textInputAction: TextInputAction.next,
-                  decoration: _webDavFieldDecoration(
-                    icon: Icons.link_rounded,
-                    label: '服务器 URL',
-                    hint: 'https://dav.example.com',
-                  ),
-                ),
-                const SizedBox(height: MeloSpacing.sm),
-                TextField(
-                  controller: usernameController,
-                  textInputAction: TextInputAction.next,
-                  decoration: _webDavFieldDecoration(
-                    icon: Icons.person_outline_rounded,
-                    label: '用户名',
-                  ),
-                ),
-                const SizedBox(height: MeloSpacing.sm),
-                TextField(
-                  controller: passwordController,
-                  obscureText: obscurePassword,
-                  textInputAction: TextInputAction.next,
-                  decoration: _webDavFieldDecoration(
-                    icon: Icons.lock_outline_rounded,
-                    label: '密码',
-                    suffix: IconButton(
-                      tooltip: obscurePassword ? '显示密码' : '隐藏密码',
-                      onPressed: () {
-                        setState(() => obscurePassword = !obscurePassword);
-                      },
-                      icon: Icon(
-                        obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                      ),
+                    child: const Icon(
+                      Icons.cloud_sync_outlined,
+                      color: MeloColors.primary700,
+                      size: 22,
                     ),
                   ),
-                ),
-                const SizedBox(height: MeloSpacing.sm),
-                TextField(
-                  controller: directoryController,
-                  textInputAction: TextInputAction.done,
-                  decoration: _webDavFieldDecoration(
-                    icon: Icons.folder_outlined,
-                    label: '远端目录',
-                    hint: '/MeloUnion/backups/',
-                  ),
-                ),
-                const SizedBox(height: MeloSpacing.xl),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('取消'),
-                    ),
-                    const SizedBox(width: MeloSpacing.sm),
-                    FilledButton.icon(
-                      onPressed: () {
-                        final url = urlController.text.trim();
-                        final username = usernameController.text.trim();
-                        final password = passwordController.text;
-                        if (url.isEmpty ||
-                            username.isEmpty ||
-                            password.isEmpty) {
-                          return;
-                        }
-                        Navigator.pop(
-                          context,
-                          WebDavConfig(
-                            baseUri: Uri.parse(url),
-                            username: username,
-                            password: password,
-                            remoteDirectory:
-                                directoryController.text.trim().isEmpty
-                                    ? '/MeloUnion/backups/'
-                                    : directoryController.text.trim(),
+                  const SizedBox(width: MeloSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'WebDAV 设置',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: MeloColors.textPrimary,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.check_rounded, size: 18),
-                      label: const Text('测试并保存'),
                     ),
-                  ],
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: MeloSpacing.lg),
+              TextField(
+                controller: urlController,
+                keyboardType: TextInputType.url,
+                textInputAction: TextInputAction.next,
+                decoration: _webDavFieldDecoration(
+                  icon: Icons.link_rounded,
+                  label: '服务器 URL',
+                  hint: 'https://dav.example.com',
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: MeloSpacing.sm),
+              TextField(
+                controller: usernameController,
+                textInputAction: TextInputAction.next,
+                decoration: _webDavFieldDecoration(
+                  icon: Icons.person_outline_rounded,
+                  label: '用户名',
+                ),
+              ),
+              const SizedBox(height: MeloSpacing.sm),
+              TextField(
+                controller: passwordController,
+                obscureText: obscurePassword,
+                textInputAction: TextInputAction.next,
+                decoration: _webDavFieldDecoration(
+                  icon: Icons.lock_outline_rounded,
+                  label: '密码',
+                  suffix: IconButton(
+                    tooltip: obscurePassword ? '显示密码' : '隐藏密码',
+                    onPressed: () {
+                      setState(() => obscurePassword = !obscurePassword);
+                    },
+                    icon: Icon(
+                      obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: MeloSpacing.sm),
+              TextField(
+                controller: directoryController,
+                textInputAction: TextInputAction.done,
+                decoration: _webDavFieldDecoration(
+                  icon: Icons.folder_outlined,
+                  label: '远端目录',
+                  hint: '/MeloUnion/backups/',
+                ),
+              ),
+              const SizedBox(height: MeloSpacing.xl),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: MeloSpacing.sm),
+                  FilledButton.icon(
+                    onPressed: () {
+                      final url = urlController.text.trim();
+                      final username = usernameController.text.trim();
+                      final password = passwordController.text;
+                      if (url.isEmpty || username.isEmpty || password.isEmpty) {
+                        return;
+                      }
+                      Navigator.pop(
+                        context,
+                        WebDavConfig(
+                          baseUri: Uri.parse(url),
+                          username: username,
+                          password: password,
+                          remoteDirectory:
+                              directoryController.text.trim().isEmpty
+                                  ? '/MeloUnion/backups/'
+                                  : directoryController.text.trim(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.check_rounded, size: 18),
+                    label: const Text('测试并保存'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
-    ),
-  );
-  urlController.dispose();
-  usernameController.dispose();
-  passwordController.dispose();
-  directoryController.dispose();
-  return result;
+    );
+  }
 }
 
 InputDecoration _webDavFieldDecoration({

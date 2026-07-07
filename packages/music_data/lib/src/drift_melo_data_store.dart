@@ -61,6 +61,10 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
           .where((row) => row.key == 'playbackQuality')
           .firstOrNull
           ?.value,
+      'downloadQuality': metaRows
+          .where((row) => row.key == 'downloadQuality')
+          .firstOrNull
+          ?.value,
       'volume': double.tryParse(
         metaRows.where((row) => row.key == 'volume').firstOrNull?.value ?? '',
       ),
@@ -148,6 +152,12 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
             MeloMetaRowsCompanion.insert(
               key: 'playbackQuality',
               value: snapshot.playbackQuality.name,
+            ),
+          );
+      await database.into(database.meloMetaRows).insert(
+            MeloMetaRowsCompanion.insert(
+              key: 'downloadQuality',
+              value: snapshot.downloadQuality.name,
             ),
           );
       await database.into(database.meloMetaRows).insert(
@@ -388,8 +398,7 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
   }
 
   String _likedAtIdentityKey(ProviderTrackRef ref) {
-    final keys = FavoritesOverrideRegistry.likedAtIdentityKeys(ref).toList()
-      ..sort();
+    final keys = LikedAtLedger.likedAtIdentityKeys(ref).toList()..sort();
     final songIdKeys = keys.where((key) => key.contains(':song_id:'));
     return songIdKeys.isNotEmpty ? songIdKeys.first : keys.first;
   }

@@ -219,9 +219,50 @@ class PlaybackCoordinator {
       );
     }
 
-    return await provider.createPlaybackTicket(
-      track: track.ref,
+    final ticket = await provider.createPlaybackTicket(
+      track: _resolutionRefForTrack(track),
       quality: _quality,
     );
+    if (ticket.trackRef == track.ref) return ticket;
+    return PlaybackTicket(
+      mediaUri: ticket.mediaUri,
+      headers: ticket.headers,
+      expiresAt: ticket.expiresAt,
+      trackRef: track.ref,
+      quality: ticket.quality,
+    );
+  }
+
+  ProviderTrackRef _resolutionRefForTrack(SourceTrack track) {
+    final extraIds = <String, String>{...track.ref.extraIds};
+    if (track.title.trim().isNotEmpty) {
+      extraIds.putIfAbsent('searchTitle', () => track.title.trim());
+    }
+    if (track.artists.isNotEmpty) {
+      extraIds.putIfAbsent('searchArtists', () => track.artists.join('|'));
+    }
+    if (track.duration.inMilliseconds > 0) {
+      extraIds.putIfAbsent(
+        'expectedDurationMs',
+        () => track.duration.inMilliseconds.toString(),
+      );
+    }
+    if (_stringMapEquals(extraIds, track.ref.extraIds)) {
+      return track.ref;
+    }
+    return ProviderTrackRef(
+      providerId: track.ref.providerId,
+      trackId: track.ref.trackId,
+      extraIds: extraIds,
+    );
+  }
+
+  bool _stringMapEquals(Map<String, String> left, Map<String, String> right) {
+    if (identical(left, right)) return true;
+    if (left.length != right.length) return false;
+    for (final entry in left.entries) {
+      if (right[entry.key] != entry.value) return false;
+    }
+    return true;
   }
 }

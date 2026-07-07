@@ -299,6 +299,7 @@ final class KugouLibraryApi {
     final singerInfo = _listValue(map['singerinfo']);
     final relateGoods = _listValue(map['relate_goods']);
     final hash = _bestPlayableHash(map, transParam, relateGoods);
+    final rawHash = _stringValue(map['Hash'] ?? map['hash'] ?? map['HASH']);
     final title = _stringValue(
       map['songname'] ??
           map['song_name'] ??
@@ -350,6 +351,7 @@ final class KugouLibraryApi {
             map['time_length'] ??
             map['FileDuration'],
       ),
+      rawHash: _emptyToNull(rawHash),
       album: _emptyToNull(
         _stringValue(
           map['album_name'] ?? map['albumname'] ?? albumInfo['name'],

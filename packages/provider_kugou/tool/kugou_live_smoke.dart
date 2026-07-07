@@ -9,6 +9,7 @@ const _sessionEnv = 'MELO_KUGOU_SESSION';
 Future<void> main(List<String> args) async {
   final limit = _intArg(args, '--limit') ?? 20;
   final query = _stringArg(args, '--query') ?? '周杰伦';
+  final match = _stringArg(args, '--match')?.toLowerCase();
   final includeFavorites = !args.contains('--skip-favorites');
   final quality = _qualityArg(args) ?? AudioQuality.standard;
   final session = _sessionFromEnvironment();
@@ -22,6 +23,9 @@ Future<void> main(List<String> args) async {
   print('authenticated=${provider.isAuthenticated}');
   print('quality=${quality.name}');
   print('limit=$limit');
+  if (match != null && match.isNotEmpty) {
+    print('match=$match');
+  }
 
   if (provider.isAuthenticated) {
     try {
@@ -37,8 +41,11 @@ Future<void> main(List<String> args) async {
   if (includeFavorites && provider.isAuthenticated) {
     try {
       final favorites = await provider.pullFavorites(forceRefresh: true);
-      print('favorites=${favorites.tracks.length} partial=${favorites.partialFailureReason != null}');
-      candidates.addAll(favorites.tracks.take(limit).map((track) => _Candidate('favorites', track)));
+      print(
+          'favorites=${favorites.tracks.length} partial=${favorites.partialFailureReason != null}');
+      candidates.addAll(favorites.tracks
+          .take(limit)
+          .map((track) => _Candidate('favorites', track)));
     } catch (error) {
       print('favorites=ERROR ${_short(error)}');
     }
@@ -46,7 +53,8 @@ Future<void> main(List<String> args) async {
 
   final recommended = await provider.getDailyRecommendations();
   print('daily=${recommended.length}');
-  candidates.addAll(recommended.take(limit).map((track) => _Candidate('daily', track)));
+  candidates.addAll(
+      recommended.take(limit).map((track) => _Candidate('daily', track)));
 
   final playlists = await provider.getRecommendedPlaylists();
   print('playlists=${playlists.length}');
@@ -55,7 +63,9 @@ Future<void> main(List<String> args) async {
     print('playlists.first=${first.name} ${first.playlistId}');
     final tracks = await provider.getPlaylistTracks(first.playlistId);
     print('playlists.first.tracks=${tracks.length}');
-    candidates.addAll(tracks.take(limit).map((track) => _Candidate('playlist:${first.name}', track)));
+    candidates.addAll(tracks
+        .take(limit)
+        .map((track) => _Candidate('playlist:${first.name}', track)));
   }
 
   final charts = await provider.getChartPlaylists(limit: 3);
@@ -65,12 +75,15 @@ Future<void> main(List<String> args) async {
     print('charts.first=${first.name} ${first.playlistId}');
     final tracks = await provider.getPlaylistTracks(first.playlistId);
     print('charts.first.tracks=${tracks.length}');
-    candidates.addAll(tracks.take(limit).map((track) => _Candidate('chart:${first.name}', track)));
+    candidates.addAll(tracks
+        .take(limit)
+        .map((track) => _Candidate('chart:${first.name}', track)));
   }
 
   final search = await provider.search(query);
   print('search[$query]=${search.length}');
-  candidates.addAll(search.take(limit).map((track) => _Candidate('search:$query', track)));
+  candidates.addAll(
+      search.take(limit).map((track) => _Candidate('search:$query', track)));
 
   final seen = <ProviderTrackRef>{};
   final unique = <_Candidate>[];
@@ -80,7 +93,17 @@ Future<void> main(List<String> args) async {
 
   var ok = 0;
   final failures = <String>[];
-  for (final candidate in unique.take(limit * 4)) {
+  final filtered = match == null || match.isEmpty
+      ? unique
+      : unique.where((candidate) {
+          final track = candidate.track;
+          final text =
+              '${track.title} ${track.artists.join(' ')} ${track.album ?? ''}'
+                  .toLowerCase();
+          return text.contains(match);
+        }).toList(growable: false);
+
+  for (final candidate in filtered.take(limit * 4)) {
     final result = await _checkPlayback(provider, candidate, quality);
     print(result.line);
     if (result.ok) {
@@ -136,6 +159,8 @@ Future<_PlaybackCheck> _checkPlayback(
 ) async {
   final track = candidate.track;
   try {
+    print(
+        'TRY [${candidate.source}] ${_trackLabel(track)} ${_hashDetails(track.ref)}');
     final ticket = await provider.createPlaybackTicket(
       track: track.ref,
       quality: quality,
@@ -144,10 +169,10 @@ Future<_PlaybackCheck> _checkPlayback(
     final ok = probe.startsWith('HTTP 2') || probe.startsWith('HTTP 206');
     return _PlaybackCheck(
       ok: ok,
-      line:
-          '${ok ? 'OK' : 'BAD'} [${candidate.source}] ${_trackLabel(track)} '
+      line: '${ok ? 'OK' : 'BAD'} [${candidate.source}] ${_trackLabel(track)} '
           'q=${ticket.quality.name} fmt=${_safe(ticket.mediaUri.path.split('.').last)} '
-          'host=${ticket.mediaUri.host} probe=$probe',
+          'host=${ticket.mediaUri.host} ticketHash=${_fingerprint(ticket.trackRef.trackId)} '
+          'probe=$probe',
     );
   } catch (error) {
     return _PlaybackCheck(
@@ -168,7 +193,10 @@ Future<String> _probe(Uri uri, Map<String, String> headers) async {
     headers.forEach(request.headers.add);
     final response = await request.close().timeout(const Duration(seconds: 12));
     await response.drain<List<int>>(<int>[]);
-    return 'HTTP ${response.statusCode} bytes=${response.contentLength}';
+    final range = response.headers.value(HttpHeaders.contentRangeHeader) ?? '-';
+    final length = response.headers.value(HttpHeaders.contentLengthHeader) ??
+        response.contentLength.toString();
+    return 'HTTP ${response.statusCode} bytes=$length range=$range';
   } finally {
     client.close(force: true);
   }
@@ -219,4 +247,24 @@ String _safe(String value) => value.replaceAll(RegExp(r'[\r\n]+'), ' ').trim();
 String _fingerprint(String value) {
   if (value.length <= 8) return '***';
   return '${value.substring(0, 4)}***${value.substring(value.length - 4)}';
+}
+
+String _hashDetails(ProviderTrackRef ref) {
+  final keys = [
+    'rawHash',
+    'sqHash',
+    'hqHash',
+    'resHash',
+    'ogg320Hash',
+    'fileHash',
+    'ogg128Hash',
+    'expectedDurationMs',
+  ];
+  final parts = <String>[
+    'track=${_fingerprint(ref.trackId)}',
+    for (final key in keys)
+      if ((ref.extraIds[key] ?? '').isNotEmpty)
+        '$key=${key.endsWith('Hash') ? _fingerprint(ref.extraIds[key]!) : ref.extraIds[key]}',
+  ];
+  return parts.join(' ');
 }

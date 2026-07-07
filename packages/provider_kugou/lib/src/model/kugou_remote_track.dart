@@ -4,6 +4,7 @@ final class KugouRemoteTrack {
     required this.title,
     required this.artists,
     required this.duration,
+    this.rawHash,
     this.album,
     this.albumId,
     this.albumAudioId,
@@ -24,6 +25,7 @@ final class KugouRemoteTrack {
   final String title;
   final List<String> artists;
   final Duration duration;
+  final String? rawHash;
   final String? album;
   final String? albumId;
   final String? albumAudioId;

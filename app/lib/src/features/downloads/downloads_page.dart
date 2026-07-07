@@ -15,11 +15,12 @@ class DownloadsPage extends ConsumerStatefulWidget {
 }
 
 class _DownloadsPageState extends ConsumerState<DownloadsPage> {
-  AudioQuality _quality = AudioQuality.standard;
-
   @override
   Widget build(BuildContext context) {
     final repository = ref.read(demoRepositoryProvider);
+    final quality = ref.watch(
+      demoRepositoryProvider.select((r) => r.downloadQuality),
+    );
     final tasks = ref.watch(
       demoRepositoryProvider.select(
         (r) => r.downloadCoordinator.allTasks
@@ -49,8 +50,8 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _DownloadsHeader(
-            quality: _quality,
-            onQualityChanged: (value) => setState(() => _quality = value),
+            quality: quality,
+            onQualityChanged: repository.setDownloadQuality,
           ),
           const SizedBox(height: MeloSpacing.sm),
           const _DownloadDirectoryNotice(),
@@ -100,7 +101,7 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
                                 repository.removeLocalMedia(item.sourceRef),
                             onRedownload: () => repository.redownloadLocalMedia(
                               item.sourceRef,
-                              quality: _quality,
+                              quality: quality,
                             ),
                           ),
                           const SizedBox(height: MeloSpacing.xs),

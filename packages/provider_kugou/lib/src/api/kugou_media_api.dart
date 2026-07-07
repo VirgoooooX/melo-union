@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart' as crypto;
@@ -32,8 +33,31 @@ final class KugouMediaApi implements KugouMediaResolver {
   }) async {
     final hash = track.trackId;
     final albumId = track.extraIds['albumId'] ?? '';
+    final isPrivateLibraryTrack =
+        (track.extraIds['favoriteFileId'] ?? '').trim().isNotEmpty;
+    _debugResolve(
+      'start hash=${_shortHash(hash)} private=$isPrivateLibraryTrack '
+      'durationMs=${track.extraIds['expectedDurationMs'] ?? '-'} '
+      'raw=${_shortHash(track.extraIds['rawHash'] ?? '')} '
+      'sq=${_shortHash(track.extraIds['sqHash'] ?? '')} '
+      'hq=${_shortHash(track.extraIds['hqHash'] ?? '')} '
+      'file=${_shortHash(track.extraIds['fileHash'] ?? '')}',
+    );
 
     try {
+      if (isPrivateLibraryTrack) {
+        try {
+          return await _resolveAuthenticatedFallbacks(
+            track: track,
+            hash: hash,
+            requestedQuality: requestedQuality,
+          );
+        } on ProviderException {
+          // Keep public play/getdata as a last resort for imported library rows
+          // whose private playback metadata is incomplete.
+        }
+      }
+
       final response = await _client.get(
         Uri.parse('https://wwwapi.kugou.com/yy/index.php').replace(
           queryParameters: {
@@ -74,7 +98,7 @@ final class KugouMediaApi implements KugouMediaResolver {
       final bitrate = data?['bitrate'] as int? ?? 128;
       final actualQuality = _mapBitrateToQuality(bitrate);
 
-      return KugouMediaResolution(
+      final resolution = KugouMediaResolution(
         url: Uri.parse(playUrl),
         quality: actualQuality,
         format: playUrl.split('.').last.split('?').first.toLowerCase(),
@@ -86,6 +110,34 @@ final class KugouMediaApi implements KugouMediaResolver {
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
       );
+      try {
+        await _throwIfSuspiciousShortResolution(
+          track: track,
+          resolution: resolution,
+          label: 'play/getdata',
+        );
+        return resolution;
+      } on ProviderException catch (shortError) {
+        try {
+          final legacy = await _resolveLegacyPlayInfo(hash: hash);
+          await _throwIfSuspiciousShortResolution(
+            track: track,
+            resolution: legacy,
+            label: 'legacy',
+          );
+          return legacy;
+        } on ProviderException catch (legacyError) {
+          return _resolveAuthenticatedFallbacks(
+            track: track,
+            hash: hash,
+            requestedQuality: requestedQuality,
+            legacyError: ProviderException(
+              providerId: _providerId,
+              message: '${shortError.message}; ${legacyError.message}',
+            ),
+          );
+        }
+      }
     } on ProviderException {
       rethrow;
     } catch (e) {
@@ -162,7 +214,11 @@ final class KugouMediaApi implements KugouMediaResolver {
       if (legacyError != null) _fallbackFailureMessage('legacy', legacyError),
     ];
 
-    for (final candidate in _candidateHashes(track, hash)) {
+    for (final candidate in _candidateHashes(
+      track,
+      hash,
+      requestedQuality: requestedQuality,
+    )) {
       for (final attempt in <Future<KugouMediaResolution> Function()>[
         () => _resolveV5Url(
               track: track,
@@ -178,7 +234,18 @@ final class KugouMediaApi implements KugouMediaResolver {
         () => _resolveTrackerSongInfo(hash: candidate.hash),
       ]) {
         try {
-          return await attempt();
+          final resolution = await attempt();
+          await _throwIfSuspiciousShortResolution(
+            track: track,
+            resolution: resolution,
+            label: candidate.label,
+          );
+          _debugResolve(
+            'accept ${candidate.label}:${_shortHash(candidate.hash)} '
+            'size=${resolution.fileSize} quality=${resolution.quality.name} '
+            'url=${_redactUrl(resolution.url)}',
+          );
+          return resolution;
         } on ProviderException catch (e) {
           failures.add(
             _fallbackFailureMessage(
@@ -204,11 +271,10 @@ final class KugouMediaApi implements KugouMediaResolver {
   }
 
   List<({String hash, String label, String? v5Quality})> _candidateHashes(
-    ProviderTrackRef track,
-    String primaryHash,
-  ) {
-    final candidates = <({String? hash, String label, String? v5Quality})>[
-      (hash: primaryHash, label: 'hash', v5Quality: 'flac'),
+      ProviderTrackRef track, String primaryHash,
+      {required AudioQuality requestedQuality}) {
+    final highTierCandidates =
+        <({String? hash, String label, String? v5Quality})>[
       (hash: track.extraIds['sqHash'], label: 'sqHash', v5Quality: 'flac'),
       (hash: track.extraIds['hqHash'], label: 'hqHash', v5Quality: 'flac'),
       (hash: track.extraIds['resHash'], label: 'resHash', v5Quality: 'flac'),
@@ -217,14 +283,29 @@ final class KugouMediaApi implements KugouMediaResolver {
         label: 'ogg320Hash',
         v5Quality: 'flac'
       ),
+    ];
+    final standardCandidates =
+        <({String? hash, String label, String? v5Quality})>[
+      (hash: primaryHash, label: 'hash', v5Quality: 'flac'),
       (hash: track.extraIds['fileHash'], label: 'fileHash', v5Quality: 'flac'),
       (
         hash: track.extraIds['ogg128Hash'],
         label: 'ogg128Hash',
         v5Quality: 'flac'
       ),
+      (hash: track.extraIds['rawHash'], label: 'rawHash', v5Quality: 'flac'),
       (hash: track.trackId, label: 'trackId', v5Quality: 'flac'),
     ];
+    final candidates = switch (requestedQuality) {
+      AudioQuality.lossless || AudioQuality.high => [
+          ...highTierCandidates,
+          ...standardCandidates,
+        ],
+      AudioQuality.standard || AudioQuality.low => [
+          ...standardCandidates,
+          ...highTierCandidates,
+        ],
+    };
     final seen = <String>{};
     final result = <({String hash, String label, String? v5Quality})>[];
     for (final candidate in candidates) {
@@ -315,10 +396,13 @@ final class KugouMediaApi implements KugouMediaResolver {
       );
     }
 
-    final bitrate = response['bitrate'] as int? ??
-        response['bitRate'] as int? ??
-        _nestedInt(response['data'], const ['bitrate', 'bitRate']) ??
-        128;
+    final bitrate = _firstPositiveInt([
+          response['bitrate'],
+          response['bitRate'],
+          _nestedInt(response['data'], const ['bitrate', 'bitRate']),
+          _deepInt(response['data'], const ['bitrate', 'bitRate']),
+        ]) ??
+        _bitrateFromUrl(playUrl);
     return KugouMediaResolution(
       url: Uri.parse(playUrl),
       quality: _mapBitrateToQuality(bitrate),
@@ -326,6 +410,7 @@ final class KugouMediaApi implements KugouMediaResolver {
       fileSize: response['fileSize'] as int? ??
           response['filesize'] as int? ??
           _nestedInt(response['data'], const ['fileSize', 'filesize']) ??
+          _deepInt(response['data'], const ['fileSize', 'filesize']) ??
           0,
       expiresAt: DateTime.now().add(const Duration(hours: 1)),
       headers: const {
@@ -402,9 +487,12 @@ final class KugouMediaApi implements KugouMediaResolver {
       );
     }
 
-    final bitrate = response['bitrate'] as int? ??
-        response['bitRate'] as int? ??
-        _nestedInt(response['data'], const ['bitrate', 'bitRate']) ??
+    final bitrate = _firstPositiveInt([
+          response['bitrate'],
+          response['bitRate'],
+          _nestedInt(response['data'], const ['bitrate', 'bitRate']),
+          _deepInt(response['data'], const ['bitrate', 'bitRate']),
+        ]) ??
         _bitrateFromUrl(playUrl);
     return KugouMediaResolution(
       url: Uri.parse(playUrl),
@@ -413,6 +501,7 @@ final class KugouMediaApi implements KugouMediaResolver {
       fileSize: response['fileSize'] as int? ??
           response['filesize'] as int? ??
           _nestedInt(response['data'], const ['fileSize', 'filesize']) ??
+          _deepInt(response['data'], const ['fileSize', 'filesize']) ??
           0,
       expiresAt: DateTime.now().add(const Duration(hours: 1)),
       headers: const {
@@ -468,7 +557,8 @@ final class KugouMediaApi implements KugouMediaResolver {
       );
     }
 
-    final bitrate = _intFromValue(data['bitrate']) ?? _bitrateFromUrl(playUrl);
+    final bitrate =
+        _firstPositiveInt([data['bitrate']]) ?? _bitrateFromUrl(playUrl);
     return KugouMediaResolution(
       url: Uri.parse(playUrl),
       quality: _mapBitrateToQuality(bitrate),
@@ -546,8 +636,10 @@ final class KugouMediaApi implements KugouMediaResolver {
           );
           continue;
         }
-        final bitrate = response['bitRate'] as int? ??
-            response['bitrate'] as int? ??
+        final bitrate = _firstPositiveInt([
+              response['bitRate'],
+              response['bitrate'],
+            ]) ??
             _bitrateFromUrl(playUrl);
         return KugouMediaResolution(
           url: Uri.parse(playUrl),
@@ -605,6 +697,14 @@ final class KugouMediaApi implements KugouMediaResolver {
     if (lower.contains('320')) return 320;
     if (lower.contains('128')) return 128;
     return 128;
+  }
+
+  int? _firstPositiveInt(Iterable<Object?> values) {
+    for (final value in values) {
+      final parsed = _intFromValue(value);
+      if (parsed != null && parsed > 0) return parsed;
+    }
+    return null;
   }
 
   String _md5(String value) =>
@@ -676,9 +776,6 @@ final class KugouMediaApi implements KugouMediaResolver {
   }
 
   String _pickKugouResponseUrl(Map<String, dynamic> response) {
-    final deepUrl = _pickKugouUrlDeep(response);
-    if (deepUrl.isNotEmpty) return deepUrl;
-
     for (final key in const ['url', 'backup_url']) {
       final url = _firstUrl(response[key]).replaceAll(r'\/', '/');
       if (url.isNotEmpty) return url;
@@ -687,7 +784,7 @@ final class KugouMediaApi implements KugouMediaResolver {
     if (data is Map) {
       for (final key in const ['url', 'backup_url']) {
         final url = _firstUrl(data[key]).replaceAll(r'\/', '/');
-        if (url.isNotEmpty) return url;
+        if (url.isNotEmpty && !_looksPreviewUrl(url)) return url;
       }
       for (final quality in const ['flac', 'high', '320', '128', 'super']) {
         final item = data[quality];
@@ -699,7 +796,15 @@ final class KugouMediaApi implements KugouMediaResolver {
         }
       }
     }
-    return '';
+
+    return _pickKugouUrlDeep(response);
+  }
+
+  bool _looksPreviewUrl(String value) {
+    final lower = value.toLowerCase();
+    return lower.contains('preview') ||
+        lower.contains('free_part') ||
+        lower.contains('/part/');
   }
 
   String _pickKugouUrlDeep(Object? value) {
@@ -768,6 +873,26 @@ final class KugouMediaApi implements KugouMediaResolver {
     return null;
   }
 
+  int? _deepInt(Object? value, List<String> keys) {
+    if (value is Map) {
+      for (final key in keys) {
+        final parsed = _intFromValue(value[key]);
+        if (parsed != null) return parsed;
+      }
+      for (final item in value.values) {
+        final parsed = _deepInt(item, keys);
+        if (parsed != null) return parsed;
+      }
+    }
+    if (value is List) {
+      for (final item in value) {
+        final parsed = _deepInt(item, keys);
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
   int? _intFromValue(Object? value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -809,5 +934,118 @@ final class KugouMediaApi implements KugouMediaResolver {
       if (raw != null && raw.toString().trim().isNotEmpty) return raw;
     }
     return null;
+  }
+
+  Future<void> _throwIfSuspiciousShortResolution({
+    required ProviderTrackRef track,
+    required KugouMediaResolution resolution,
+    required String label,
+  }) async {
+    final expectedMs = int.tryParse(
+          track.extraIds['expectedDurationMs']?.trim() ?? '',
+        ) ??
+        0;
+    if (expectedMs < 90 * 1000 || resolution.fileSize <= 0) {
+      return;
+    }
+
+    final minimumBytes = _minimumExpectedAudioBytes(
+      Duration(milliseconds: expectedMs),
+      resolution.format,
+    );
+
+    var observedSize = resolution.fileSize;
+    if (resolution.quality == AudioQuality.low &&
+        _shouldProbeActualContentLength(resolution.url)) {
+      final actualSize = await _probeActualContentLength(resolution);
+      if (actualSize != null && actualSize > 0) {
+        observedSize = actualSize;
+      }
+    }
+
+    if (observedSize >= minimumBytes) {
+      return;
+    }
+
+    _debugResolve(
+      'skip-short $label size=$observedSize declared=${resolution.fileSize} '
+      'min=$minimumBytes '
+      'durationMs=$expectedMs url=${_redactUrl(resolution.url)}',
+    );
+    throw ProviderException(
+      providerId: _providerId,
+      message: 'MediaUnavailable: Kugou $label URL looks like a preview '
+          'segment (${resolution.fileSize} bytes for ${expectedMs}ms).',
+    );
+  }
+
+  Future<int?> _probeActualContentLength(
+      KugouMediaResolution resolution) async {
+    final uri = resolution.url;
+    if (!uri.isScheme('http') && !uri.isScheme('https')) return null;
+
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
+    try {
+      final request = await client.getUrl(uri);
+      request.headers.add(HttpHeaders.rangeHeader, 'bytes=0-0');
+      for (final entry in resolution.headers.entries) {
+        request.headers.add(entry.key, entry.value);
+      }
+      final response =
+          await request.close().timeout(const Duration(seconds: 6));
+      await response.drain<List<int>>(<int>[]);
+      final range = response.headers.value(HttpHeaders.contentRangeHeader);
+      final rangeSize = _contentRangeTotalSize(range);
+      if (rangeSize != null) return rangeSize;
+      final length = response.headers.value(HttpHeaders.contentLengthHeader);
+      return int.tryParse(length ?? '') ?? response.contentLength;
+    } catch (_) {
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  bool _shouldProbeActualContentLength(Uri uri) {
+    final host = uri.host.toLowerCase();
+    if (host.isEmpty) return false;
+    return host.contains('kugou.com') && host.contains('fs.');
+  }
+
+  int? _contentRangeTotalSize(String? value) {
+    if (value == null) return null;
+    final slash = value.lastIndexOf('/');
+    if (slash < 0 || slash + 1 >= value.length) return null;
+    final total = value.substring(slash + 1).trim();
+    if (total == '*') return null;
+    return int.tryParse(total);
+  }
+
+  int _minimumExpectedAudioBytes(Duration duration, String format) {
+    final seconds = duration.inSeconds;
+    if (seconds <= 0) return 0;
+    final lowerFormat = format.toLowerCase();
+    final minKbps =
+        lowerFormat == 'flac' || lowerFormat == 'ape' || lowerFormat == 'wav'
+            ? 256
+            : 96;
+    return seconds * minKbps * 1000 ~/ 8;
+  }
+
+  void _debugResolve(String message) {
+    // ignore: avoid_print
+    print('KUGOU_MEDIA: $message');
+  }
+
+  String _shortHash(String value) {
+    final normalized = value.trim();
+    if (normalized.length <= 8) return normalized.isEmpty ? '-' : normalized;
+    return normalized.substring(0, 8);
+  }
+
+  String _redactUrl(Uri uri) {
+    final host = uri.host;
+    final path = uri.pathSegments.isEmpty ? '/' : '/${uri.pathSegments.last}';
+    return '$host$path';
   }
 }

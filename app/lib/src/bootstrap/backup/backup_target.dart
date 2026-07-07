@@ -45,7 +45,7 @@ final class LocalBackupTarget implements BackupTarget {
     if (!await directory.exists()) return const [];
     final files = await directory
         .list()
-        .where((entity) => entity is File && entity.path.endsWith('.melobak'))
+        .where((entity) => entity is File && _isBackupFile(entity.path))
         .cast<File>()
         .toList();
     final entries = <BackupRemoteEntry>[];
@@ -139,7 +139,7 @@ final class WebDavBackupTarget implements BackupTarget {
         await http.Response.fromStream(await _client.send(request));
     _throwIfFailed(response, 'Failed to list WebDAV backups.');
     final entries = _parsePropfind(response.body)
-        .where((entry) => entry.name.endsWith('.melobak'))
+        .where((entry) => _isBackupFile(entry.name))
         .toList();
     entries.sort((a, b) => (b.modifiedAt ?? DateTime(1900))
         .compareTo(a.modifiedAt ?? DateTime(1900)));
@@ -211,7 +211,7 @@ final class WebDavBackupTarget implements BackupTarget {
   BackupRemoteEntry? _entryFromResponse(String href, String responseXml) {
     final parts = href.split('/').where((part) => part.isNotEmpty).toList();
     final name = parts.isEmpty ? null : parts.last;
-    if (name == null || name.isEmpty || !name.endsWith('.melobak')) {
+    if (name == null || name.isEmpty || !_isBackupFile(name)) {
       return null;
     }
     return BackupRemoteEntry(
@@ -253,6 +253,11 @@ final class WebDavBackupTarget implements BackupTarget {
     }
     throw HttpException('$message (${response.statusCode})');
   }
+}
+
+bool _isBackupFile(String name) {
+  final lower = name.toLowerCase();
+  return lower.endsWith('.zip') || lower.endsWith('.melobak');
 }
 
 extension on http.Client {

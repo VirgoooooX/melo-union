@@ -48,11 +48,6 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
           ).shortName,
           leading: MeloPlatformIcon(providerId: entry.descriptor.id),
         ),
-      const ProviderTabItem(
-        id: 'more',
-        label: '更多平台',
-        trailing: Icons.keyboard_arrow_down_rounded,
-      ),
     ];
     final selected =
         tabs.any((item) => item.id == _selectedTab) ? _selectedTab : 'local';
@@ -73,12 +68,6 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
               _selectedRemotePlaylistId = null;
               _showLocalPlaylistDetails = false;
             });
-          },
-          onMorePressed: () {
-            MeloSnackbar.show(
-              context: context,
-              message: '后续 Provider 歌单会显示在这里。',
-            );
           },
           onCreatePlaylist: () => _showCreateDialog(context, repository),
           onLocalSelected: (playlistId) {
@@ -108,12 +97,6 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
                   _showLocalPlaylistDetails = false;
                 });
               },
-              onMorePressed: () {
-                MeloSnackbar.show(
-                  context: context,
-                  message: '后续 Provider 歌单会显示在这里。',
-                );
-              },
             ),
             const SizedBox(height: 16),
             Row(
@@ -125,11 +108,6 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
                             prefixIcon: Icon(Icons.search_rounded),
                             hintText: '搜索歌单'))),
                 const Spacer(),
-                OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.grid_view_rounded),
-                    label: const Text('卡片视图')),
-                const SizedBox(width: 8),
                 FilledButton.icon(
                     onPressed: () => _showCreateDialog(context, repository),
                     icon: const Icon(Icons.add_rounded),
@@ -171,25 +149,25 @@ class _LocalPlaylistsPageState extends ConsumerState<LocalPlaylistsPage> {
 
   Future<void> _showCreateDialog(
       BuildContext context, DemoRepository repository) async {
-    final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('新建歌单'),
-        content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(hintText: '歌单名称')),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, controller.text),
-              child: const Text('创建')),
-        ],
+      builder: (context) => MeloDialogControllerWrapper(
+        builder: (context, controller) => AlertDialog(
+          title: const Text('新建歌单'),
+          content: TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: '歌单名称')),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context), child: const Text('取消')),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, controller.text),
+                child: const Text('创建')),
+          ],
+        ),
       ),
     );
-    controller.dispose();
     if (name != null && name.trim().isNotEmpty) {
       repository.createPlaylist(name.trim());
       if (mounted) {
@@ -213,7 +191,6 @@ class _MobilePlaylistsView extends StatelessWidget {
     required this.onLocalBack,
     required this.onRemoteSelected,
     required this.onRemoteBack,
-    this.onMorePressed,
   });
 
   final List<ProviderTabItem> tabs;
@@ -228,7 +205,6 @@ class _MobilePlaylistsView extends StatelessWidget {
   final VoidCallback onLocalBack;
   final ValueChanged<String> onRemoteSelected;
   final VoidCallback onRemoteBack;
-  final VoidCallback? onMorePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +218,6 @@ class _MobilePlaylistsView extends StatelessWidget {
               items: tabs,
               selectedId: selected,
               onSelected: onTabSelected,
-              onMorePressed: onMorePressed,
             ),
           ),
           Expanded(

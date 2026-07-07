@@ -32,15 +32,16 @@ final class _PlatformQqMusicSessionStore implements QqMusicSessionStore {
 
   @override
   Future<void> write(QqMusicCredentials credentials) async {
-    if (!credentials.hasCookie) {
+    final normalizedCredentials = credentials.normalized();
+    if (!normalizedCredentials.hasCookie) {
       throw ArgumentError.value(
         credentials.cookie,
         'credentials.cookie',
         'QQ Music cookie must not be empty.',
       );
     }
-    _memoryCredentials = credentials;
-    await _writeToPlatformChannel(credentials);
+    await _writeToPlatformChannel(normalizedCredentials);
+    _memoryCredentials = normalizedCredentials;
   }
 
   @override
@@ -58,7 +59,7 @@ final class _PlatformQqMusicSessionStore implements QqMusicSessionStore {
       if (cookie == null || cookie.trim().isEmpty) {
         return null;
       }
-      return QqMusicCredentials(cookie: cookie);
+      return QqMusicCredentials(cookie: cookie).normalized();
     } on MissingPluginException {
       return null;
     } on PlatformException {
@@ -73,8 +74,6 @@ final class _PlatformQqMusicSessionStore implements QqMusicSessionStore {
       });
     } on MissingPluginException {
       return;
-    } on PlatformException {
-      return;
     }
   }
 
@@ -82,8 +81,6 @@ final class _PlatformQqMusicSessionStore implements QqMusicSessionStore {
     try {
       await _channel.invokeMethod<void>('deleteQqMusicCredentials');
     } on MissingPluginException {
-      return;
-    } on PlatformException {
       return;
     }
   }
@@ -93,6 +90,6 @@ final class _PlatformQqMusicSessionStore implements QqMusicSessionStore {
     if (cookie == null || cookie.trim().isEmpty) {
       return null;
     }
-    return QqMusicCredentials(cookie: cookie);
+    return QqMusicCredentials(cookie: cookie).normalized();
   }
 }

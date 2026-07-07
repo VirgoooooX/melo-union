@@ -97,21 +97,21 @@ class LikedAtLedger {
     LikedAtMetadata metadata, {
     DateTime? updatedAt,
   }) {
-    final identityKeys = FavoritesOverrideRegistry.likedAtIdentityKeys(ref);
+    final identityKeys = likedAtIdentityKeys(ref);
     var preferredRef = ref;
     var preferredMetadata = metadata;
     DateTime? preferredUpdatedAt = updatedAt;
     final matchedKeys = <String>[];
 
     for (final entry in _entries.entries) {
-      if (!FavoritesOverrideRegistry.sharesLikedAtIdentity(
+      if (!sharesLikedAtIdentity(
         identityKeys,
-        FavoritesOverrideRegistry.likedAtIdentityKeys(entry.value.ref),
+        likedAtIdentityKeys(entry.value.ref),
       )) {
         continue;
       }
       matchedKeys.add(entry.key);
-      final preferred = FavoritesOverrideRegistry.preferLikedAtEntry(
+      final preferred = preferLikedAtEntry(
         leftRef: preferredRef,
         leftMetadata: preferredMetadata,
         rightRef: entry.value.ref,
@@ -139,12 +139,12 @@ class LikedAtLedger {
   }
 
   LikedAtLedgerEntry? entryFor(ProviderTrackRef ref) {
-    final identityKeys = FavoritesOverrideRegistry.likedAtIdentityKeys(ref);
+    final identityKeys = likedAtIdentityKeys(ref);
     LikedAtLedgerEntry? preferredEntry;
     for (final entry in _entries.values) {
-      if (!FavoritesOverrideRegistry.sharesLikedAtIdentity(
+      if (!sharesLikedAtIdentity(
         identityKeys,
-        FavoritesOverrideRegistry.likedAtIdentityKeys(entry.ref),
+        likedAtIdentityKeys(entry.ref),
       )) {
         continue;
       }
@@ -152,7 +152,7 @@ class LikedAtLedger {
         preferredEntry = entry;
         continue;
       }
-      final preferred = FavoritesOverrideRegistry.preferLikedAtEntry(
+      final preferred = preferLikedAtEntry(
         leftRef: preferredEntry.ref,
         leftMetadata: preferredEntry.metadata,
         rightRef: entry.ref,
@@ -165,198 +165,20 @@ class LikedAtLedger {
   }
 
   void remove(ProviderTrackRef ref) {
-    final identityKeys = FavoritesOverrideRegistry.likedAtIdentityKeys(ref);
+    final identityKeys = likedAtIdentityKeys(ref);
     _entries.removeWhere(
-      (_, entry) => FavoritesOverrideRegistry.sharesLikedAtIdentity(
+      (_, entry) => sharesLikedAtIdentity(
         identityKeys,
-        FavoritesOverrideRegistry.likedAtIdentityKeys(entry.ref),
+        likedAtIdentityKeys(entry.ref),
       ),
     );
   }
 
-  void seedFromLegacy(FavoritesOverrideRegistry registry) {
-    for (final entry in registry.likedAtTracking.entries) {
-      record(entry.key, entry.value);
-    }
-  }
-
   static String _preferredIdentityKey(ProviderTrackRef ref) {
-    final keys = FavoritesOverrideRegistry.likedAtIdentityKeys(ref).toList()
-      ..sort();
+    final keys = likedAtIdentityKeys(ref).toList()..sort();
     final songIdKey = keys.where((key) => key.contains(':song_id:'));
     if (songIdKey.isNotEmpty) return songIdKey.first;
     return keys.first;
-  }
-}
-
-final class UnifiedFavoritesResult {
-  const UnifiedFavoritesResult({
-    required this.tracks,
-    required this.failures,
-  });
-
-  final List<UnifiedFavoriteTrack> tracks;
-  final Map<ProviderId, String> failures;
-}
-
-class FavoritesOverrideRegistry {
-  final Set<Set<ProviderTrackRef>> mergeOverrides = {};
-  final Set<Set<ProviderTrackRef>> splitOverrides = {};
-  final Set<ProviderTrackRef> hiddenTracks = {};
-
-  /// Per-track liked-at metadata.
-  ///
-  /// - **app_action**: recorded when user taps like via this client → exact
-  /// - **sync_detected**: first seen in a pullFavorites diff → approximate
-  /// - **qq_import / unknown**: bulk import, no reliable timestamp → no timestamp
-  final Map<ProviderTrackRef, LikedAtMetadata> likedAtTracking = {};
-
-  void replaceWith(FavoritesOverrideRegistry other) {
-    mergeOverrides
-      ..clear()
-      ..addAll(other.mergeOverrides.map((refs) => {...refs}));
-    splitOverrides
-      ..clear()
-      ..addAll(other.splitOverrides.map((refs) => {...refs}));
-    hiddenTracks
-      ..clear()
-      ..addAll(other.hiddenTracks);
-    likedAtTracking
-      ..clear()
-      ..addAll(other.likedAtTracking);
-  }
-
-  void addMergeOverride(ProviderTrackRef a, ProviderTrackRef b) {
-    Set<ProviderTrackRef>? targetSet;
-    for (final set in mergeOverrides) {
-      if (set.contains(a) || set.contains(b)) {
-        targetSet = set;
-        break;
-      }
-    }
-    if (targetSet != null) {
-      targetSet.add(a);
-      targetSet.add(b);
-    } else {
-      mergeOverrides.add({a, b});
-    }
-  }
-
-  void addSplitOverride(ProviderTrackRef a, ProviderTrackRef b) {
-    Set<ProviderTrackRef>? targetSet;
-    for (final set in splitOverrides) {
-      if (set.contains(a) || set.contains(b)) {
-        targetSet = set;
-        break;
-      }
-    }
-    if (targetSet != null) {
-      targetSet.add(a);
-      targetSet.add(b);
-    } else {
-      splitOverrides.add({a, b});
-    }
-  }
-
-  void hideTrack(ProviderTrackRef trackRef) {
-    hiddenTracks.add(trackRef);
-  }
-
-  /// Records liked-at metadata for a track (app-action or sync-detected).
-  void recordLikedAt(ProviderTrackRef ref, LikedAtMetadata metadata) {
-    final identityKeys = likedAtIdentityKeys(ref);
-    var preferredRef = ref;
-    var preferredMetadata = metadata;
-    final equivalentRefs = <ProviderTrackRef>[];
-
-    for (final entry in likedAtTracking.entries) {
-      if (!sharesLikedAtIdentity(
-          identityKeys, likedAtIdentityKeys(entry.key))) {
-        continue;
-      }
-      equivalentRefs.add(entry.key);
-      final preferred = preferLikedAtEntry(
-        leftRef: preferredRef,
-        leftMetadata: preferredMetadata,
-        rightRef: entry.key,
-        rightMetadata: entry.value,
-      );
-      preferredRef = preferred.$1;
-      preferredMetadata = preferred.$2;
-    }
-
-    for (final existingRef in equivalentRefs) {
-      likedAtTracking.remove(existingRef);
-    }
-    likedAtTracking[preferredRef] = preferredMetadata;
-  }
-
-  /// Retrieves liked-at metadata for a track, if recorded.
-  LikedAtMetadata? likedAtFor(ProviderTrackRef ref) {
-    final exact = likedAtTracking[ref];
-    if (exact != null) {
-      return exact;
-    }
-
-    final identityKeys = likedAtIdentityKeys(ref);
-    ProviderTrackRef? preferredRef;
-    LikedAtMetadata? preferredMetadata;
-    for (final entry in likedAtTracking.entries) {
-      if (!sharesLikedAtIdentity(
-          identityKeys, likedAtIdentityKeys(entry.key))) {
-        continue;
-      }
-      if (preferredMetadata == null) {
-        preferredRef = entry.key;
-        preferredMetadata = entry.value;
-        continue;
-      }
-      final preferred = preferLikedAtEntry(
-        leftRef: preferredRef!,
-        leftMetadata: preferredMetadata,
-        rightRef: entry.key,
-        rightMetadata: entry.value,
-      );
-      preferredRef = preferred.$1;
-      preferredMetadata = preferred.$2;
-    }
-    return preferredMetadata;
-  }
-
-  /// Collapses duplicate liked-at records that refer to the same stable track.
-  void normalizeLikedAtTracking() {
-    final entries = likedAtTracking.entries.toList(growable: false);
-    likedAtTracking.clear();
-    for (final entry in entries) {
-      recordLikedAt(entry.key, entry.value);
-    }
-  }
-
-  /// Clears liked-at metadata (e.g. when a track is unliked).
-  void removeLikedAt(ProviderTrackRef ref) {
-    final identityKeys = likedAtIdentityKeys(ref);
-    likedAtTracking.removeWhere(
-      (storedRef, _) =>
-          sharesLikedAtIdentity(identityKeys, likedAtIdentityKeys(storedRef)),
-    );
-  }
-
-  bool shouldSplit(ProviderTrackRef a, ProviderTrackRef b) {
-    for (final set in splitOverrides) {
-      if (set.contains(a) && set.contains(b)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  bool shouldMerge(ProviderTrackRef a, ProviderTrackRef b) {
-    for (final set in mergeOverrides) {
-      if (set.contains(a) && set.contains(b)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   static String likedAtIdentityKey(ProviderTrackRef ref) {
@@ -472,5 +294,87 @@ class FavoritesOverrideRegistry {
     final entries = ref.extraIds.entries.toList(growable: false)
       ..sort((left, right) => left.key.compareTo(right.key));
     return entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+  }
+}
+
+final class UnifiedFavoritesResult {
+  const UnifiedFavoritesResult({
+    required this.tracks,
+    required this.failures,
+  });
+
+  final List<UnifiedFavoriteTrack> tracks;
+  final Map<ProviderId, String> failures;
+}
+
+class FavoritesOverrideRegistry {
+  final Set<Set<ProviderTrackRef>> mergeOverrides = {};
+  final Set<Set<ProviderTrackRef>> splitOverrides = {};
+  final Set<ProviderTrackRef> hiddenTracks = {};
+
+  void replaceWith(FavoritesOverrideRegistry other) {
+    mergeOverrides
+      ..clear()
+      ..addAll(other.mergeOverrides.map((refs) => {...refs}));
+    splitOverrides
+      ..clear()
+      ..addAll(other.splitOverrides.map((refs) => {...refs}));
+    hiddenTracks
+      ..clear()
+      ..addAll(other.hiddenTracks);
+  }
+
+  void addMergeOverride(ProviderTrackRef a, ProviderTrackRef b) {
+    Set<ProviderTrackRef>? targetSet;
+    for (final set in mergeOverrides) {
+      if (set.contains(a) || set.contains(b)) {
+        targetSet = set;
+        break;
+      }
+    }
+    if (targetSet != null) {
+      targetSet.add(a);
+      targetSet.add(b);
+    } else {
+      mergeOverrides.add({a, b});
+    }
+  }
+
+  void addSplitOverride(ProviderTrackRef a, ProviderTrackRef b) {
+    Set<ProviderTrackRef>? targetSet;
+    for (final set in splitOverrides) {
+      if (set.contains(a) || set.contains(b)) {
+        targetSet = set;
+        break;
+      }
+    }
+    if (targetSet != null) {
+      targetSet.add(a);
+      targetSet.add(b);
+    } else {
+      splitOverrides.add({a, b});
+    }
+  }
+
+  void hideTrack(ProviderTrackRef trackRef) {
+    hiddenTracks.add(trackRef);
+  }
+
+  bool shouldSplit(ProviderTrackRef a, ProviderTrackRef b) {
+    for (final set in splitOverrides) {
+      if (set.contains(a) && set.contains(b)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool shouldMerge(ProviderTrackRef a, ProviderTrackRef b) {
+    for (final set in mergeOverrides) {
+      if (set.contains(a) && set.contains(b)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

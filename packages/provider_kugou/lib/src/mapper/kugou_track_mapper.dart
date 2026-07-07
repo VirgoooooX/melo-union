@@ -13,12 +13,20 @@ final class KugouTrackMapper {
         providerId: providerId,
         trackId: remote.hash,
         extraIds: {
+          if (remote.title.trim().isNotEmpty)
+            'searchTitle': remote.title.trim(),
+          if (remote.artists.isNotEmpty)
+            'searchArtists': remote.artists.join('|'),
           if (remote.albumId != null && remote.albumId!.isNotEmpty)
             'albumId': remote.albumId!,
           if (remote.albumAudioId != null && remote.albumAudioId!.isNotEmpty)
             'albumAudioId': remote.albumAudioId!,
           if (remote.mixSongId != null && remote.mixSongId!.isNotEmpty)
             'mixSongId': remote.mixSongId!,
+          if (remote.duration.inMilliseconds > 0)
+            'expectedDurationMs': remote.duration.inMilliseconds.toString(),
+          if (remote.rawHash != null && remote.rawHash!.isNotEmpty)
+            'rawHash': remote.rawHash!,
           if (remote.fileHash != null && remote.fileHash!.isNotEmpty)
             'fileHash': remote.fileHash!,
           if (remote.sqHash != null && remote.sqHash!.isNotEmpty)

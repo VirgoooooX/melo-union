@@ -73,6 +73,19 @@ void main() {
     );
   });
 
+  test('normalizes QQ Music cookies for playback auth aliases', () {
+    final normalized = normalizeQqMusicCookie(
+      'ptui_loginuin=o12345; p_skey=music-key; pgv_pvid=keep',
+    );
+
+    expect(validateQqMusicCookie(normalized), isNull);
+    expect(normalized, contains('uin=o12345'));
+    expect(normalized, contains('p_skey=music-key'));
+    expect(normalized, contains('qqmusic_key=music-key'));
+    expect(normalized, contains('qm_keyst=music-key'));
+    expect(normalized, contains('pgv_pvid=keep'));
+  });
+
   test('creates playback and download tickets from vkey response', () async {
     final provider = QqMusicProvider(
       client: _FakeClient((request) {

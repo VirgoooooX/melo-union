@@ -104,13 +104,26 @@ final class BackupArchiveService {
   }
 
   BackupArchivePayload readArchive(List<int> bytes) {
+    return _readArchive(bytes, allowWrappedBackup: true);
+  }
+
+  BackupArchivePayload _readArchive(
+    List<int> bytes, {
+    required bool allowWrappedBackup,
+  }) {
     final archive = ZipDecoder().decodeBytes(bytes, verify: true);
     final manifestFile = archive.findFile('manifest.json');
     final snapshotFile = archive.findFile('snapshot.json');
-    if (manifestFile == null) {
-      throw const FormatException('Backup archive is missing manifest.json.');
-    }
-    if (snapshotFile == null) {
+    if (manifestFile == null || snapshotFile == null) {
+      if (allowWrappedBackup) {
+        final wrappedPayload = _tryReadWrappedBackup(archive);
+        if (wrappedPayload != null) {
+          return wrappedPayload;
+        }
+      }
+      if (manifestFile == null) {
+        throw const FormatException('Backup archive is missing manifest.json.');
+      }
       throw const FormatException('Backup archive is missing snapshot.json.');
     }
     final manifest = BackupManifest.fromJson(_jsonMap(manifestFile.content));
@@ -129,10 +142,28 @@ final class BackupArchiveService {
     return BackupArchivePayload(
       manifest: manifest,
       snapshot: snapshot,
-      accountVaultBytes: accountFile == null
-          ? null
-          : Uint8List.fromList(List<int>.from(accountFile.content as List)),
+      accountVaultBytes:
+          accountFile == null ? null : _contentBytes(accountFile.content),
     );
+  }
+
+  BackupArchivePayload? _tryReadWrappedBackup(Archive archive) {
+    final candidates = archive.files.where((file) => file.isFile).where((file) {
+      final name = file.name.toLowerCase();
+      return name.endsWith('.melobak') || name.endsWith('.zip');
+    }).toList(growable: false);
+    for (final candidate in candidates) {
+      try {
+        return _readArchive(
+          _contentBytes(candidate.content),
+          allowWrappedBackup: false,
+        );
+      } catch (_) {
+        // Keep trying other archive entries; if none match, the outer archive
+        // will surface the original missing-manifest error.
+      }
+    }
+    return null;
   }
 
   ArchiveFile _jsonFile(String name, Map<String, Object?> json) {
@@ -142,15 +173,21 @@ final class BackupArchiveService {
   }
 
   Map<String, Object?> _jsonMap(Object? content) {
-    final bytes = content is List<int>
-        ? content
-        : content is Uint8List
-            ? content
-            : throw const FormatException('Backup archive file is not bytes.');
+    final bytes = _contentBytes(content);
     final decoded = jsonDecode(utf8.decode(bytes));
     if (decoded is! Map) {
       throw const FormatException('Backup JSON file must be an object.');
     }
     return Map<String, Object?>.from(decoded);
+  }
+
+  Uint8List _contentBytes(Object? content) {
+    if (content is Uint8List) {
+      return content;
+    }
+    if (content is List<int>) {
+      return Uint8List.fromList(content);
+    }
+    throw const FormatException('Backup archive file is not bytes.');
   }
 }

@@ -80,7 +80,7 @@ final class _MemoryKugouSessionStore implements KugouSessionStore {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('BackupArchiveService creates and reads .melobak snapshots', () {
+  test('BackupArchiveService creates and reads zip snapshots', () {
     const service = BackupArchiveService();
     final ref = ProviderTrackRef(
       providerId: ProviderId('qq_music'),
@@ -142,6 +142,13 @@ void main() {
     expect(payload.snapshot.unifiedFavoritesCache?.tracks.single.title, '晴天');
   });
 
+  test('BackupCoordinator names new backups as zip files', () {
+    expect(
+      BackupCoordinator.backupFileName(DateTime(2026, 7, 7, 12, 0, 0)),
+      'melo-union-backup-20260707-120000.zip',
+    );
+  });
+
   test('AccountVaultService encrypts accounts and rejects wrong passwords',
       () async {
     final sourceNetease = _MemoryNeteaseSessionStore(
@@ -195,6 +202,48 @@ void main() {
     expect(targetNetease.credentials?.userId, '42');
     expect(targetQq.credentials?.cookie, contains('qqmusic_key=secret'));
     expect(targetKugou.session?.token, 'kg-secret-token');
+  });
+
+  test('AccountVaultService restores QQ cookies as replacement and normalizes',
+      () async {
+    final sourceQq = _MemoryQqMusicSessionStore(
+      const QqMusicCredentials(cookie: 'uin=o12345; p_skey=fresh'),
+    );
+    final encrypted = await AccountVaultService(
+      neteaseSessionStore: const NullNeteaseSessionStore(),
+      qqMusicSessionStore: sourceQq,
+      kugouSessionStore: const NullKugouSessionStore(),
+    ).exportEncrypted('good-password');
+
+    final targetNetease = _MemoryNeteaseSessionStore(
+      const NeteaseCredentials(cookie: 'MUSIC_U=old'),
+    );
+    final targetQq = _MemoryQqMusicSessionStore(
+      const QqMusicCredentials(cookie: 'uin=o99999; qqmusic_key=stale'),
+    );
+    final targetKugou = _MemoryKugouSessionStore(
+      const KugouSession(
+        userId: '88',
+        token: 'old-token',
+        deviceId: 'device',
+        mid: 'mid',
+        deviceFingerprint: 'dfid',
+      ),
+    );
+
+    await AccountVaultService(
+      neteaseSessionStore: targetNetease,
+      qqMusicSessionStore: targetQq,
+      kugouSessionStore: targetKugou,
+    ).importEncrypted(encrypted!, 'good-password');
+
+    expect(targetNetease.credentials, isNull);
+    expect(targetKugou.session, isNull);
+    expect(targetQq.credentials?.cookie, contains('uin=o12345'));
+    expect(targetQq.credentials?.cookie, contains('p_skey=fresh'));
+    expect(targetQq.credentials?.cookie, contains('qqmusic_key=fresh'));
+    expect(targetQq.credentials?.cookie, contains('qm_keyst=fresh'));
+    expect(targetQq.credentials?.cookie, isNot(contains('stale')));
   });
 
   test('DemoRepository restores unified favorites cache without restart',
@@ -272,6 +321,53 @@ void main() {
     expect(repository.playlistList.single.name, 'After');
   });
 
+  test('BackupCoordinator reloads providers after restoring Kugou account',
+      () async {
+    final sourceKugou = _MemoryKugouSessionStore(
+      const KugouSession(
+        userId: '88',
+        token: 'kg-secret-token',
+        deviceId: 'device',
+        mid: 'mid',
+        deviceFingerprint: 'dfid',
+      ),
+    );
+    final accountVaultBytes = await AccountVaultService(
+      neteaseSessionStore: const NullNeteaseSessionStore(),
+      qqMusicSessionStore: const NullQqMusicSessionStore(),
+      kugouSessionStore: sourceKugou,
+    ).exportEncrypted('good-password');
+    final archive = const BackupArchiveService().createArchive(
+      snapshot: MeloDataSnapshot(),
+      deviceName: 'desktop',
+      platform: 'windows',
+      accountVaultBytes: accountVaultBytes,
+      now: DateTime.utc(2026, 7, 7, 12),
+    );
+
+    final targetKugou = _MemoryKugouSessionStore();
+    final repository = DemoRepository.seeded(kugouSessionStore: targetKugou);
+    final coordinator = BackupCoordinator(
+      repository: repository,
+      accountVaultService: AccountVaultService(
+        neteaseSessionStore: const NullNeteaseSessionStore(),
+        qqMusicSessionStore: const NullQqMusicSessionStore(),
+        kugouSessionStore: targetKugou,
+      ),
+    );
+
+    expect(repository.hasKugouSession, isFalse);
+
+    await coordinator.restoreFromBackupBytes(
+      bytes: archive,
+      mode: BackupRestoreMode.accountsOnly,
+      accountPassword: 'good-password',
+    );
+
+    expect(targetKugou.session?.token, 'kg-secret-token');
+    expect(repository.hasKugouSession, isTrue);
+  });
+
   test('WebDavBackupTarget covers list upload download and delete', () async {
     final methods = <String>[];
     final target = WebDavBackupTarget(
@@ -295,7 +391,7 @@ void main() {
     <d:propstat><d:prop><d:resourcetype><d:collection /></d:resourcetype></d:prop></d:propstat>
   </d:response>
   <d:response>
-    <d:href>/root/MeloUnion/backups/melo-union-backup-20260707-120000.melobak</d:href>
+    <d:href>/root/MeloUnion/backups/melo-union-backup-20260707-120000.zip</d:href>
     <d:propstat><d:prop>
       <d:getcontentlength>12</d:getcontentlength>
       <d:getlastmodified>Tue, 07 Jul 2026 12:00:00 GMT</d:getlastmodified>
@@ -320,17 +416,54 @@ void main() {
     );
 
     final entries = await target.listBackups();
-    await target.uploadBackup('melo-union-backup-20260707-120000.melobak',
-        Uint8List.fromList([1, 2, 3]));
+    await target.uploadBackup(
+        'melo-union-backup-20260707-120000.zip', Uint8List.fromList([1, 2, 3]));
     final bytes = await target.downloadBackup(entries.single.path);
     await target.deleteBackup(entries.single.path);
 
-    expect(entries.single.name, 'melo-union-backup-20260707-120000.melobak');
+    expect(entries.single.name, 'melo-union-backup-20260707-120000.zip');
     expect(entries.single.size, 12);
     expect(bytes, [1, 2, 3]);
     expect(methods, contains(startsWith('PROPFIND ')));
     expect(methods, contains(startsWith('PUT ')));
     expect(methods, contains(startsWith('GET ')));
     expect(methods, contains(startsWith('DELETE ')));
+  });
+
+  test('WebDavBackupTarget still lists legacy melobak backups', () async {
+    final target = WebDavBackupTarget(
+      config: WebDavConfig(
+        baseUri: Uri.parse('https://dav.example.test/root/'),
+        username: 'user',
+        password: 'pass',
+        remoteDirectory: '/MeloUnion/backups/',
+      ),
+      client: MockClient((request) async {
+        if (request.method == 'MKCOL') {
+          return http.Response('', 405);
+        }
+        if (request.method == 'PROPFIND') {
+          return http.Response(
+            '''
+<d:multistatus xmlns:d="DAV:">
+  <d:response>
+    <d:href>/root/MeloUnion/backups/melo-union-backup-20260707-120000.melobak</d:href>
+    <d:propstat><d:prop>
+      <d:getcontentlength>12</d:getcontentlength>
+      <d:getlastmodified>Tue, 07 Jul 2026 12:00:00 GMT</d:getlastmodified>
+    </d:prop></d:propstat>
+  </d:response>
+</d:multistatus>
+''',
+            207,
+          );
+        }
+        return http.Response('unexpected', 500);
+      }),
+    );
+
+    final entries = await target.listBackups();
+
+    expect(entries.single.name, 'melo-union-backup-20260707-120000.melobak');
   });
 }

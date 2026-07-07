@@ -96,6 +96,7 @@ final class KugouMusicProvider implements MusicProvider {
   final KugouTrackMapper _trackMapper;
   final KugouPlaylistMapper _playlistMapper;
   final KugouProfileMapper _profileMapper;
+  final Map<String, ProviderTrackRef> _playbackRefEnrichmentCache = {};
 
   @override
   ProviderDescriptor get descriptor => kugouDescriptor;
@@ -347,8 +348,9 @@ final class KugouMusicProvider implements MusicProvider {
     required AudioQuality quality,
   }) async {
     _requireCapability(ProviderCapability.resolvePlayback);
+    final playbackTrack = await _enrichPlaybackRefIfNeeded(track);
     final resolution = await _mediaResolver.resolve(
-      track: track,
+      track: playbackTrack,
       requestedQuality: quality,
       use: KugouMediaUse.playback,
     );
@@ -368,8 +370,9 @@ final class KugouMusicProvider implements MusicProvider {
     required AudioQuality quality,
   }) async {
     _requireCapability(ProviderCapability.resolveDownload);
+    final playbackTrack = await _enrichPlaybackRefIfNeeded(track);
     final resolution = await _mediaResolver.resolve(
-      track: track,
+      track: playbackTrack,
       requestedQuality: quality,
       use: KugouMediaUse.download,
     );
@@ -383,6 +386,262 @@ final class KugouMusicProvider implements MusicProvider {
       bytes: resolution.fileSize,
       fileExtension: resolution.format,
     );
+  }
+
+  Future<ProviderTrackRef> _enrichPlaybackRefIfNeeded(
+      ProviderTrackRef track) async {
+    if (!_shouldSearchEnrichPlayback(track)) {
+      return track;
+    }
+
+    final cacheKey = _playbackEnrichmentCacheKey(track);
+    final cached = _playbackRefEnrichmentCache[cacheKey];
+    if (cached != null) return cached;
+
+    final title = track.extraIds['searchTitle']?.trim() ?? '';
+    final artists = _splitSearchArtists(track.extraIds['searchArtists']);
+    final expectedMs = int.tryParse(
+          track.extraIds['expectedDurationMs']?.trim() ?? '',
+        ) ??
+        0;
+    if (title.isEmpty) return track;
+
+    try {
+      final query = [
+        title,
+        if (artists.isNotEmpty) artists.first,
+      ].join(' ');
+      final results = await _catalogApi.search(query, pageSize: 10);
+      final match = _bestPlaybackEnrichmentMatch(
+        results,
+        title: title,
+        artists: artists,
+        expectedDurationMs: expectedMs,
+      );
+      if (match == null) return track;
+
+      final enriched = _mergePlaybackEnrichment(track, match);
+      _playbackRefEnrichmentCache[cacheKey] = enriched;
+      _debugProvider(
+        'enrich ${_shortHash(track.trackId)} -> ${_shortHash(enriched.trackId)} '
+        'title="$title"',
+      );
+      return enriched;
+    } catch (e) {
+      _debugProvider('enrich skipped ${_shortHash(track.trackId)}: $e');
+      return track;
+    }
+  }
+
+  bool _shouldSearchEnrichPlayback(ProviderTrackRef track) {
+    if (track.providerId != descriptor.id) return false;
+    if (_hasHighTierHash(track.extraIds)) return false;
+    if ((track.extraIds['searchTitle'] ?? '').trim().isEmpty) return false;
+    return true;
+  }
+
+  bool _hasHighTierHash(Map<String, String> extraIds) {
+    for (final key in const ['sqHash', 'hqHash', 'resHash']) {
+      if (_isKugouHash(extraIds[key] ?? '')) return true;
+    }
+    return false;
+  }
+
+  KugouRemoteTrack? _bestPlaybackEnrichmentMatch(
+    List<KugouRemoteTrack> results, {
+    required String title,
+    required List<String> artists,
+    required int expectedDurationMs,
+  }) {
+    KugouRemoteTrack? best;
+    var bestScore = 0;
+    for (final result in results) {
+      if (!_remoteHasUsefulPlaybackHash(result)) continue;
+      final score = _scorePlaybackEnrichmentMatch(
+        result,
+        title: title,
+        artists: artists,
+        expectedDurationMs: expectedDurationMs,
+      );
+      if (score > bestScore) {
+        best = result;
+        bestScore = score;
+      }
+    }
+    return bestScore >= 85 ? best : null;
+  }
+
+  int _scorePlaybackEnrichmentMatch(
+    KugouRemoteTrack remote, {
+    required String title,
+    required List<String> artists,
+    required int expectedDurationMs,
+  }) {
+    final targetTitle = _normalizeSearchText(title);
+    final candidateTitle = _normalizeSearchText(remote.title);
+    if (targetTitle.isEmpty || candidateTitle.isEmpty) return 0;
+
+    var score = 0;
+    if (candidateTitle == targetTitle) {
+      score += 60;
+    } else if (candidateTitle.contains(targetTitle) ||
+        targetTitle.contains(candidateTitle)) {
+      score += 40;
+    } else {
+      return 0;
+    }
+
+    final targetArtists = artists.map(_normalizeSearchText).where(
+          (artist) =>
+              artist.isNotEmpty && artist != _normalizeSearchText('未知歌手'),
+        );
+    final candidateArtists =
+        remote.artists.map(_normalizeSearchText).where((artist) {
+      return artist.isNotEmpty && artist != _normalizeSearchText('未知歌手');
+    }).toList(growable: false);
+    var artistMatched = false;
+    for (final targetArtist in targetArtists) {
+      for (final candidateArtist in candidateArtists) {
+        if (candidateArtist == targetArtist ||
+            candidateArtist.contains(targetArtist) ||
+            targetArtist.contains(candidateArtist)) {
+          score += 25;
+          artistMatched = true;
+          break;
+        }
+      }
+    }
+    if (artists.isNotEmpty && candidateArtists.isNotEmpty && !artistMatched) {
+      return 0;
+    }
+
+    final candidateMs = remote.duration.inMilliseconds;
+    if (expectedDurationMs > 0 && candidateMs > 0) {
+      final diff = (candidateMs - expectedDurationMs).abs();
+      if (diff <= 3000) {
+        score += 35;
+      } else if (diff <= 10000) {
+        score += 15;
+      } else {
+        return 0;
+      }
+    }
+    return score;
+  }
+
+  bool _remoteHasUsefulPlaybackHash(KugouRemoteTrack remote) {
+    return _isKugouHash(remote.sqHash ?? '') ||
+        _isKugouHash(remote.hqHash ?? '') ||
+        _isKugouHash(remote.resHash ?? '') ||
+        _isKugouHash(remote.ogg320Hash ?? '') ||
+        _isKugouHash(remote.fileHash ?? '') ||
+        _isKugouHash(remote.rawHash ?? '') ||
+        _isKugouHash(remote.hash);
+  }
+
+  ProviderTrackRef _mergePlaybackEnrichment(
+    ProviderTrackRef original,
+    KugouRemoteTrack match,
+  ) {
+    final mapped = _trackMapper.map(match).ref;
+    final extraIds = <String, String>{...original.extraIds};
+    for (final key in const [
+      'sqHash',
+      'hqHash',
+      'resHash',
+      'ogg320Hash',
+      'fileHash',
+      'ogg128Hash',
+      'albumId',
+      'albumAudioId',
+      'mixSongId',
+      'rawHash',
+    ]) {
+      final value = mapped.extraIds[key]?.trim() ?? '';
+      if (value.isEmpty) continue;
+      if (key == 'fileHash' ||
+          key == 'ogg128Hash' ||
+          key == 'albumId' ||
+          key == 'albumAudioId' ||
+          key == 'mixSongId' ||
+          key == 'rawHash') {
+        extraIds.putIfAbsent(key, () => value);
+      } else {
+        extraIds[key] = value;
+      }
+    }
+
+    final primaryHash = _preferredPlaybackHash(
+      mapped.extraIds,
+      fallback: mapped.trackId,
+    );
+    return ProviderTrackRef(
+      providerId: original.providerId,
+      trackId: primaryHash.isEmpty ? original.trackId : primaryHash,
+      extraIds: extraIds,
+    );
+  }
+
+  String _preferredPlaybackHash(
+    Map<String, String> extraIds, {
+    required String fallback,
+  }) {
+    for (final value in [
+      extraIds['sqHash'],
+      extraIds['hqHash'],
+      extraIds['resHash'],
+      extraIds['ogg320Hash'],
+      fallback,
+      extraIds['fileHash'],
+      extraIds['rawHash'],
+      extraIds['ogg128Hash'],
+    ]) {
+      final hash = value?.trim().toLowerCase() ?? '';
+      if (_isKugouHash(hash)) return hash;
+    }
+    return '';
+  }
+
+  List<String> _splitSearchArtists(String? value) {
+    return (value ?? '')
+        .split('|')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  String _normalizeSearchText(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll(RegExp(r'[\s\-_.,，。:：;；!！?？()（）\[\]【】《》<>/\\]+'), '');
+  }
+
+  bool _isKugouHash(String value) {
+    return RegExp(r'^[a-fA-F0-9]{32}$').hasMatch(value.trim()) &&
+        value.trim() != '00000000000000000000000000000000';
+  }
+
+  String _playbackEnrichmentCacheKey(ProviderTrackRef track) {
+    return [
+      track.trackId,
+      track.extraIds['fileHash'] ?? '',
+      track.extraIds['rawHash'] ?? '',
+      track.extraIds['searchTitle'] ?? '',
+      track.extraIds['searchArtists'] ?? '',
+      track.extraIds['expectedDurationMs'] ?? '',
+    ].join('|');
+  }
+
+  void _debugProvider(String message) {
+    // ignore: avoid_print
+    print('KUGOU_PROVIDER: $message');
+  }
+
+  String _shortHash(String value) {
+    final normalized = value.trim();
+    if (normalized.length <= 8) return normalized.isEmpty ? '-' : normalized;
+    return normalized.substring(0, 8);
   }
 
   @override

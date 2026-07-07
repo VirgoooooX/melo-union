@@ -499,12 +499,12 @@ void main() {
         },
       );
 
-      final registry = FavoritesOverrideRegistry();
+      final ledger = LikedAtLedger();
       final olderEstimate = DateTime.utc(2026, 6, 30, 11);
       final newerEstimate = DateTime.utc(2026, 7, 1, 7);
       final appActionTime = DateTime.utc(2026, 6, 29, 9);
 
-      registry.recordLikedAt(
+      ledger.record(
         refV1,
         LikedAtMetadata(
           likedAt: olderEstimate,
@@ -512,7 +512,7 @@ void main() {
           precision: LikedAtMetadata.precisionUnknown,
         ),
       );
-      registry.recordLikedAt(
+      ledger.record(
         refV2,
         LikedAtMetadata(
           likedAt: newerEstimate,
@@ -521,11 +521,11 @@ void main() {
         ),
       );
 
-      expect(registry.likedAtTracking, hasLength(1));
-      expect(registry.likedAtFor(refV1)?.likedAt, newerEstimate);
-      expect(registry.likedAtFor(refV3)?.likedAt, newerEstimate);
+      expect(ledger.entries, hasLength(1));
+      expect(ledger.likedAtFor(refV1)?.likedAt, newerEstimate);
+      expect(ledger.likedAtFor(refV3)?.likedAt, newerEstimate);
 
-      registry.recordLikedAt(
+      ledger.record(
         refV3,
         LikedAtMetadata(
           likedAt: appActionTime,
@@ -534,10 +534,10 @@ void main() {
         ),
       );
 
-      expect(registry.likedAtTracking, hasLength(1));
-      expect(registry.likedAtFor(refV1)?.likedAt, appActionTime);
+      expect(ledger.entries, hasLength(1));
+      expect(ledger.likedAtFor(refV1)?.likedAt, appActionTime);
       expect(
-        registry.likedAtFor(refV2)?.source,
+        ledger.likedAtFor(refV2)?.source,
         LikedAtMetadata.sourceAppAction,
       );
     });
@@ -562,8 +562,8 @@ void main() {
       );
       final existingEstimate = DateTime.utc(2026, 6, 30, 11);
 
-      final registry = FavoritesOverrideRegistry()
-        ..recordLikedAt(
+      final ledger = LikedAtLedger()
+        ..record(
           oldRef,
           LikedAtMetadata(
             likedAt: existingEstimate,
@@ -572,9 +572,9 @@ void main() {
           ),
         );
 
-      expect(registry.likedAtFor(reimportedRef)?.likedAt, existingEstimate);
+      expect(ledger.likedAtFor(reimportedRef)?.likedAt, existingEstimate);
 
-      registry.recordLikedAt(
+      ledger.record(
         reimportedRef,
         LikedAtMetadata(
           likedAt: DateTime.utc(2026, 7, 1, 7),
@@ -583,8 +583,8 @@ void main() {
         ),
       );
 
-      expect(registry.likedAtTracking, hasLength(1));
-      expect(registry.likedAtTracking.keys.single, reimportedRef);
+      expect(ledger.entries, hasLength(1));
+      expect(ledger.entries.single.ref, reimportedRef);
     });
 
     test('reuses normalized QQ estimate when current ref shape changes',
@@ -610,8 +610,8 @@ void main() {
         },
       );
       final existingEstimate = DateTime.utc(2026, 6, 30, 11);
-      final overrides = FavoritesOverrideRegistry()
-        ..recordLikedAt(
+      final ledger = LikedAtLedger()
+        ..record(
           oldRef,
           LikedAtMetadata(
             likedAt: existingEstimate,
@@ -644,10 +644,10 @@ void main() {
       final result =
           await const UnifiedFavoritesService().buildAllFavoritesWithResult(
         StaticProviderRegistry([qqProvider]),
-        overrides: overrides,
+        likedAtLedger: ledger,
       );
 
-      expect(overrides.likedAtTracking, hasLength(1));
+      expect(ledger.entries, hasLength(1));
       final variant = result.tracks.single.variants.single;
       expect(variant.ref, currentRef);
       expect(variant.likedAt, existingEstimate);
@@ -672,8 +672,8 @@ void main() {
       );
       final estimate = DateTime.utc(2026, 6, 30, 11);
       final exact = DateTime.utc(2026, 7, 1, 8);
-      final overrides = FavoritesOverrideRegistry()
-        ..recordLikedAt(
+      final ledger = LikedAtLedger()
+        ..record(
           oldRef,
           LikedAtMetadata(
             likedAt: estimate,
@@ -707,13 +707,13 @@ void main() {
       final result =
           await const UnifiedFavoritesService().buildAllFavoritesWithResult(
         StaticProviderRegistry([qqProvider]),
-        overrides: overrides,
+        likedAtLedger: ledger,
       );
 
-      expect(overrides.likedAtTracking, hasLength(1));
-      expect(overrides.likedAtFor(oldRef)?.likedAt, estimate);
+      expect(ledger.entries, hasLength(1));
+      expect(ledger.likedAtFor(oldRef)?.likedAt, estimate);
       expect(
-        overrides.likedAtFor(currentRef)?.precision,
+        ledger.likedAtFor(currentRef)?.precision,
         LikedAtMetadata.precisionUnknown,
       );
       expect(result.tracks.single.variants.single.likedAt, estimate);
@@ -757,8 +757,8 @@ void main() {
         overrides: overrides,
       );
 
-      final metadata = overrides.likedAtFor(ref);
-      expect(metadata, isNull);
+      final ledger = LikedAtLedger();
+      expect(ledger.likedAtFor(ref), isNull);
       expect(result.tracks.single.variants.single.likedAt, isNull);
     });
 
@@ -776,8 +776,8 @@ void main() {
       );
       final estimate = DateTime.utc(2026, 7, 1, 8);
       final raw = DateTime.utc(2026, 7, 6, 12);
-      final overrides = FavoritesOverrideRegistry()
-        ..recordLikedAt(
+      final ledger = LikedAtLedger()
+        ..record(
           oldRef,
           LikedAtMetadata(
             likedAt: estimate,
@@ -811,11 +811,11 @@ void main() {
       final result =
           await const UnifiedFavoritesService().buildAllFavoritesWithResult(
         StaticProviderRegistry([kugouProvider]),
-        overrides: overrides,
+        likedAtLedger: ledger,
       );
 
-      expect(overrides.likedAtFor(oldRef)?.likedAt, estimate);
-      expect(overrides.likedAtFor(currentRef)?.source,
+      expect(ledger.likedAtFor(oldRef)?.likedAt, estimate);
+      expect(ledger.likedAtFor(currentRef)?.source,
           LikedAtMetadata.sourceKugouImport);
       expect(result.tracks.single.variants.single.likedAt, raw);
     });

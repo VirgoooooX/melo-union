@@ -209,11 +209,6 @@ class _FavoritesLibraryPanelState
   }
 }
 
-/// AnimatedList wrapper that applies diff-based insert/remove animations
-/// when [tracks] changes, enabling silent refresh with visual transitions.
-///
-/// Only handles pure additions and removals (the common case for favorites).
-/// Sort/query/filter changes fall through to a non-animated rebuild.
 class _SilentRefreshList extends StatefulWidget {
   const _SilentRefreshList({
     required this.tracks,
@@ -236,114 +231,34 @@ class _SilentRefreshList extends StatefulWidget {
 }
 
 class _SilentRefreshListState extends State<_SilentRefreshList> {
-  GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
-  final List<UnifiedFavoriteTrack> _items = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _items.addAll(widget.tracks);
-  }
-
-  @override
-  void didUpdateWidget(_SilentRefreshList oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (identical(oldWidget.tracks, widget.tracks)) return;
-    _applyDiff(widget.tracks);
-  }
-
-  void _applyDiff(List<UnifiedFavoriteTrack> newTracks) {
-    final newIds = newTracks.map((t) => t.unifiedId).toList();
-    final oldIds = _items.map((t) => t.unifiedId).toList();
-    if (_listEquals(newIds, oldIds)) return;
-
-    // Check if the relative order of common elements is preserved.
-    final commonOld = oldIds.where((id) => newIds.contains(id)).toList();
-    final commonNew = newIds.where((id) => oldIds.contains(id)).toList();
-    final orderChanged = !_listEquals(commonOld, commonNew);
-
-    // If items changed in more than simple add/remove (sort, filter, etc.),
-    // fall back to a non-animated rebuild.
-    final added = newIds.toSet().difference(oldIds.toSet());
-    final removed = oldIds.toSet().difference(newIds.toSet());
-    final hasMixOfAddAndRemove =
-        added.length + removed.length != (newIds.length - oldIds.length).abs();
-
-    if (orderChanged || hasMixOfAddAndRemove) {
-      // Complex change — rebuild silently.
-      _items
-        ..clear()
-        ..addAll(newTracks);
-      _listKey = GlobalKey<
-          AnimatedListState>(); // Force recreate AnimatedListState to match new items count
-      return;
-    }
-
-    // 1. Remove items (reverse order to keep indices valid).
-    for (int i = _items.length - 1; i >= 0; i--) {
-      if (!newIds.contains(_items[i].unifiedId)) {
-        final removed = _items[i];
-        _items.removeAt(i);
-        _listKey.currentState?.removeItem(
-          i,
-          (ctx, animation) => _AnimatedRemovingRow(
-            animation: animation,
-            track: removed,
-          ),
-          duration: const Duration(milliseconds: 300),
-        );
-      }
-    }
-
-    // 2. Insert new items.
-    final currentIds = _items.map((t) => t.unifiedId).toSet();
-    for (int i = 0; i < newTracks.length; i++) {
-      if (!currentIds.contains(newTracks[i].unifiedId)) {
-        _items.insert(i, newTracks[i]);
-        _listKey.currentState?.insertItem(
-          i,
-          duration: const Duration(milliseconds: 300),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return AnimatedList.separated(
-      key: _listKey,
+    return ListView.separated(
       controller: widget.scrollController,
       physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.symmetric(vertical: 4),
-      initialItemCount: _items.length,
-      separatorBuilder: (context, index, animation) => const Padding(
+      itemCount: widget.tracks.length,
+      separatorBuilder: (context, index) => const Padding(
         padding: EdgeInsets.symmetric(horizontal: 16),
         child: Divider(height: 1, color: MeloColors.border),
       ),
-      removedSeparatorBuilder: (context, index, animation) =>
-          const SizedBox.shrink(),
-      itemBuilder: (context, index, animation) {
-        if (index >= _items.length) return const SizedBox.shrink();
-        return _FavoriteRow(
-          index: index + 1,
-          track: _items[index],
-          providerId: widget.providerId,
-          onPlay: () => widget.onPlay(
-            _items,
-            _items[index],
-            widget.providerId,
+      itemBuilder: (context, index) {
+        final track = widget.tracks[index];
+        return KeyedSubtree(
+          key: ValueKey(track.unifiedId),
+          child: _FavoriteRow(
+            index: index + 1,
+            track: track,
+            providerId: widget.providerId,
+            onPlay: () => widget.onPlay(
+              widget.tracks,
+              track,
+              widget.providerId,
+            ),
           ),
         );
       },
     );
-  }
-
-  static bool _listEquals(List<String> a, List<String> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
   }
 }
 
@@ -469,34 +384,6 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
       }
     }
     return best ?? DateTime(1900);
-  }
-}
-
-/// Fade-out + height-collapse animation for removed rows.
-class _AnimatedRemovingRow extends StatelessWidget {
-  const _AnimatedRemovingRow({
-    required this.animation,
-    required this.track,
-  });
-
-  final Animation<double> animation;
-  final UnifiedFavoriteTrack track;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizeTransition(
-      sizeFactor: animation,
-      alignment: Alignment.topCenter,
-      child: FadeTransition(
-        opacity: animation,
-        child: _FavoriteRow(
-          index: 0,
-          track: track,
-          providerId: null,
-          onPlay: () async {},
-        ),
-      ),
-    );
   }
 }
 

@@ -22,6 +22,91 @@ final class QqMusicCredentials {
   final String cookie;
 
   bool get hasCookie => cookie.trim().isNotEmpty;
+
+  QqMusicCredentials normalized() {
+    return QqMusicCredentials(cookie: normalizeQqMusicCookie(cookie));
+  }
+
+  String? get validationError => validateQqMusicCookie(cookie);
+}
+
+String normalizeQqMusicCookie(String cookie) {
+  return _joinQqMusicCookies(
+    _normalizeQqMusicCookieMap(_parseQqMusicCookieHeader(cookie)),
+  );
+}
+
+String? validateQqMusicCookie(String cookie) {
+  final normalized = _normalizeQqMusicCookieMap(
+    _parseQqMusicCookieHeader(cookie),
+  );
+  final uin = normalized['uin'] ?? '';
+  final hasUin = RegExp(r'^o?\d+$', caseSensitive: false).hasMatch(uin);
+  final hasAuthKey = (normalized['qqmusic_key']?.trim().isNotEmpty ?? false) ||
+      (normalized['qm_keyst']?.trim().isNotEmpty ?? false) ||
+      (normalized['p_skey']?.trim().isNotEmpty ?? false);
+  if (!hasUin || !hasAuthKey) {
+    return 'QQ Music cookie must include uin and qqmusic_key/qm_keyst.';
+  }
+  return null;
+}
+
+Map<String, String> _parseQqMusicCookieHeader(String cookie) {
+  final result = <String, String>{};
+  for (final part in cookie.split(';')) {
+    final index = part.indexOf('=');
+    if (index <= 0) continue;
+    final key = part.substring(0, index).trim();
+    final value = part.substring(index + 1).trim();
+    if (key.isNotEmpty && value.isNotEmpty) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+Map<String, String> _normalizeQqMusicCookieMap(Map<String, String> cookies) {
+  final result = Map<String, String>.from(cookies);
+  result['uin'] = _firstNonEmptyCookieValue([
+    result['uin'],
+    result['ptui_loginuin'],
+    result['luin'],
+    result['pt2gguin'],
+    result['superuin'],
+    result['p_uin'],
+    result['musicid'],
+    result['userid'],
+    result['wxuin'],
+  ]);
+  final key = _firstNonEmptyCookieValue([
+    result['qqmusic_key'],
+    result['qm_keyst'],
+    result['p_skey'],
+    result['skey'],
+    result['musickey'],
+  ]);
+  if (key.isNotEmpty) {
+    result['qqmusic_key'] = key;
+    result['qm_keyst'] = key;
+  }
+  return result
+    ..removeWhere((key, value) => key.trim().isEmpty || value.trim().isEmpty);
+}
+
+String _joinQqMusicCookies(Map<String, String> cookies) {
+  final keys = cookies.keys.where((key) => key.trim().isNotEmpty).toList()
+    ..sort();
+  return [
+    for (final key in keys)
+      if ((cookies[key] ?? '').trim().isNotEmpty) '$key=${cookies[key]}',
+  ].join('; ');
+}
+
+String _firstNonEmptyCookieValue(List<String?> values) {
+  for (final value in values) {
+    if (value != null && value.trim().isNotEmpty) return value.trim();
+  }
+  return '';
 }
 
 final class QqMusicQrLoginOption {
@@ -76,7 +161,7 @@ final class QqMusicProvider implements MusicProvider {
     Uri? wxQrConnectUri,
     Uri? wxQrCheckUri,
     DateTime Function()? now,
-  })  : _credentials = credentials,
+  })  : _credentials = credentials?.normalized(),
         _client = client ?? http.Client(),
         _searchBaseUri = searchBaseUri ?? Uri.parse('https://c.y.qq.com'),
         _musicuUri =
@@ -1470,31 +1555,7 @@ final class QqMusicProvider implements MusicProvider {
   }
 
   Map<String, String> _normalizeQqMusicCookies(Map<String, String> cookies) {
-    final result = Map<String, String>.from(cookies);
-    result['uin'] = _firstNonEmpty([
-      result['uin'],
-      result['ptui_loginuin'],
-      result['luin'],
-      result['pt2gguin'],
-      result['superuin'],
-      result['p_uin'],
-      result['musicid'],
-      result['userid'],
-      result['wxuin'],
-    ]);
-    final key = _firstNonEmpty([
-      result['qqmusic_key'],
-      result['qm_keyst'],
-      result['p_skey'],
-      result['skey'],
-      result['musickey'],
-    ]);
-    if (key.isNotEmpty) {
-      result['qqmusic_key'] = key;
-      result['qm_keyst'] = key;
-    }
-    return result
-      ..removeWhere((key, value) => key.trim().isEmpty || value.trim().isEmpty);
+    return _normalizeQqMusicCookieMap(cookies);
   }
 
   Map<String, String> _wechatLoginDataCookies(Map<String, Object?> data) {
@@ -1543,12 +1604,7 @@ final class QqMusicProvider implements MusicProvider {
   }
 
   String _joinCookies(Map<String, String> cookies) {
-    final keys = cookies.keys.where((key) => key.trim().isNotEmpty).toList()
-      ..sort();
-    return [
-      for (final key in keys)
-        if ((cookies[key] ?? '').trim().isNotEmpty) '$key=${cookies[key]}',
-    ].join('; ');
+    return _joinQqMusicCookies(cookies);
   }
 
   String _firstNonEmpty(List<String?> values) {

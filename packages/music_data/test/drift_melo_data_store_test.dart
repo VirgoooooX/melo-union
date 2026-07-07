@@ -91,6 +91,7 @@ void main() {
           ),
         ],
         playbackQuality: AudioQuality.lossless,
+        downloadQuality: AudioQuality.high,
         volume: 0.42,
         favoritesOverrides: overrides,
       ),
@@ -107,6 +108,7 @@ void main() {
     expect(restored.downloadTasks.single.status, DownloadStatus.paused);
     expect(restored.downloadTasks.single.ticket, isNull);
     expect(restored.playbackQuality, AudioQuality.lossless);
+    expect(restored.downloadQuality, AudioQuality.high);
     expect(restored.volume, closeTo(0.42, 0.0001));
     expect(restored.localMediaItems.single.sourceRef, sourceRef);
     expect(restored.favoritesOverrides.shouldMerge(sourceRef, alternateRef),
@@ -128,6 +130,7 @@ void main() {
       MeloDataSnapshot(
         playlists: [LocalPlaylist(id: 'playlist_b', name: 'B')],
         playbackQuality: AudioQuality.high,
+        downloadQuality: AudioQuality.lossless,
       ),
     );
 
@@ -135,6 +138,7 @@ void main() {
     expect(restored.playlists.single.id, 'playlist_b');
     expect(restored.downloadTasks, isEmpty);
     expect(restored.playbackQuality, AudioQuality.high);
+    expect(restored.downloadQuality, AudioQuality.lossless);
     expect(restored.volume, 1.0);
 
     await store.clear();

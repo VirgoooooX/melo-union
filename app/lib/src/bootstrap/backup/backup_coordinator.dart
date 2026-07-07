@@ -129,6 +129,7 @@ final class BackupCoordinator {
         payload.accountVaultBytes!,
         accountPassword ?? '',
       );
+      await repository.reloadAccountSessions();
       restoredAccounts = true;
     }
 
@@ -240,7 +241,7 @@ final class BackupCoordinator {
     String two(int value) => value.toString().padLeft(2, '0');
     final stamp = '${local.year}${two(local.month)}${two(local.day)}-'
         '${two(local.hour)}${two(local.minute)}${two(local.second)}';
-    return 'melo-union-backup-$stamp.melobak';
+    return 'melo-union-backup-$stamp.zip';
   }
 
   Directory _defaultSupportRoot() {

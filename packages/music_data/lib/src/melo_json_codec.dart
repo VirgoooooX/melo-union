@@ -37,6 +37,7 @@ final class MeloJsonCodec {
           _encodeFavoriteProviderState(state),
       ],
       'playbackQuality': snapshot.playbackQuality.name,
+      'downloadQuality': snapshot.downloadQuality.name,
       'volume': snapshot.volume,
       'playbackPreferences': _encodePlaybackPreferences(
         snapshot.playbackPreferences,
@@ -69,19 +70,7 @@ final class MeloJsonCodec {
     for (final refJson in _listOfMaps(overridesJson['hiddenTracks'])) {
       overrides.hideTrack(_decodeTrackRef(refJson));
     }
-    for (final entry in _listOfMaps(overridesJson['likedAtTracking'])) {
-      final ref = _decodeTrackRef(_requiredMap(entry, 'ref'));
-      final meta = _stringKeyedMap(entry['metadata'] as Map<Object?, Object?>?);
-      overrides.recordLikedAt(
-        ref,
-        LikedAtMetadata(
-          likedAt: _optionalDateTime(meta['likedAt']?.toString()),
-          source: meta['source']?.toString() ?? LikedAtMetadata.sourceUnknown,
-          precision:
-              meta['precision']?.toString() ?? LikedAtMetadata.precisionUnknown,
-        ),
-      );
-    }
+    final legacyLikedAtTracking = _listOfMaps(overridesJson['likedAtTracking']);
     final likedAtLedger = LikedAtLedger(
       entries: [
         for (final item in _listOfMaps(json['favoriteLikedAtLedger']))
@@ -89,7 +78,14 @@ final class MeloJsonCodec {
       ],
     );
     if (likedAtLedger.isEmpty) {
-      likedAtLedger.seedFromLegacy(overrides);
+      for (final entry in legacyLikedAtTracking) {
+        likedAtLedger.record(
+          _decodeTrackRef(_requiredMap(entry, 'ref')),
+          _decodeLikedAtMetadata(
+            _stringKeyedMap(entry['metadata'] as Map<Object?, Object?>?),
+          ),
+        );
+      }
     }
 
     return MeloDataSnapshot(
@@ -118,6 +114,9 @@ final class MeloJsonCodec {
       ],
       playbackQuality: AudioQuality.values.byName(
         json['playbackQuality'] as String? ?? AudioQuality.standard.name,
+      ),
+      downloadQuality: AudioQuality.values.byName(
+        json['downloadQuality'] as String? ?? AudioQuality.standard.name,
       ),
       volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
       playbackPreferences: _decodePlaybackPreferences(

@@ -116,23 +116,12 @@ class _RecommendationsTabBar extends ConsumerWidget {
           ).shortName,
           leading: MeloPlatformIcon(providerId: entry.descriptor.id),
         ),
-      const ProviderTabItem(
-        id: 'more',
-        label: '更多平台',
-        trailing: Icons.keyboard_arrow_down_rounded,
-      ),
     ];
     return ProviderTabs(
       items: tabs,
       selectedId: selected,
       onSelected: (id) {
         ref.read(_selectedProviderIdProvider.notifier).state = id;
-      },
-      onMorePressed: () {
-        MeloSnackbar.show(
-          context: context,
-          message: '后续接入的推荐来源会显示在这里。',
-        );
       },
     );
   }
@@ -448,11 +437,6 @@ class _MobileRecommendationsView extends ConsumerWidget {
                     ).shortName,
                     leading: MeloPlatformIcon(providerId: entry.descriptor.id),
                   ),
-                const ProviderTabItem(
-                  id: 'more',
-                  label: '更多平台',
-                  trailing: Icons.keyboard_arrow_down_rounded,
-                ),
               ],
               selectedId: selected,
               onSelected: (id) {

@@ -7,7 +7,8 @@ extension UnifiedQueuePlayback on DemoRepository {
   /// Builds a queue from the currently visible unified favorites.
   ///
   /// Each unified row contributes its first playable source. Individual row
-  /// playback still retains the full source-variant queue used for fallback.
+  /// playback is intentionally single-track; it must not enqueue the visible
+  /// list unless the user explicitly presses play-all.
   Future<void> playUnifiedTracks(List<UnifiedFavoriteTrack> tracks) async {
     final sources = <SourceTrack>[
       for (final track in tracks)
@@ -18,29 +19,24 @@ extension UnifiedQueuePlayback on DemoRepository {
   }
 
   Future<void> playUnifiedTracksFrom(
-    List<UnifiedFavoriteTrack> tracks,
+    List<UnifiedFavoriteTrack> _,
     UnifiedFavoriteTrack selected, {
     String? providerId,
   }) async {
-    SourceTrack? sourceFor(UnifiedFavoriteTrack track) {
+    List<SourceTrack> playableVariantsFor(UnifiedFavoriteTrack track) {
       final variants = providerId == null
           ? track.variants
-          : track.variants
-              .where((variant) => variant.ref.providerId.value == providerId);
-      for (final variant in variants) {
-        if (variant.isPlayable) return variant;
-      }
-      return null;
+          : track.variants.where(
+              (variant) => variant.ref.providerId.value == providerId,
+            );
+      return variants.where((variant) => variant.isPlayable).toList();
     }
 
-    final sources = <SourceTrack>[
-      for (final track in tracks)
-        if (sourceFor(track) case final source?) source,
-    ];
-    final selectedSource = sourceFor(selected);
-    if (selectedSource == null) {
+    final selectedVariants = playableVariantsFor(selected);
+    if (selectedVariants.isEmpty) {
       return;
     }
-    await playTracksFrom(sources, selectedSource.ref);
+
+    await playTrack(selectedVariants.first);
   }
 }

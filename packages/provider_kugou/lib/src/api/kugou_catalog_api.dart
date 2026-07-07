@@ -17,23 +17,42 @@ final class KugouCatalogApi {
     if (query.trim().isEmpty) return const [];
 
     try {
-      final response = await _client.get(
-        Uri.parse('https://songsearch.kugou.com/song_search_v2').replace(
-          queryParameters: {
-            'keyword': query,
-            'page': page.toString(),
-            'pagesize': pageSize.toString(),
-            'platform': 'WebFilter',
+      Future<List<KugouRemoteTrack>> fetch({required bool withCookie}) async {
+        final response = await _client.get(
+          Uri.parse('http://songsearch.kugou.com/song_search_v2').replace(
+            queryParameters: {
+              'keyword': query,
+              'platform': 'WebFilter',
+              'format': 'json',
+              'page': page.toString(),
+              'pagesize': pageSize.toString(),
+              'userid': '-1',
+              'clientver': '',
+              'tag': 'em',
+              'filter': '2',
+              'iscorrection': '1',
+              'privilege_filter': '0',
+              '_': DateTime.now().millisecondsSinceEpoch.toString(),
+            },
+          ),
+          headers: const {
+            'User-Agent':
+                'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.162 Mobile Safari/537.36',
           },
-        ),
-      );
-      final data = _jsonMap(response['data']);
-      final list = data['lists'] as List<dynamic>? ?? const [];
-      return list
-          .whereType<Map<Object?, Object?>>()
-          .map((item) => _trackFromMap(_stringMap(item)))
-          .where((track) => track.hash.isNotEmpty)
-          .toList(growable: false);
+          attachSessionCookie: withCookie,
+        );
+        final data = _jsonMap(response['data']);
+        final list = data['lists'] as List<dynamic>? ?? const [];
+        return list
+            .whereType<Map<Object?, Object?>>()
+            .map((item) => _trackFromMap(_stringMap(item)))
+            .where((track) => track.hash.isNotEmpty)
+            .toList(growable: false);
+      }
+
+      final withCookie = await fetch(withCookie: true);
+      if (withCookie.isNotEmpty) return withCookie;
+      return fetch(withCookie: false);
     } catch (_) {
       return const [];
     }
@@ -177,6 +196,7 @@ final class KugouCatalogApi {
     final transParam = _jsonMap(map['trans_param']);
     final relateGoods = _listValue(map['relate_goods']);
     final hash = _bestPlayableHash(map, transParam, relateGoods);
+    final rawHash = _stringValue(map['Hash'] ?? map['hash'] ?? map['HASH']);
     final title = _stringValue(
       map['SongName'] ??
           map['songname'] ??
@@ -230,6 +250,7 @@ final class KugouCatalogApi {
             map['duration'] ??
             map['timelength'],
       ),
+      rawHash: _emptyToNull(rawHash),
       album: _stringValue(map['AlbumName'] ?? map['album_name']),
       albumId: albumId.isEmpty ? null : albumId,
       albumAudioId: albumAudioId.isEmpty ? null : albumAudioId,

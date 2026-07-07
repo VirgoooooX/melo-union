@@ -62,27 +62,57 @@ final class AccountVaultService {
     final qq = Map<String, Object?>.from(accounts['qq_music'] as Map? ?? {});
     final kugou = Map<String, Object?>.from(accounts['kugou'] as Map? ?? {});
 
+    final neteaseCredentials = _decodeNeteaseCredentials(netease);
+    final qqCredentials = _decodeQqMusicCredentials(qq);
+    final kugouSession = _decodeKugouSession(kugou);
+
+    if (neteaseCredentials != null) {
+      await neteaseSessionStore.write(neteaseCredentials);
+    } else {
+      await neteaseSessionStore.clear();
+    }
+    if (qqCredentials != null) {
+      await qqMusicSessionStore.write(qqCredentials);
+    } else {
+      await qqMusicSessionStore.clear();
+    }
+    if (kugouSession != null) {
+      await kugouSessionStore.write(kugouSession);
+    } else {
+      await kugouSessionStore.clear();
+    }
+  }
+
+  NeteaseCredentials? _decodeNeteaseCredentials(Map<String, Object?> netease) {
     final neteaseCookie = netease['cookie']?.toString();
     if (neteaseCookie != null && neteaseCookie.trim().isNotEmpty) {
-      await neteaseSessionStore.write(
-        NeteaseCredentials(
-          cookie: neteaseCookie,
-          userId: _blankToNull(netease['userId']?.toString()),
-        ),
+      return NeteaseCredentials(
+        cookie: neteaseCookie.trim(),
+        userId: _blankToNull(netease['userId']?.toString()),
       );
     }
+    return null;
+  }
 
+  QqMusicCredentials? _decodeQqMusicCredentials(Map<String, Object?> qq) {
     final qqCookie = qq['cookie']?.toString();
     if (qqCookie != null && qqCookie.trim().isNotEmpty) {
-      await qqMusicSessionStore.write(QqMusicCredentials(cookie: qqCookie));
+      final credentials = QqMusicCredentials(cookie: qqCookie).normalized();
+      final error = credentials.validationError;
+      if (error != null) {
+        throw FormatException(error);
+      }
+      return credentials;
     }
+    return null;
+  }
 
+  KugouSession? _decodeKugouSession(Map<String, Object?> kugou) {
     final sessionJson = kugou['session'];
     if (sessionJson is Map) {
-      await kugouSessionStore.write(
-        KugouSession.fromJson(Map<String, dynamic>.from(sessionJson)),
-      );
+      return KugouSession.fromJson(Map<String, dynamic>.from(sessionJson));
     }
+    return null;
   }
 
   Future<Map<String, Object?>> _readAccounts() async {
@@ -96,7 +126,7 @@ final class AccountVaultService {
     }
     final qq = await qqMusicSessionStore.read();
     if (qq?.hasCookie ?? false) {
-      accounts['qq_music'] = {'cookie': qq!.cookie};
+      accounts['qq_music'] = {'cookie': qq!.normalized().cookie};
     }
     final kugou = await kugouSessionStore.read();
     if (kugou != null) {

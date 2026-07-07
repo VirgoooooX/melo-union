@@ -59,11 +59,6 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
           leading: MeloPlatformIcon(providerId: entry.descriptor.id),
           enabled: false,
         ),
-      const ProviderTabItem(
-        id: 'more',
-        label: '更多平台',
-        trailing: Icons.keyboard_arrow_down_rounded,
-      ),
     ];
     final selected =
         tabs.any((item) => item.id == _selectedTab) ? _selectedTab : 'all';
@@ -89,12 +84,6 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
           _searchController.clear();
           setState(() => _query = '');
         },
-        onMorePressed: () {
-          MeloSnackbar.show(
-            context: context,
-            message: '后续接入的平台会在这里显示。',
-          );
-        },
         onPlayAll: () async {
           final favorites = ref.read(allFavoritesProvider);
           final tracks = favorites.maybeWhen(
@@ -118,12 +107,6 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
               tabs: tabs,
               selectedId: selected,
               onSelected: (value) => setState(() => _selectedTab = value),
-              onMorePressed: () {
-                MeloSnackbar.show(
-                  context: context,
-                  message: '后续接入的平台会在这里显示。',
-                );
-              },
             ),
             const SizedBox(height: 16),
             _FavoritesToolbar(
@@ -200,7 +183,6 @@ class _MobileAllFavoritesView extends StatelessWidget {
     required this.query,
     required this.onQueryChanged,
     required this.onClearQuery,
-    this.onMorePressed,
   });
 
   final List<ProviderTabItem> tabs;
@@ -215,7 +197,6 @@ class _MobileAllFavoritesView extends StatelessWidget {
   final String query;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback onClearQuery;
-  final VoidCallback? onMorePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -231,7 +212,6 @@ class _MobileAllFavoritesView extends StatelessWidget {
                 items: tabs,
                 selectedId: selected,
                 onSelected: onTabSelected,
-                onMorePressed: onMorePressed,
               ),
             ),
             Expanded(
@@ -481,13 +461,11 @@ class _FavoritesTopRail extends StatelessWidget {
     required this.tabs,
     required this.selectedId,
     required this.onSelected,
-    this.onMorePressed,
   });
 
   final List<ProviderTabItem> tabs;
   final String selectedId;
   final ValueChanged<String> onSelected;
-  final VoidCallback? onMorePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -497,7 +475,6 @@ class _FavoritesTopRail extends StatelessWidget {
         items: tabs,
         selectedId: selectedId,
         onSelected: onSelected,
-        onMorePressed: onMorePressed,
       ),
     );
   }

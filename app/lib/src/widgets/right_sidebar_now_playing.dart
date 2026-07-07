@@ -28,12 +28,6 @@ class RightSidebar extends ConsumerWidget {
                         fontWeight: FontWeight.w800,
                       ),
                 ),
-                const Spacer(),
-                IconButton(
-                  tooltip: '更多',
-                  onPressed: () {},
-                  icon: const Icon(Icons.more_horiz_rounded),
-                ),
               ],
             ),
             const SizedBox(height: 10),

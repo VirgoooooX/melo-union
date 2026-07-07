@@ -86,28 +86,13 @@ final class UnifiedFavoritesService {
       }
     }
 
-    final bridgeLegacyLedger = likedAtLedger == null && overrides != null;
     final ledger = likedAtLedger ?? LikedAtLedger();
-    if (bridgeLegacyLedger) {
-      ledger.seedFromLegacy(overrides);
-    }
-
-    final result = buildFromSnapshots(
+    return buildFromSnapshots(
       snapshots,
       failures: failures,
       overrides: overrides,
       likedAtLedger: ledger,
     );
-
-    if (bridgeLegacyLedger) {
-      overrides.likedAtTracking
-        ..clear()
-        ..addEntries(
-          ledger.entries.map((entry) => MapEntry(entry.ref, entry.metadata)),
-        );
-    }
-
-    return result;
   }
 
   UnifiedFavoritesResult buildFromSnapshots(

@@ -136,6 +136,7 @@ class DemoRepository extends ChangeNotifier {
         const PlaybackPreferencesSnapshot(),
     PlaybackQueueSnapshot? playbackQueue,
     String? downloadDirectory,
+    AudioQuality downloadQuality = AudioQuality.standard,
   })  : favoritesOverrideRegistry =
             favoritesOverrideRegistry ?? FavoritesOverrideRegistry(),
         favoriteLikedAtLedger = favoriteLikedAtLedger ?? LikedAtLedger(),
@@ -155,6 +156,7 @@ class DemoRepository extends ChangeNotifier {
         _restorePlaybackState = playbackPreferences.restorePlaybackState &&
             playbackPreferences.rememberQueue,
         _downloadDirectory = _normalizeConfiguredDirectory(downloadDirectory),
+        _downloadQuality = downloadQuality,
         _selectedPlaylistId = playlists.listPlaylists().isEmpty
             ? null
             : playlists.listPlaylists().first.id {
@@ -169,6 +171,7 @@ class DemoRepository extends ChangeNotifier {
     );
     _restorePlaybackQueue(playbackQueue);
     unawaited(_audioPlayer.setVolume(_volume));
+    unawaited(_syncAudioLoopMode());
     _audioPlayer.positionStream.listen((position) {
       _lastKnownPlaybackPosition = position;
       if (!_rememberQueue || !_restorePlaybackState) return;
@@ -365,6 +368,7 @@ class DemoRepository extends ChangeNotifier {
           snapshot?.playbackPreferences ?? const PlaybackPreferencesSnapshot(),
       playbackQueue: snapshot?.playbackQueue,
       downloadDirectory: snapshot?.downloadDirectory,
+      downloadQuality: snapshot?.downloadQuality ?? AudioQuality.standard,
     );
     final allSeededTracks = [
       for (final provider in additionalProviders.whereType<FakeMusicProvider>())
@@ -420,6 +424,7 @@ class DemoRepository extends ChangeNotifier {
   Duration? _pendingRestorePosition;
   DateTime? _lastPlaybackPositionPersistAt;
   String? _downloadDirectory;
+  AudioQuality _downloadQuality;
   List<ProviderTrackRef> _nativeAudioSourceRefs = const [];
   bool _updatingNativeAudioSource = false;
   bool _handlingNativeAudioIndexChange = false;
@@ -473,6 +478,9 @@ class DemoRepository extends ChangeNotifier {
 
   bool get hasKugouSession =>
       registry.find(kugouProviderId)?.isAuthenticated ?? false;
+
+  bool get hasAnyAccountSession =>
+      hasNeteaseSession || hasQqMusicSession || hasKugouSession;
 
   ProviderSessionAction? sessionActionFor(ProviderId providerId) {
     if (providerId == neteaseProviderId) {
@@ -711,6 +719,7 @@ class DemoRepository extends ChangeNotifier {
       favoriteProviderStates:
           _favoriteProviderStates.values.toList(growable: false),
       playbackQuality: playbackQuality,
+      downloadQuality: _downloadQuality,
       volume: volume,
       playbackPreferences: PlaybackPreferencesSnapshot(
         rememberQueue: _rememberQueue,
@@ -763,9 +772,11 @@ class DemoRepository extends ChangeNotifier {
     _restorePlaybackState = snapshot.playbackPreferences.restorePlaybackState &&
         snapshot.playbackPreferences.rememberQueue;
     _restorePlaybackQueue(snapshot.playbackQueue);
+    await _syncAudioLoopMode();
     _downloadDirectory = _normalizeConfiguredDirectory(
       snapshot.downloadDirectory,
     );
+    _downloadQuality = snapshot.downloadQuality;
     _favoritesVersion++;
     await persistNow();
     notifyListeners();
@@ -894,6 +905,7 @@ class DemoRepository extends ChangeNotifier {
   }
 
   String? get customDownloadDirectory => _downloadDirectory;
+  AudioQuality get downloadQuality => _downloadQuality;
 
   Future<String> downloadDirectoryPath() async {
     final directory = await _downloadRootDirectory();
@@ -906,6 +918,13 @@ class DemoRepository extends ChangeNotifier {
       await Directory(next).create(recursive: true);
     }
     _downloadDirectory = next;
+    _persistSoon();
+    notifyListeners();
+  }
+
+  Future<void> setDownloadQuality(AudioQuality quality) async {
+    if (_downloadQuality == quality) return;
+    _downloadQuality = quality;
     _persistSoon();
     notifyListeners();
   }
@@ -1089,6 +1108,24 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> reloadAccountSessions() async {
+    final neteaseCredentials = await neteaseSessionStore?.read();
+    _neteaseCredentials =
+        (neteaseCredentials?.hasCookie ?? false) ? neteaseCredentials : null;
+    _replaceNeteaseProvider(_neteaseCredentials);
+
+    final qqMusicCredentials = await qqMusicSessionStore?.read();
+    _qqMusicCredentials =
+        (qqMusicCredentials?.hasCookie ?? false) ? qqMusicCredentials : null;
+    _replaceQqMusicProvider(_qqMusicCredentials);
+
+    final kugouSession = await kugouSessionStore?.read();
+    _replaceKugouProvider(kugouSession);
+
+    _favoritesVersion++;
+    notifyListeners();
+  }
+
   Future<KugouQrLoginSession> createKugouQrLoginSession() {
     final provider = registry.find(kugouProviderId) as KugouMusicProvider;
     return provider.createQrLoginSession();
@@ -1232,14 +1269,15 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<void> saveQqMusicCredentials(QqMusicCredentials credentials) async {
-    if (!credentials.hasCookie) {
+    final normalizedCredentials = credentials.normalized();
+    if (!normalizedCredentials.hasCookie) {
       throw ArgumentError.value(
         credentials.cookie,
         'credentials.cookie',
         'QQ Music cookie must not be empty.',
       );
     }
-    final cookieProblem = _validateQqMusicCookie(credentials.cookie);
+    final cookieProblem = _validateQqMusicCookie(normalizedCredentials.cookie);
     if (cookieProblem != null) {
       throw ArgumentError.value(
         credentials.cookie,
@@ -1247,11 +1285,11 @@ class DemoRepository extends ChangeNotifier {
         cookieProblem,
       );
     }
-    await qqMusicSessionStore?.write(credentials);
-    _qqMusicCredentials = credentials;
+    await qqMusicSessionStore?.write(normalizedCredentials);
+    _qqMusicCredentials = normalizedCredentials;
     // Keep QQ liked-at records across cookie refreshes. The registry keys by
     // stable QQ song identity, so a re-import can recover the previous time.
-    _replaceQqMusicProvider(credentials);
+    _replaceQqMusicProvider(normalizedCredentials);
     notifyListeners();
   }
 
@@ -1265,16 +1303,7 @@ class DemoRepository extends ChangeNotifier {
   }
 
   String? _validateQqMusicCookie(String cookie) {
-    final hasUin =
-        RegExp(r'(^|;\s*)uin=o?\d+', caseSensitive: false).hasMatch(cookie);
-    final hasAuthKey = RegExp(
-      r'(^|;\s*)(qqmusic_key|qm_keyst|p_skey)=\S+',
-      caseSensitive: false,
-    ).hasMatch(cookie);
-    if (!hasUin || !hasAuthKey) {
-      return 'QQ Music cookie must include uin and qqmusic_key/qm_keyst.';
-    }
-    return null;
+    return validateQqMusicCookie(cookie);
   }
 
   Future<QqMusicQrLoginSession> createQqMusicQrLoginSession(
@@ -1323,7 +1352,10 @@ class DemoRepository extends ChangeNotifier {
     _rememberTracks(playableTracks);
     _clearPendingRestorePosition();
     playbackCoordinator.setQueue(playableTracks);
-    await playbackCoordinator.selectTrack(playableTracks.first.ref);
+    await _selectFirstResolvableTrack(
+      playableTracks,
+      preferredRef: playableTracks.first.ref,
+    );
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
     _persistPlaybackStateSoon();
@@ -1344,7 +1376,7 @@ class DemoRepository extends ChangeNotifier {
     _rememberTracks(playableTracks);
     _clearPendingRestorePosition();
     playbackCoordinator.setQueue(playableTracks);
-    await playbackCoordinator.selectTrack(selected);
+    await _selectFirstResolvableTrack(playableTracks, preferredRef: selected);
     _playingTrackId = null; // Force new playback
     await _syncNativePlayback(playWhenReady: true);
     _persistPlaybackStateSoon();
@@ -1357,16 +1389,7 @@ class DemoRepository extends ChangeNotifier {
         .toList(growable: false);
     if (playableVariants.isEmpty) return;
 
-    _rememberTracks(playableVariants);
-    _clearPendingRestorePosition();
-    playbackCoordinator.setQueue(playableVariants);
-    if (playableVariants.isNotEmpty) {
-      await playbackCoordinator.selectTrack(playableVariants.first.ref);
-    }
-    _playingTrackId = null; // Force new playback
-    await _syncNativePlayback(playWhenReady: true);
-    _persistPlaybackStateSoon();
-    notifyListeners();
+    await playTrack(playableVariants.first);
   }
 
   Future<void> playOrToggleUnifiedTrack(UnifiedFavoriteTrack track) async {
@@ -1440,6 +1463,23 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _selectFirstResolvableTrack(
+    List<SourceTrack> tracks, {
+    required ProviderTrackRef preferredRef,
+  }) async {
+    final refs = <ProviderTrackRef>[
+      preferredRef,
+      for (final track in tracks)
+        if (track.ref != preferredRef) track.ref,
+    ];
+    for (final ref in refs) {
+      await playbackCoordinator.selectTrack(ref);
+      if (playbackCoordinator.currentTicket != null) {
+        return;
+      }
+    }
+  }
+
   Future<void> playOrToggleQueueTrack(ProviderTrackRef ref) async {
     if (queue.current?.track.ref == ref) {
       await togglePlayPause();
@@ -1495,10 +1535,9 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addDownloadTask(SourceTrack track,
-      {AudioQuality quality = AudioQuality.standard}) {
+  void addDownloadTask(SourceTrack track, {AudioQuality? quality}) {
     _rememberTrack(track);
-    downloadCoordinator.addTask(track, quality: quality);
+    downloadCoordinator.addTask(track, quality: quality ?? _downloadQuality);
     _persistSoon();
     notifyListeners();
   }
@@ -1514,10 +1553,11 @@ class DemoRepository extends ChangeNotifier {
 
   Future<DownloadStatus?> downloadTrack(
     SourceTrack track, {
-    AudioQuality quality = AudioQuality.standard,
+    AudioQuality? quality,
   }) async {
     if (!canDownloadTrack(track)) return null;
     _rememberTrack(track);
+    final requestedQuality = quality ?? _downloadQuality;
 
     final existing = downloadCoordinator.getTask(track.ref);
     if (downloadCoordinator.isAvailableLocally(track.ref)) {
@@ -1533,7 +1573,7 @@ class DemoRepository extends ChangeNotifier {
         existing.status == DownloadStatus.failed ||
         existing.status == DownloadStatus.cancelled ||
         existing.status == DownloadStatus.completed) {
-      downloadCoordinator.addTask(track, quality: quality);
+      downloadCoordinator.addTask(track, quality: requestedQuality);
       _persistSoon();
       notifyListeners();
     }
@@ -1584,14 +1624,14 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<void> redownloadLocalMedia(ProviderTrackRef ref,
-      {AudioQuality quality = AudioQuality.standard}) {
+      {AudioQuality? quality}) {
     final track = sourceTrackByRef(ref);
     if (track == null) {
       removeLocalMedia(ref);
       return Future<void>.value();
     }
     downloadCoordinator.removeLocalItem(ref);
-    downloadCoordinator.addTask(track, quality: quality);
+    downloadCoordinator.addTask(track, quality: quality ?? _downloadQuality);
     _persistSoon();
     notifyListeners();
     return startDownload(ref);
@@ -1664,6 +1704,7 @@ class DemoRepository extends ChangeNotifier {
       PlaybackRepeatMode.all => PlaybackRepeatMode.one,
       PlaybackRepeatMode.one => PlaybackRepeatMode.off,
     };
+    unawaited(_applyRepeatModeChange());
     _persistPlaybackStateSoon();
     notifyListeners();
   }
@@ -1676,7 +1717,11 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _syncNativePlayback({required bool playWhenReady}) async {
+  Future<void> _syncNativePlayback({
+    required bool playWhenReady,
+    bool forceReload = false,
+    Duration? initialPosition,
+  }) async {
     final queue = playbackCoordinator.queueState;
     final current = queue.current?.track;
     final currentTicket = playbackCoordinator.currentTicket;
@@ -1695,7 +1740,7 @@ class DemoRepository extends ChangeNotifier {
 
     // Dedup: don't restart if the same track is already playing.
     final trackId = current.ref.trackId;
-    if (_playingTrackId == trackId && _audioPlayer.playing) {
+    if (!forceReload && _playingTrackId == trackId && _audioPlayer.playing) {
       return;
     }
 
@@ -1712,6 +1757,7 @@ class DemoRepository extends ChangeNotifier {
         }
         debugPrint('AUDIO: playing "${current.title}"');
         await _audioPlayer.stop();
+        await _syncAudioLoopMode();
         final nativeWindow =
             await _buildNativePlaybackWindow(queue, current, currentTicket);
         _nativeAudioSourceRefs = [
@@ -1727,16 +1773,14 @@ class DemoRepository extends ChangeNotifier {
                 ],
               );
         _updatingNativeAudioSource = true;
+        final startPosition = initialPosition ?? _pendingRestorePosition;
         await _audioPlayer.setAudioSource(
           audioSource,
           initialIndex: nativeWindow.currentIndex,
+          initialPosition: startPosition,
         );
-        final restorePosition = _pendingRestorePosition;
-        if (_restorePlaybackState &&
-            restorePosition != null &&
-            restorePosition > Duration.zero) {
-          await _audioPlayer.seek(restorePosition);
-          _lastKnownPlaybackPosition = restorePosition;
+        if (startPosition != null && startPosition > Duration.zero) {
+          _lastKnownPlaybackPosition = startPosition;
         }
         _pendingRestorePosition = null;
         _updatingNativeAudioSource = false;
@@ -1755,6 +1799,27 @@ class DemoRepository extends ChangeNotifier {
         );
       }
     }
+  }
+
+  Future<void> _syncAudioLoopMode() async {
+    const mode = LoopMode.off;
+    if (_audioPlayer.loopMode == mode) return;
+    try {
+      await _audioPlayer.setLoopMode(mode);
+    } catch (error) {
+      debugPrint('Failed to update audio loop mode: $error');
+    }
+  }
+
+  Future<void> _applyRepeatModeChange() async {
+    await _syncAudioLoopMode();
+    if (!isPlaybackActive || queue.current == null) return;
+    final position = _audioPlayer.position;
+    await _syncNativePlayback(
+      playWhenReady: true,
+      forceReload: true,
+      initialPosition: position,
+    );
   }
 
   Future<void> _handleNativeAudioIndexChange(ProviderTrackRef ref) async {
@@ -1776,6 +1841,13 @@ class DemoRepository extends ChangeNotifier {
     SourceTrack current,
     PlaybackTicket currentTicket,
   ) async {
+    if (_repeatMode == PlaybackRepeatMode.one) {
+      return _NativePlaybackWindow(
+        sources: [_NativePlaybackSource(track: current, ticket: currentTicket)],
+        currentIndex: 0,
+      );
+    }
+
     final sources = <_NativePlaybackSource>[];
     final previous = _previousTrackForNotification(queueState);
     if (previous != null) {
@@ -1817,13 +1889,54 @@ class DemoRepository extends ChangeNotifier {
       if (!provider.descriptor.supports(ProviderCapability.resolvePlayback)) {
         return null;
       }
-      return provider.createPlaybackTicket(
-        track: track.ref,
+      final ticket = await provider.createPlaybackTicket(
+        track: _resolutionRefForTrack(track),
         quality: playbackCoordinator.quality,
+      );
+      if (ticket.trackRef == track.ref) return ticket;
+      return PlaybackTicket(
+        mediaUri: ticket.mediaUri,
+        headers: ticket.headers,
+        expiresAt: ticket.expiresAt,
+        trackRef: track.ref,
+        quality: ticket.quality,
       );
     } catch (_) {
       return null;
     }
+  }
+
+  ProviderTrackRef _resolutionRefForTrack(SourceTrack track) {
+    final extraIds = <String, String>{...track.ref.extraIds};
+    if (track.title.trim().isNotEmpty) {
+      extraIds.putIfAbsent('searchTitle', () => track.title.trim());
+    }
+    if (track.artists.isNotEmpty) {
+      extraIds.putIfAbsent('searchArtists', () => track.artists.join('|'));
+    }
+    if (track.duration.inMilliseconds > 0) {
+      extraIds.putIfAbsent(
+        'expectedDurationMs',
+        () => track.duration.inMilliseconds.toString(),
+      );
+    }
+    if (_stringMapEquals(extraIds, track.ref.extraIds)) {
+      return track.ref;
+    }
+    return ProviderTrackRef(
+      providerId: track.ref.providerId,
+      trackId: track.ref.trackId,
+      extraIds: extraIds,
+    );
+  }
+
+  bool _stringMapEquals(Map<String, String> left, Map<String, String> right) {
+    if (identical(left, right)) return true;
+    if (left.length != right.length) return false;
+    for (final entry in left.entries) {
+      if (right[entry.key] != entry.value) return false;
+    }
+    return true;
   }
 
   SourceTrack? _previousTrackForNotification(PlaybackQueueState queueState) {

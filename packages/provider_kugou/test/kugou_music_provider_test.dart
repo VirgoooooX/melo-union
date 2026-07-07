@@ -168,6 +168,8 @@ void main() {
     expect(rawTrack.likedAt, rawLikedAt);
     expect(rawTrack.likedAtSource, 'kugou_raw');
     expect(rawTrack.likedAtPrecision, 'exact');
+    expect(rawTrack.ref.extraIds['searchTitle'], 'Raw');
+    expect(rawTrack.ref.extraIds['searchArtists'], 'Artist');
 
     final importedTrack = mapper.map(
       const KugouRemoteTrack(
@@ -378,6 +380,67 @@ void main() {
     expect(tracks.single.artwork.toString(), contains('/400/song.jpg'));
   });
 
+  test('Kugou provider enriches low private refs from search before playback',
+      () async {
+    const lowHash = '11111111111111111111111111111111';
+    const hqHash = '22222222222222222222222222222222';
+    final session = KugouSession(
+      userId: '12345',
+      token: 'mock_token',
+      deviceId: '-',
+      mid: 'mock_mid',
+      deviceFingerprint: 'mock_dfid',
+      installGuid: 'mock-guid',
+      installMac: 'mock-mac',
+      installDev: 'mock-dev',
+      updatedAt: DateTime.now(),
+    );
+    final requestedHashes = <String>[];
+    final provider = KugouMusicProvider.create(
+      secureStore: _MockSecureSessionStore()..session = session,
+      initialSession: session,
+      httpClient: _FakeClient((request) {
+        if (request.url.host == 'songsearch.kugou.com') {
+          expect(request.url.queryParameters['keyword'], 'Full Song Singer');
+          return _jsonResponse(
+            '{"data":{"lists":[{"SongName":"Full Song","SingerName":"Singer","Duration":270,"FileHash":"$lowHash","HQFileHash":"$hqHash","AlbumID":"123","AlbumAudioID":"456"}]}}',
+          );
+        }
+        if (request.url.host == 'gateway.kugou.com' &&
+            request.url.path == '/v5/url') {
+          final hash = request.url.queryParameters['hash'] ?? '';
+          requestedHashes.add(hash);
+          expect(hash, hqHash);
+          return _jsonResponse(
+            '{"status":1,"data":{"320":{"url":"https://sharefs.kugou.com/full.mp3","bitrate":320,"fileSize":12000000,"fileType":"mp3"}}}',
+          );
+        }
+        return http.Response('{}', 404);
+      }),
+    );
+    final track = ProviderTrackRef(
+      providerId: kugouProviderId,
+      trackId: lowHash,
+      extraIds: const {
+        'favoriteFileId': 'favorite-1',
+        'fileHash': lowHash,
+        'rawHash': lowHash,
+        'expectedDurationMs': '270000',
+        'searchTitle': 'Full Song',
+        'searchArtists': 'Singer',
+      },
+    );
+
+    final ticket = await provider.createPlaybackTicket(
+      track: track,
+      quality: AudioQuality.high,
+    );
+
+    expect(ticket.mediaUri.toString(), 'https://sharefs.kugou.com/full.mp3');
+    expect(ticket.trackRef, track);
+    expect(requestedHashes, [hqHash]);
+  });
+
   test('Kugou media resolver falls back to legacy playInfo URL', () async {
     final session = KugouSession(
       userId: '12345',
@@ -566,8 +629,7 @@ void main() {
     expect(resolution.url.toString(), 'https://sharefs.kugou.com/128.mp3');
   });
 
-  test('Kugou v5/url uses music-lib flac probe for app-cookie fallback',
-      () async {
+  test('Kugou v5/url uses music-lib flac probe for candidate hashes', () async {
     const hash = 'abcdef1234567890abcdef1234567890';
     final session = KugouSession(
       userId: '12345',
@@ -597,6 +659,7 @@ void main() {
             return http.Response('{"errcode":0,"url":""}', 200);
           }
           expect(request.url.path, '/v5/url');
+          expect(request.url.query, contains('module='));
           sentQuality = request.url.queryParameters['quality'];
           return _jsonResponse(
             '{"status":1,"data":{"128":{"url":"https://sharefs.kugou.com/128.mp3","bitrate":128}}}',
@@ -617,6 +680,246 @@ void main() {
 
     expect(sentQuality, 'flac');
     expect(resolution.url.toString(), 'https://sharefs.kugou.com/128.mp3');
+  });
+
+  test(
+      'Kugou favorite playback uses authenticated full variant before play/getdata',
+      () async {
+    const publicHash = '11111111111111111111111111111111';
+    const fileHash = 'abcdef1234567890abcdef1234567890';
+    const sqHash = 'fedcba9876543210fedcba9876543210';
+    final session = KugouSession(
+      userId: '12345',
+      token: 'mock_token',
+      deviceId: '-',
+      mid: 'mock_mid',
+      deviceFingerprint: 'mock_dfid',
+      installGuid: 'mock-guid',
+      installMac: 'mock-mac',
+      installDev: 'mock-dev',
+      updatedAt: DateTime.now(),
+    );
+    var playGetDataCalled = false;
+    String? firstV5Hash;
+    String? firstV5Quality;
+    final media = KugouMediaApi(
+      providerId: kugouProviderId,
+      client: KugouApiClient(
+        sessionManager: KugouSessionManager(
+          secureStore: _MockSecureSessionStore()..session = session,
+          initialSession: session,
+        ),
+        client: _FakeClient((request) {
+          if (request.url.host == 'wwwapi.kugou.com' &&
+              request.url.path == '/yy/index.php') {
+            playGetDataCalled = true;
+            return _jsonResponse(
+              '{"data":{"play_url":"https://sharefs.kugou.com/partial.mp3","bitrate":128,"filesize":123},"err_code":0}',
+            );
+          }
+          expect(request.url.host, 'gateway.kugou.com');
+          expect(request.url.path, '/v5/url');
+          firstV5Hash ??= request.url.queryParameters['hash'];
+          firstV5Quality ??= request.url.queryParameters['quality'];
+          return _jsonResponse(
+            '{"status":1,"data":{"128":{"url":"https://sharefs.kugou.com/full.mp3","bitrate":128,"fileSize":456}}}',
+          );
+        }),
+      ),
+    );
+
+    final resolution = await media.resolve(
+      track: ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: publicHash,
+        extraIds: const {
+          'albumId': '123',
+          'albumAudioId': '456',
+          'favoriteFileId': 'file-1',
+          'fileHash': fileHash,
+          'sqHash': sqHash,
+        },
+      ),
+      requestedQuality: AudioQuality.lossless,
+      use: KugouMediaUse.playback,
+    );
+
+    expect(resolution.url.toString(), 'https://sharefs.kugou.com/full.mp3');
+    expect(firstV5Hash, sqHash);
+    expect(firstV5Quality, 'flac');
+    expect(playGetDataCalled, isFalse);
+  });
+
+  test('Kugou v5/url ignores nested preview URLs when full quality URL exists',
+      () async {
+    const hash = 'abcdef1234567890abcdef1234567890';
+    final session = KugouSession(
+      userId: '12345',
+      token: 'mock_token',
+      deviceId: '-',
+      mid: 'mock_mid',
+      deviceFingerprint: 'mock_dfid',
+      installGuid: 'mock-guid',
+      installMac: 'mock-mac',
+      installDev: 'mock-dev',
+      updatedAt: DateTime.now(),
+    );
+    final media = KugouMediaApi(
+      providerId: kugouProviderId,
+      client: KugouApiClient(
+        sessionManager: KugouSessionManager(
+          secureStore: _MockSecureSessionStore()..session = session,
+          initialSession: session,
+        ),
+        client: _FakeClient((request) {
+          if (request.url.host == 'wwwapi.kugou.com') {
+            return http.Response(
+              '{"data":{},"status":0,"err_code":20010}',
+              200,
+            );
+          }
+          if (request.url.host == 'm.kugou.com') {
+            return http.Response('{"errcode":0,"url":""}', 200);
+          }
+          expect(request.url.path, '/v5/url');
+          return _jsonResponse(
+            '{"status":1,"data":{"free_part":{"url":"https://sharefs.kugou.com/preview.mp3"},"flac":{"url":"https://sharefs.kugou.com/full.flac","bitrate":1000,"fileSize":32000000}}}',
+          );
+        }),
+      ),
+    );
+
+    final resolution = await media.resolve(
+      track: ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: hash,
+        extraIds: const {'albumId': '123', 'albumAudioId': '456'},
+      ),
+      requestedQuality: AudioQuality.lossless,
+      use: KugouMediaUse.playback,
+    );
+
+    expect(resolution.url.toString(), 'https://sharefs.kugou.com/full.flac');
+    expect(resolution.quality, AudioQuality.lossless);
+    expect(resolution.format, 'flac');
+  });
+
+  test('Kugou v5/url prefers quality bucket over data preview URL', () async {
+    const hash = 'abcdef1234567890abcdef1234567890';
+    final session = KugouSession(
+      userId: '12345',
+      token: 'mock_token',
+      deviceId: '-',
+      mid: 'mock_mid',
+      deviceFingerprint: 'mock_dfid',
+      installGuid: 'mock-guid',
+      installMac: 'mock-mac',
+      installDev: 'mock-dev',
+      updatedAt: DateTime.now(),
+    );
+    final media = KugouMediaApi(
+      providerId: kugouProviderId,
+      client: KugouApiClient(
+        sessionManager: KugouSessionManager(
+          secureStore: _MockSecureSessionStore()..session = session,
+          initialSession: session,
+        ),
+        client: _FakeClient((request) {
+          if (request.url.host == 'wwwapi.kugou.com') {
+            return http.Response(
+              '{"data":{},"status":0,"err_code":20010}',
+              200,
+            );
+          }
+          if (request.url.host == 'm.kugou.com') {
+            return http.Response('{"errcode":0,"url":""}', 200);
+          }
+          expect(request.url.path, '/v5/url');
+          return _jsonResponse(
+            '{"status":1,"data":{"url":"https://sharefs.kugou.com/preview.mp3","flac":{"url":"https://sharefs.kugou.com/full.flac","bitrate":1000,"fileSize":32000000}}}',
+          );
+        }),
+      ),
+    );
+
+    final resolution = await media.resolve(
+      track: ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: hash,
+        extraIds: const {'albumId': '123', 'albumAudioId': '456'},
+      ),
+      requestedQuality: AudioQuality.lossless,
+      use: KugouMediaUse.playback,
+    );
+
+    expect(resolution.url.toString(), 'https://sharefs.kugou.com/full.flac');
+  });
+
+  test('Kugou fallback skips URLs too small for expected duration', () async {
+    const sqHash = 'fedcba9876543210fedcba9876543210';
+    const hqHash = 'abcdef1234567890abcdef1234567890';
+    final session = KugouSession(
+      userId: '12345',
+      token: 'mock_token',
+      deviceId: '-',
+      mid: 'mock_mid',
+      deviceFingerprint: 'mock_dfid',
+      installGuid: 'mock-guid',
+      installMac: 'mock-mac',
+      installDev: 'mock-dev',
+      updatedAt: DateTime.now(),
+    );
+    final triedHashes = <String>[];
+    final media = KugouMediaApi(
+      providerId: kugouProviderId,
+      client: KugouApiClient(
+        sessionManager: KugouSessionManager(
+          secureStore: _MockSecureSessionStore()..session = session,
+          initialSession: session,
+        ),
+        client: _FakeClient((request) {
+          if (request.url.host == 'wwwapi.kugou.com') {
+            return http.Response(
+              '{"data":{},"status":0,"err_code":20010}',
+              200,
+            );
+          }
+          if (request.url.host == 'm.kugou.com') {
+            return http.Response('{"errcode":0,"url":""}', 200);
+          }
+          if (request.url.path == '/v5/url') {
+            final hash = request.url.queryParameters['hash'] ?? '';
+            triedHashes.add(hash);
+            if (hash == sqHash) {
+              return _jsonResponse(
+                '{"status":1,"data":{"128":{"url":"https://sharefs.kugou.com/preview.mp3","bitrate":128,"fileSize":900000}}}',
+              );
+            }
+            return _jsonResponse(
+              '{"status":1,"data":{"320":{"url":"https://sharefs.kugou.com/full.mp3","bitrate":320,"fileSize":12000000}}}',
+            );
+          }
+          return _jsonResponse('{"status":0,"error_code":0,"data":{}}');
+        }),
+      ),
+    );
+
+    final resolution = await media.resolve(
+      track: ProviderTrackRef(
+        providerId: kugouProviderId,
+        trackId: sqHash,
+        extraIds: const {
+          'sqHash': sqHash,
+          'hqHash': hqHash,
+          'expectedDurationMs': '270000',
+        },
+      ),
+      requestedQuality: AudioQuality.standard,
+      use: KugouMediaUse.playback,
+    );
+
+    expect(resolution.url.toString(), 'https://sharefs.kugou.com/full.mp3');
+    expect(triedHashes, containsAllInOrder([sqHash, hqHash]));
   });
 
   test('Kugou v5/url 20006 falls back to signed v6 priv_url', () async {
