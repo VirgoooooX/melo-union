@@ -238,15 +238,10 @@ class _MeloTrackCoverState extends State<MeloTrackCover> {
           .round()
           .clamp(desktopLayout ? 144 : 128, desktopLayout ? 256 : 320)
           .toInt();
-      final requestUri = _meloHighResolutionArtworkUri(
+      final ImageProvider<Object> baseProvider = meloCachedArtworkProvider(
         artwork,
-        desktopLayout ? 640 : cacheSize,
+        targetPixels: desktopLayout ? 640 : cacheSize,
         highResolution: desktopLayout,
-      );
-      final ImageProvider<Object> baseProvider =
-          MeloFileCachedNetworkImageProvider(
-        requestUri.toString(),
-        headers: meloArtworkHeaders,
       );
       final imageProvider = ScrollAwareImageProvider<Object>(
         context: _scrollAwareContext,
@@ -701,16 +696,10 @@ class _MeloPlaylistCoverState extends State<MeloPlaylistCover> {
                   .clamp(desktopLayout ? 768 : 128, desktopLayout ? 1200 : 480)
                   .toInt()
               : decodedWidth;
-          final imageUri = _meloHighResolutionArtworkUri(
+          final ImageProvider<Object> baseProvider = meloCachedArtworkProvider(
             cover,
-            desktopLayout ? 1000 : decodedWidth ?? 480,
+            targetPixels: desktopLayout ? 1000 : decodedWidth ?? 480,
             highResolution: desktopLayout,
-          );
-
-          final ImageProvider<Object> baseProvider =
-              MeloFileCachedNetworkImageProvider(
-            imageUri.toString(),
-            headers: meloArtworkHeaders,
           );
           final imageProvider = ScrollAwareImageProvider<Object>(
             context: _scrollAwareContext,
@@ -757,7 +746,25 @@ class _MeloPlaylistCoverState extends State<MeloPlaylistCover> {
   }
 }
 
-Uri _meloHighResolutionArtworkUri(
+ImageProvider<Object> meloCachedArtworkProvider(
+  Uri artwork, {
+  required int targetPixels,
+  required bool highResolution,
+  int? cacheWidth,
+  int? cacheHeight,
+}) {
+  final provider = MeloFileCachedNetworkImageProvider(
+    meloArtworkRequestUri(
+      artwork,
+      targetPixels,
+      highResolution: highResolution,
+    ).toString(),
+    headers: meloArtworkHeaders,
+  );
+  return ResizeImage.resizeIfNeeded(cacheWidth, cacheHeight, provider);
+}
+
+Uri meloArtworkRequestUri(
   Uri artwork,
   int targetPixels, {
   required bool highResolution,
@@ -1643,7 +1650,8 @@ class MeloDialogControllerWrapper extends StatefulWidget {
   });
 
   final String? initialText;
-  final Widget Function(BuildContext context, TextEditingController controller) builder;
+  final Widget Function(BuildContext context, TextEditingController controller)
+      builder;
 
   @override
   State<MeloDialogControllerWrapper> createState() =>

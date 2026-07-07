@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -45,16 +46,26 @@ Future<void> showMeloFullScreenPlayer(
   );
 }
 
-class MeloFullScreenPlayer extends ConsumerWidget {
+class MeloFullScreenPlayer extends ConsumerStatefulWidget {
   const MeloFullScreenPlayer({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MeloFullScreenPlayer> createState() =>
+      _MeloFullScreenPlayerState();
+}
+
+class _MeloFullScreenPlayerState extends ConsumerState<MeloFullScreenPlayer> {
+  int? _lastArtworkPrecacheSignature;
+
+  @override
+  Widget build(BuildContext context) {
     final repository = ref.watch(demoRepositoryProvider);
-    final track = repository.queue.current?.track;
+    final queue = repository.queue;
+    final track = queue.current?.track;
     final mode = ref.watch(rightSidebarModeProvider);
     final useWindowChrome = MediaQuery.sizeOf(context).width >= 960;
     final windowRadius = useWindowChrome ? MeloRadii.window : BorderRadius.zero;
+    _scheduleArtworkPrecache(repository);
 
     return Material(
       color: Colors.transparent,
@@ -101,6 +112,54 @@ class MeloFullScreenPlayer extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _scheduleArtworkPrecache(DemoRepository repository) {
+    final tracks = _fullscreenPrecacheTracks(repository);
+    final signature = Object.hashAll(
+      tracks.expand(
+        (track) => [
+          track.ref.providerId.value,
+          track.ref.trackId,
+          track.artwork?.toString() ?? '',
+        ],
+      ),
+    );
+    if (_lastArtworkPrecacheSignature == signature) return;
+    _lastArtworkPrecacheSignature = signature;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final track in tracks) {
+        final artwork = track.artwork;
+        if (artwork == null || artwork.toString().isEmpty) continue;
+        unawaited(
+          precacheImage(
+            _fullscreenArtworkProvider(artwork),
+            context,
+          ).catchError((Object _) {}),
+        );
+      }
+    });
+  }
+
+  List<SourceTrack> _fullscreenPrecacheTracks(DemoRepository repository) {
+    final queue = repository.queue;
+    final entries = queue.entries;
+    final currentIndex = queue.currentIndex;
+    if (currentIndex < 0 || currentIndex >= entries.length) {
+      return const [];
+    }
+
+    final tracks = <SourceTrack>[entries[currentIndex].track];
+    final nextIndex = currentIndex + 1;
+    if (nextIndex < entries.length) {
+      tracks.add(entries[nextIndex].track);
+    } else if (repository.repeatMode == PlaybackRepeatMode.all &&
+        entries.length > 1) {
+      tracks.add(entries.first.track);
+    }
+    return tracks;
   }
 }
 
@@ -308,12 +367,14 @@ class _DynamicBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentTrack = track;
+    final artwork = currentTrack?.artwork;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 520),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
       child: Stack(
-        key: ValueKey(track?.artwork?.toString() ?? track?.title ?? 'empty'),
+        key: ValueKey(artwork?.toString() ?? currentTrack?.title ?? 'empty'),
         fit: StackFit.expand,
         children: [
           RepaintBoundary(
@@ -321,15 +382,16 @@ class _DynamicBackdrop extends StatelessWidget {
               imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
               child: Transform.scale(
                 scale: 1.12,
-                child: track?.artwork == null
-                    ? _BackdropPlaceholder(seed: track?.title ?? 'melo')
-                    : Image.network(
-                        track!.artwork!.toString(),
+                child: artwork == null || artwork.toString().isEmpty
+                    ? _BackdropPlaceholder(seed: currentTrack?.title ?? 'melo')
+                    : Image(
+                        image: _fullscreenArtworkProvider(artwork),
                         fit: BoxFit.cover,
                         filterQuality: FilterQuality.low,
-                        headers: meloArtworkHeaders,
-                        errorBuilder: (_, __, ___) =>
-                            _BackdropPlaceholder(seed: track?.title ?? 'melo'),
+                        gaplessPlayback: true,
+                        errorBuilder: (_, __, ___) => _BackdropPlaceholder(
+                          seed: currentTrack?.title ?? 'melo',
+                        ),
                       ),
               ),
             ),
@@ -417,6 +479,44 @@ class _BackdropPlaceholder extends StatelessWidget {
   }
 }
 
+class _MobileFullscreenBackButton extends StatelessWidget {
+  const _MobileFullscreenBackButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '返回',
+      child: Semantics(
+        button: true,
+        label: '返回',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .09),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Transform.translate(
+              offset: const Offset(-2, 0),
+              child: Icon(
+                Icons.chevron_left_rounded,
+                color: Colors.white.withValues(alpha: .72),
+                size: 30,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FullScreenHeader extends StatelessWidget {
   const _FullScreenHeader({required this.track});
 
@@ -436,11 +536,7 @@ class _FullScreenHeader extends StatelessWidget {
             children: [
               Align(
                 alignment: Alignment.centerLeft,
-                child: _GlassIconButton(
-                  tooltip: '返回',
-                  icon: Icons.chevron_left_rounded,
-                  buttonSize: 46,
-                  iconSize: 32,
+                child: _MobileFullscreenBackButton(
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ),
@@ -588,14 +684,22 @@ class _DesktopFullScreenLayout extends StatelessWidget {
 Widget _fullscreenArtwork(SourceTrack track) {
   final url = track.artwork;
   if (url != null && url.toString().isNotEmpty) {
-    return Image.network(
-      url.toString(),
+    return Image(
+      image: _fullscreenArtworkProvider(url),
       fit: BoxFit.cover,
-      headers: meloArtworkHeaders,
+      gaplessPlayback: true,
       errorBuilder: (_, __, ___) => _ArtworkPlaceholder(seed: track.title),
     );
   }
   return _ArtworkPlaceholder(seed: track.title);
+}
+
+ImageProvider<Object> _fullscreenArtworkProvider(Uri artwork) {
+  return meloCachedArtworkProvider(
+    artwork,
+    targetPixels: 1000,
+    highResolution: true,
+  );
 }
 
 class _DesktopAlbumStage extends StatelessWidget {
@@ -659,7 +763,7 @@ class _DesktopAlbumStage extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.white.withValues(alpha: .58),
                     fontWeight: FontWeight.w700,
-                    ),
+                  ),
             ),
             const SizedBox(height: MeloSpacing.md),
             Wrap(
@@ -2062,6 +2166,9 @@ class _GlassIconButton extends StatelessWidget {
         iconSize: iconSize ?? (large ? 34 : 24),
         style: IconButton.styleFrom(
           fixedSize: Size.square(size),
+          minimumSize: Size.square(size),
+          padding: EdgeInsets.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           backgroundColor: active
               ? (activeColor ?? Colors.white).withValues(alpha: .18)
               : Colors.white.withValues(alpha: .09),
