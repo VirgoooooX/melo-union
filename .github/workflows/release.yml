@@ -111,10 +111,11 @@ jobs:
 
       - name: Prepare Artifact
         run: |
+          tag="${{ needs.release-config.outputs.tag }}"
           mkdir -p dist-apk
-          mv app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist-apk/MeloUnion-Android-arm32.apk
-          mv app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist-apk/MeloUnion-Android-arm64.apk
-          mv app/build/app/outputs/flutter-apk/app-x86_64-release.apk dist-apk/MeloUnion-Android-x64.apk
+          mv app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "dist-apk/MeloUnion-${tag}-Android-arm32.apk"
+          mv app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "dist-apk/MeloUnion-${tag}-Android-arm64.apk"
+          mv app/build/app/outputs/flutter-apk/app-x86_64-release.apk "dist-apk/MeloUnion-${tag}-Android-x64.apk"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -152,40 +153,40 @@ jobs:
 
       - name: Compress Windows Build Folder
         run: |
-          Compress-Archive -Path app/build/windows/x64/runner/Release/* -DestinationPath MeloUnion-Windows-x64.zip
+          Compress-Archive -Path app/build/windows/x64/runner/Release/* -DestinationPath "MeloUnion-${{ needs.release-config.outputs.tag }}-Windows-x64.zip"
         shell: pwsh
 
       - name: Build MSIX Installer
         run: |
           cd app
           flutter pub run msix:create --install-certificate false
-          mv build/windows/x64/runner/Release/*.msix ../MeloUnion-Windows-Installer.msix
+          mv build/windows/x64/runner/Release/*.msix ../MeloUnion-${{ needs.release-config.outputs.tag }}-Windows-Installer.msix
         shell: bash
 
       - name: Compile .exe Installer (Inno Setup)
         run: |
-          iscc /dAppVersion="${{ needs.release-config.outputs.tag }}" tooling/installer.iss
+          iscc /dAppVersion="${{ needs.release-config.outputs.tag }}" /dOutputBaseFilename="MeloUnion-${{ needs.release-config.outputs.tag }}-Windows-Setup" tooling/installer.iss
         shell: cmd
 
       - name: Upload Windows Zip Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-zip
-          path: MeloUnion-Windows-x64.zip
+          path: MeloUnion-${{ needs.release-config.outputs.tag }}-Windows-x64.zip
           if-no-files-found: error
 
       - name: Upload Windows Installer Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-msix
-          path: MeloUnion-Windows-Installer.msix
+          path: MeloUnion-${{ needs.release-config.outputs.tag }}-Windows-Installer.msix
           if-no-files-found: error
 
       - name: Upload Windows Exe Setup Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: MeloUnion-Windows-Setup.exe
+          path: MeloUnion-${{ needs.release-config.outputs.tag }}-Windows-Setup.exe
           if-no-files-found: error
 
   create-release:
