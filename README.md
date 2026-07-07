@@ -150,8 +150,7 @@ melo-union/
 │   ├── provider_netease/       # 网易云适配包：实现登录、搜索、歌单喜欢与播放凭证解析
 │   ├── provider_qq/            # QQ 音乐适配包：实现签名、搜索、喜欢列表与播放凭证解析
 │   └── just_audio_windows_patched/ # 播放补丁：Windows 端 WinRT MediaPlayer 的本地 patches
-├── docs/                       # 系统架构、ADR、项目进度/debug 摘要及优化重构任务书
-│   └── project-log.md          # 大更新、优化、疑难 bug 修复的轻量总结
+├── docs/                       # 系统架构、ADR 记录及优化重构任务书
 └── README.md                   # 本说明文件
 ```
 
