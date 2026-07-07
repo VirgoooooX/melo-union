@@ -324,25 +324,17 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                 onTap: track.isPlayable
                     ? () => repository.playOrToggleTrack(track)
                     : null,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      () {
-                        final m =
-                            track.duration.inMinutes.toString().padLeft(2, '0');
-                        final s = track.duration.inSeconds
-                            .remainder(60)
-                            .toString()
-                            .padLeft(2, '0');
-                        return '$m:$s';
-                      }(),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: MeloColors.textSecondary,
-                            fontSize: 11,
-                          ),
-                    ),
-                    const SizedBox(width: MeloSpacing.xxs),
+                trailing: MeloMobileTrackTrailing(
+                  durationLabel: () {
+                    final m =
+                        track.duration.inMinutes.toString().padLeft(2, '0');
+                    final s = track.duration.inSeconds
+                        .remainder(60)
+                        .toString()
+                        .padLeft(2, '0');
+                    return '$m:$s';
+                  }(),
+                  actions: [
                     MeloTrackDownloadButton(track: track),
                     MeloFavoriteButton(track: track),
                   ],
@@ -535,36 +527,27 @@ class _LocalPlaylistTracks extends StatelessWidget {
                           onTap: trackPlayable
                               ? () => repository.playOrToggleTrack(track!)
                               : null,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              MeloPlatformIcon(
-                                  providerId: item.trackRef.providerId),
-                              const SizedBox(width: MeloSpacing.xs),
-                              Text(
-                                track != null
-                                    ? () {
-                                        final m = track.duration.inMinutes
-                                            .toString()
-                                            .padLeft(2, '0');
-                                        final s = track.duration.inSeconds
-                                            .remainder(60)
-                                            .toString()
-                                            .padLeft(2, '0');
-                                        return '$m:$s';
-                                      }()
-                                    : '--:--',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: MeloColors.textSecondary,
-                                      fontSize: 11,
-                                    ),
-                              ),
-                              const SizedBox(width: 4),
+                          trailing: MeloMobileTrackTrailing(
+                            providerIcon: MeloPlatformIcon(
+                              providerId: item.trackRef.providerId,
+                            ),
+                            durationLabel: track != null
+                                ? () {
+                                    final m = track.duration.inMinutes
+                                        .toString()
+                                        .padLeft(2, '0');
+                                    final s = track.duration.inSeconds
+                                        .remainder(60)
+                                        .toString()
+                                        .padLeft(2, '0');
+                                    return '$m:$s';
+                                  }()
+                                : '--:--',
+                            actions: [
                               if (track != null)
-                                MeloTrackDownloadButton(track: track),
+                                MeloTrackDownloadButton(track: track)
+                              else
+                                const SizedBox.shrink(),
                               IconButton(
                                 icon: const Icon(Icons.close_rounded, size: 20),
                                 color: MeloColors.textTertiary,

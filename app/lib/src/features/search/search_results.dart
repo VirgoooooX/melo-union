@@ -315,20 +315,12 @@ class _MobileSearchTrackRow extends ConsumerWidget {
       duration: track.duration,
       isActive: selected,
       onTap: playable ? () => repository.playOrToggleTrack(track) : null,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!playable) const _CatalogTag(),
-          if (playable)
-            Text(
-              _formatSearchDuration(track.duration),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: MeloColors.textTertiary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          const SizedBox(width: 4),
+      trailing: MeloMobileTrackTrailing(
+        duration: playable ? null : const _CatalogTag(),
+        durationLabel: playable ? _formatSearchDuration(track.duration) : null,
+        durationColor: MeloColors.textTertiary,
+        durationFontWeight: FontWeight.w700,
+        actions: [
           _SearchTrackActions(track: track),
         ],
       ),

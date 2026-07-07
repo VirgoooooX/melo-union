@@ -116,6 +116,75 @@ class MeloMobileTrackRow extends StatelessWidget {
   }
 }
 
+class MeloMobileTrackTrailing extends StatelessWidget {
+  const MeloMobileTrackTrailing({
+    this.providerIcon,
+    this.durationLabel,
+    this.duration,
+    this.durationColor = MeloColors.textSecondary,
+    this.durationFontWeight = FontWeight.w600,
+    this.actions = const [],
+    this.reserveProviderSlot = false,
+    super.key,
+  }) : assert(durationLabel != null || duration != null);
+
+  static const providerSlotWidth = 24.0;
+  static const durationSlotWidth = 42.0;
+  static const actionSlotWidth = 40.0;
+  static const slotHeight = 40.0;
+
+  final Widget? providerIcon;
+  final String? durationLabel;
+  final Widget? duration;
+  final Color durationColor;
+  final FontWeight durationFontWeight;
+  final List<Widget> actions;
+  final bool reserveProviderSlot;
+
+  @override
+  Widget build(BuildContext context) {
+    final durationChild = duration ??
+        Text(
+          durationLabel!,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          textAlign: TextAlign.right,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: durationColor,
+                fontSize: 11,
+                fontWeight: durationFontWeight,
+              ),
+        );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (providerIcon != null || reserveProviderSlot)
+          SizedBox(
+            width: providerSlotWidth,
+            height: slotHeight,
+            child: Center(child: providerIcon),
+          ),
+        SizedBox(
+          width: durationSlotWidth,
+          height: slotHeight,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: durationChild,
+          ),
+        ),
+        for (final action in actions)
+          SizedBox(
+            width: actionSlotWidth,
+            height: slotHeight,
+            child: Center(child: action),
+          ),
+      ],
+    );
+  }
+}
+
 class MeloDesktopTrackRow extends StatelessWidget {
   const MeloDesktopTrackRow({
     required this.index,

@@ -215,32 +215,17 @@ class _MobileFavoriteRow extends ConsumerWidget {
           unawaited(onPlay());
         }
       },
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (providerId == null) ...[
-            MeloPlatformIcon(providerId: primary.ref.providerId),
-            const SizedBox(width: 10),
-          ],
-          Text(
-            _formatMobileDuration(track.duration),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: MeloColors.textSecondary,
-                  fontSize: 11,
-                ),
-          ),
-          const SizedBox(width: 4),
-          SizedBox(
-            width: 40,
-            height: 40,
-            child: Center(
-              child: _MobileFavoriteActionsButton(
-                track: track,
-                primary: primary,
-                variants: variants,
-                hasFavorite: hasFavorite,
-              ),
-            ),
+      trailing: MeloMobileTrackTrailing(
+        providerIcon: providerId == null
+            ? MeloPlatformIcon(providerId: primary.ref.providerId)
+            : null,
+        durationLabel: _formatMobileDuration(track.duration),
+        actions: [
+          _MobileFavoriteActionsButton(
+            track: track,
+            primary: primary,
+            variants: variants,
+            hasFavorite: hasFavorite,
           ),
         ],
       ),

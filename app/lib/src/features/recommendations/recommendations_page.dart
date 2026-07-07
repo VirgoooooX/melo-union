@@ -644,17 +644,9 @@ class _MobileRecommendationsTracksGrid extends ConsumerWidget {
                         .read(demoRepositoryProvider)
                         .playOrToggleTrack(track)
                     : null,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _formatRecommendationDuration(track.duration),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: MeloColors.textSecondary,
-                            fontSize: 11,
-                          ),
-                    ),
-                    const SizedBox(width: 4),
+                trailing: MeloMobileTrackTrailing(
+                  durationLabel: _formatRecommendationDuration(track.duration),
+                  actions: [
                     MeloTrackDownloadButton(track: track, lightweight: true),
                     MeloFavoriteButton(track: track, lightweight: true),
                   ],
@@ -911,21 +903,11 @@ void _showPlaylistSheet(
                                       .read(demoRepositoryProvider)
                                       .playOrToggleTrack(track)
                                   : null,
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _formatRecommendationDuration(
-                                        track.duration),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: MeloColors.textSecondary,
-                                          fontSize: 11,
-                                        ),
-                                  ),
-                                  const SizedBox(width: 4),
+                              trailing: MeloMobileTrackTrailing(
+                                durationLabel: _formatRecommendationDuration(
+                                  track.duration,
+                                ),
+                                actions: [
                                   MeloTrackDownloadButton(
                                     track: track,
                                     lightweight: true,
