@@ -24,7 +24,7 @@ class _DesktopSidebar extends StatelessWidget {
     return Container(
       width: width,
       decoration: BoxDecoration(
-        color: meloShellChromeColor(0.46),
+        color: meloShellChromeColor(0.38),
         border: Border(
           right: BorderSide(
             color: MeloColors.border.withValues(alpha: 0.70),

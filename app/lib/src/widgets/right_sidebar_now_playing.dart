@@ -14,7 +14,7 @@ class RightSidebar extends ConsumerWidget {
         .watch(demoRepositoryProvider.select((r) => r.queue.entries.isEmpty));
     final mode = ref.watch(rightSidebarModeProvider);
     return Material(
-      color: meloShellChromeColor(0.42),
+      color: meloShellChromeColor(0.34),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 22, 18, 16),
         child: Column(

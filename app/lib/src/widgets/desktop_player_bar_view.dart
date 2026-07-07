@@ -16,7 +16,7 @@ class DesktopPlayerBar extends ConsumerWidget {
       height: MeloDimensions.desktopPlayerBarHeight,
       padding: const EdgeInsets.symmetric(horizontal: MeloSpacing.xl),
       decoration: BoxDecoration(
-        color: meloShellChromeColor(0.76),
+        color: meloShellChromeColor(0.68),
         border: Border(
           top: BorderSide(
             color: MeloColors.border.withValues(alpha: 0.78),

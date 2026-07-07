@@ -761,6 +761,11 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  void notifyFavoritesChanged() {
+    _favoritesVersion++;
+    notifyListeners();
+  }
+
   void toggleProviderAuthentication(ProviderId providerId) {
     if (providerId == neteaseProviderId) {
       clearNeteaseCredentials();

@@ -218,7 +218,7 @@ class _SilentRefreshList extends StatefulWidget {
 }
 
 class _SilentRefreshListState extends State<_SilentRefreshList> {
-  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   final List<UnifiedFavoriteTrack> _items = [];
 
   @override
@@ -239,16 +239,24 @@ class _SilentRefreshListState extends State<_SilentRefreshList> {
     final oldIds = _items.map((t) => t.unifiedId).toList();
     if (_listEquals(newIds, oldIds)) return;
 
+    // Check if the relative order of common elements is preserved.
+    final commonOld = oldIds.where((id) => newIds.contains(id)).toList();
+    final commonNew = newIds.where((id) => oldIds.contains(id)).toList();
+    final orderChanged = !_listEquals(commonOld, commonNew);
+
     // If items changed in more than simple add/remove (sort, filter, etc.),
     // fall back to a non-animated rebuild.
     final added = newIds.toSet().difference(oldIds.toSet());
     final removed = oldIds.toSet().difference(newIds.toSet());
-    if (added.length + removed.length !=
-        (newIds.length - oldIds.length).abs()) {
+    final hasMixOfAddAndRemove = added.length + removed.length !=
+        (newIds.length - oldIds.length).abs();
+
+    if (orderChanged || hasMixOfAddAndRemove) {
       // Complex change — rebuild silently.
       _items
         ..clear()
         ..addAll(newTracks);
+      _listKey = GlobalKey<AnimatedListState>(); // Force recreate AnimatedListState to match new items count
       return;
     }
 
