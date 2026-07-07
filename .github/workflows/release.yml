@@ -245,6 +245,8 @@ jobs:
               BEGIN {
                 version = tag
                 sub(/^v/, "", version)
+                tag_pattern = "^##[[:space:]]+\\[?" tag "\\]?([[:space:]]|$)"
+                version_pattern = "^##[[:space:]]+\\[?" version "\\]?([[:space:]]|$)"
                 in_section = 0
               }
               /^##[[:space:]]+/ {
@@ -252,10 +254,7 @@ jobs:
                   exit
                 }
                 heading = $0
-                if (
-                  heading ~ ("^##[[:space:]]+\\[?" tag "\\]?([[:space:]]|$)") ||
-                  heading ~ ("^##[[:space:]]+\\[?" version "\\]?([[:space:]]|$)")
-                ) {
+                if (heading ~ tag_pattern || heading ~ version_pattern) {
                   in_section = 1
                   next
                 }
