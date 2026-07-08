@@ -267,11 +267,13 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
     required this.selectedProviderId,
     required this.sort,
     required this.query,
+    required this.topPadding,
   });
 
   final String? selectedProviderId;
   final _FavoriteSort sort;
   final String query;
+  final double topPadding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -306,7 +308,7 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
     }
     return ListView.builder(
       key: PageStorageKey<String>('mobile_favorites_$selectedProviderId'),
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 156),
+      padding: EdgeInsets.fromLTRB(16, topPadding, 16, 156),
       physics: const AlwaysScrollableScrollPhysics(),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       scrollCacheExtent: const ScrollCacheExtent.pixels(192),

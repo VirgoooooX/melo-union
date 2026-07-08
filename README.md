@@ -25,13 +25,13 @@
 ## 📸 应用预览
 
 ### 1. 「全部喜欢」跨平台喜欢歌曲聚合视图
-![MeloUnion 全部喜欢](docs/images/PixPin_2026-07-01_20-00-35.png)
+![MeloUnion 全部喜欢](docs/images/desktop-favorites.png)
 
 ### 2. 个性化推荐与歌单广场（多来源混合推荐）
-![MeloUnion 个性化推荐](docs/images/PixPin_2026-07-01_20-01-23.png)
+![MeloUnion 个性化推荐](docs/images/desktop-recommendations.png)
 
 ### 3. 沉浸式唱片机全屏播放器（歌词与播放控制）
-![MeloUnion 全屏播放器](docs/images/PixPin_2026-07-01_20-01-54.png)
+![MeloUnion 全屏播放器](docs/images/desktop-player-full.png)
 
 ---
 
@@ -131,17 +131,21 @@ Android 端不是简单的桌面 UI 缩放版，而是围绕移动设备的使�
 
 <table>
   <tr>
-    <td align="center" width="33%">
-      <img src="docs/images/android-recommend.png" alt="MeloUnion Android 推荐页" width="240"><br>
+    <td align="center" width="25%">
+      <img src="docs/images/mobile-recommendations.jpg" alt="MeloUnion Android 推荐页" width="210"><br>
       <sub>移动端推荐</sub>
     </td>
-    <td align="center" width="33%">
-      <img src="docs/images/android-favorites.png" alt="MeloUnion Android 全部喜欢" width="240"><br>
+    <td align="center" width="25%">
+      <img src="docs/images/mobile-favorites.jpg" alt="MeloUnion Android 全部喜欢" width="210"><br>
       <sub>全部喜欢聚合</sub>
     </td>
-    <td align="center" width="33%">
-      <img src="docs/images/android-player-full.png" alt="MeloUnion Android 全屏播放器" width="240"><br>
-      <sub>全屏播放器</sub>
+    <td align="center" width="25%">
+      <img src="docs/images/mobile-playlists.jpg" alt="MeloUnion Android 云端歌单" width="210"><br>
+      <sub>云端歌单</sub>
+    </td>
+    <td align="center" width="25%">
+      <img src="docs/images/mobile-settings.jpg" alt="MeloUnion Android 我的页面" width="210"><br>
+      <sub>我的与来源</sub>
     </td>
   </tr>
 </table>

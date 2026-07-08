@@ -18,6 +18,11 @@ android/key.properties
 # Windows
 windows/flutter/ephemeral/
 docs
+!docs/
+docs/*
+!docs/images/
+!docs/images/desktop-*.png
+!docs/images/mobile-*.jpg
 # IDE
 .idea/
 .vscode/

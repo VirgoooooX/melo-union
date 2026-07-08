@@ -669,7 +669,7 @@ class _MobileRecommendationsTracksGrid extends ConsumerWidget {
   }
 }
 
-class _ShelfTabSelector extends StatelessWidget {
+class _ShelfTabSelector extends ConsumerWidget {
   const _ShelfTabSelector({
     required this.tabs,
     required this.selected,
@@ -681,23 +681,41 @@ class _ShelfTabSelector extends StatelessWidget {
   final ValueChanged<_ShelfTab> onSelected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     const double padding = 4;
     final int selectedIndex = tabs.indexOf(selected);
+    final accentProviderId = ref.watch(meloShellAccentProviderIdProvider);
+    final foreground = meloShellMobileDockForegroundColor(accentProviderId);
+    final selectorFill = Color.lerp(
+      meloShellTint(accentProviderId, 0.24),
+      foreground,
+      0.10,
+    )!;
+    final selectedFill = Color.lerp(
+      meloShellTint(accentProviderId, 0.40),
+      foreground,
+      0.34,
+    )!;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.hasBoundedWidth && constraints.maxWidth < 960
             ? constraints.maxWidth
             : 260.0;
         final safeTabs = tabs.isEmpty ? 1 : tabs.length;
-        final tabWidth = (width - 2 - (padding * 2)) / safeTabs;
+        final tabWidth = (width - (padding * 2)) / safeTabs;
         return Container(
           width: width,
           height: 44,
           decoration: BoxDecoration(
-            color: MeloColors.surfaceMuted,
+            color: selectorFill,
             borderRadius: MeloRadii.pill,
-            border: Border.all(color: MeloColors.border),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0F1C2736),
+                blurRadius: 16,
+                offset: Offset(0, 6),
+              ),
+            ],
           ),
           padding: const EdgeInsets.all(padding),
           child: Stack(
@@ -711,14 +729,14 @@ class _ShelfTabSelector extends StatelessWidget {
                 width: tabWidth,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: MeloColors.primary600,
+                    color: selectedFill,
                     borderRadius: MeloRadii.pill,
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
-                        color: Color(0x1F0AA69A),
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      )
+                        color: foreground.withValues(alpha: 0.14),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
                     ],
                   ),
                 ),
@@ -727,7 +745,12 @@ class _ShelfTabSelector extends StatelessWidget {
                 children: [
                   for (int i = 0; i < tabs.length; i++)
                     Expanded(
-                      child: _buildTab(context, tabs[i], selectedIndex == i),
+                      child: _buildTab(
+                        context,
+                        tabs[i],
+                        selectedIndex == i,
+                        foreground,
+                      ),
                     ),
                 ],
               ),
@@ -738,10 +761,14 @@ class _ShelfTabSelector extends StatelessWidget {
     );
   }
 
-  Widget _buildTab(BuildContext context, _ShelfTab tab, bool isSelected) {
-    final color = isSelected ? MeloColors.surface : MeloColors.textSecondary;
-    final beginColor =
-        isSelected ? MeloColors.textSecondary : MeloColors.surface;
+  Widget _buildTab(
+    BuildContext context,
+    _ShelfTab tab,
+    bool isSelected,
+    Color foreground,
+  ) {
+    final color = isSelected ? foreground : MeloColors.textSecondary;
+    final beginColor = isSelected ? MeloColors.textSecondary : foreground;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,

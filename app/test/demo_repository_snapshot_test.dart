@@ -328,7 +328,7 @@ void main() {
     expect(repository.queue.current?.track.ref, second.ref);
   });
 
-  test('DemoRepository repeat one keeps native loop off for manual restart',
+  test('DemoRepository repeat one uses native loop without reloading playback',
       () async {
     final repository = DemoRepository.seeded();
 
@@ -343,6 +343,11 @@ void main() {
     repository.cycleRepeatMode();
     await Future<void>.delayed(Duration.zero);
     expect(repository.repeatMode, PlaybackRepeatMode.one);
+    expect(repository.audioPlayer.loopMode, LoopMode.one);
+
+    repository.cycleRepeatMode();
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.repeatMode, PlaybackRepeatMode.off);
     expect(repository.audioPlayer.loopMode, LoopMode.off);
   });
 

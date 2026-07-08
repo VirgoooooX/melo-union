@@ -1802,7 +1802,8 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<void> _syncAudioLoopMode() async {
-    const mode = LoopMode.off;
+    final mode =
+        _repeatMode == PlaybackRepeatMode.one ? LoopMode.one : LoopMode.off;
     if (_audioPlayer.loopMode == mode) return;
     try {
       await _audioPlayer.setLoopMode(mode);
@@ -1813,13 +1814,6 @@ class DemoRepository extends ChangeNotifier {
 
   Future<void> _applyRepeatModeChange() async {
     await _syncAudioLoopMode();
-    if (!isPlaybackActive || queue.current == null) return;
-    final position = _audioPlayer.position;
-    await _syncNativePlayback(
-      playWhenReady: true,
-      forceReload: true,
-      initialPosition: position,
-    );
   }
 
   Future<void> _handleNativeAudioIndexChange(ProviderTrackRef ref) async {

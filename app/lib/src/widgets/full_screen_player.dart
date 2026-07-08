@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -10,7 +12,6 @@ import 'package:window_manager/window_manager.dart';
 
 import '../bootstrap/demo_repository.dart';
 import '../design/melo_tokens.dart';
-import 'glass_vinyl_record.dart';
 import 'lyrics_provider.dart';
 import 'melo_components.dart';
 import 'right_sidebar.dart';
@@ -56,6 +57,9 @@ class MeloFullScreenPlayer extends ConsumerStatefulWidget {
 
 class _MeloFullScreenPlayerState extends ConsumerState<MeloFullScreenPlayer> {
   int? _lastArtworkPrecacheSignature;
+  _ArtworkPalette _palette = _ArtworkPalette.fallback;
+  String? _paletteArtworkKey;
+  int _paletteRequestId = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +70,7 @@ class _MeloFullScreenPlayerState extends ConsumerState<MeloFullScreenPlayer> {
     final useWindowChrome = MediaQuery.sizeOf(context).width >= 960;
     final windowRadius = useWindowChrome ? MeloRadii.window : BorderRadius.zero;
     _scheduleArtworkPrecache(repository);
+    _schedulePaletteExtraction(track);
 
     return Material(
       color: Colors.transparent,
@@ -80,7 +85,13 @@ class _MeloFullScreenPlayerState extends ConsumerState<MeloFullScreenPlayer> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              DragToMoveArea(child: _DynamicBackdrop(track: track)),
+              DragToMoveArea(
+                child: _DynamicBackdrop(
+                  track: track,
+                  palette: _palette,
+                  isPlaying: repository.isPlaybackActive,
+                ),
+              ),
               SafeArea(
                 bottom: useWindowChrome,
                 child: LayoutBuilder(
@@ -90,11 +101,13 @@ class _MeloFullScreenPlayerState extends ConsumerState<MeloFullScreenPlayer> {
                         ? _MobileFullScreenLayout(
                             track: track,
                             repository: repository,
+                            palette: _palette,
                           )
                         : _DesktopFullScreenLayout(
                             track: track,
                             repository: repository,
                             mode: mode,
+                            palette: _palette,
                           );
                     return Column(
                       children: [
@@ -160,6 +173,192 @@ class _MeloFullScreenPlayerState extends ConsumerState<MeloFullScreenPlayer> {
       tracks.add(entries.first.track);
     }
     return tracks;
+  }
+
+  void _schedulePaletteExtraction(SourceTrack? track) {
+    final artwork = track?.artwork;
+    final key = artwork?.toString();
+    if (_paletteArtworkKey == key) return;
+    _paletteArtworkKey = key;
+
+    if (artwork == null || key == null || key.isEmpty) {
+      _palette = _ArtworkPalette.fallbackFor(track?.title ?? 'melo');
+      return;
+    }
+
+    final requestId = ++_paletteRequestId;
+    unawaited(
+      _extractArtworkPalette(artwork).then((palette) {
+        if (!mounted || requestId != _paletteRequestId) return;
+        setState(() => _palette = palette);
+      }).catchError((Object _) {
+        if (!mounted || requestId != _paletteRequestId) return;
+        setState(() => _palette = _ArtworkPalette.fallbackFor(track?.title));
+      }),
+    );
+  }
+}
+
+Future<_ArtworkPalette> _extractArtworkPalette(Uri artwork) async {
+  final provider = meloCachedArtworkProvider(
+    artwork,
+    targetPixels: 96,
+    highResolution: false,
+    cacheWidth: 96,
+    cacheHeight: 96,
+  );
+  final imageInfo = await _resolveArtworkImage(provider);
+  try {
+    final image = imageInfo.image;
+    final byteData = await image.toByteData(format: ImageByteFormat.rawRgba);
+    if (byteData == null) return _ArtworkPalette.fallback;
+    return _ArtworkPalette.fromPixels(
+      byteData.buffer.asUint8List(),
+      image.width,
+      image.height,
+    );
+  } finally {
+    imageInfo.dispose();
+  }
+}
+
+Future<ImageInfo> _resolveArtworkImage(ImageProvider<Object> provider) {
+  final completer = Completer<ImageInfo>();
+  final stream = provider.resolve(
+    const ImageConfiguration(size: Size(96, 96), devicePixelRatio: 1),
+  );
+  late final ImageStreamListener listener;
+  listener = ImageStreamListener(
+    (image, _) {
+      stream.removeListener(listener);
+      if (!completer.isCompleted) completer.complete(image);
+    },
+    onError: (error, stackTrace) {
+      stream.removeListener(listener);
+      if (!completer.isCompleted) {
+        completer.completeError(error, stackTrace);
+      }
+    },
+  );
+  stream.addListener(listener);
+  return completer.future.timeout(const Duration(seconds: 4));
+}
+
+final class _ArtworkPalette {
+  const _ArtworkPalette({
+    required this.base,
+    required this.dark,
+    required this.deep,
+    required this.glow,
+    required this.accent,
+    required this.disc,
+  });
+
+  static const fallback = _ArtworkPalette(
+    base: Color(0xFF0A4F73),
+    dark: Color(0xFF041426),
+    deep: Color(0xFF020817),
+    glow: Color(0xFF13D7E4),
+    accent: Color(0xFF66F4E8),
+    disc: Color(0xFF0A315C),
+  );
+
+  final Color base;
+  final Color dark;
+  final Color deep;
+  final Color glow;
+  final Color accent;
+  final Color disc;
+
+  static _ArtworkPalette fallbackFor(String? seed) {
+    final value =
+        (seed ?? 'melo').codeUnits.fold<int>(0, (sum, unit) => sum + unit);
+    final hue = (value % 360).toDouble();
+    return _ArtworkPalette.fromColor(
+      HSLColor.fromAHSL(1, hue, .54, .46).toColor(),
+    );
+  }
+
+  static _ArtworkPalette fromPixels(Uint8List pixels, int width, int height) {
+    if (pixels.isEmpty || width <= 0 || height <= 0) return fallback;
+
+    var red = 0.0;
+    var green = 0.0;
+    var blue = 0.0;
+    var total = 0.0;
+    final pixelCount = width * height;
+    final step = (pixelCount / 2400).ceil().clamp(1, 18);
+
+    for (var pixel = 0; pixel < pixelCount; pixel += step) {
+      final offset = pixel * 4;
+      if (offset + 3 >= pixels.length) break;
+      final alpha = pixels[offset + 3];
+      if (alpha < 96) continue;
+
+      final r = pixels[offset];
+      final g = pixels[offset + 1];
+      final b = pixels[offset + 2];
+      final color = Color.fromARGB(255, r, g, b);
+      final hsl = HSLColor.fromColor(color);
+      final saturation = hsl.saturation;
+      final lightness = hsl.lightness;
+      var weight = .2 + saturation;
+      if (lightness < .12 || lightness > .9) weight *= .35;
+      red += r * weight;
+      green += g * weight;
+      blue += b * weight;
+      total += weight;
+    }
+
+    if (total <= 0) return fallback;
+    return _ArtworkPalette.fromColor(
+      Color.fromARGB(
+        255,
+        (red / total).round().clamp(0, 255),
+        (green / total).round().clamp(0, 255),
+        (blue / total).round().clamp(0, 255),
+      ),
+    );
+  }
+
+  static _ArtworkPalette fromColor(Color source) {
+    final hsl = HSLColor.fromColor(source);
+    final saturation = (hsl.saturation * 1.28).clamp(.34, .82).toDouble();
+    final hue = hsl.hue;
+    final base = hsl
+        .withSaturation(saturation)
+        .withLightness(hsl.lightness.clamp(.34, .54).toDouble())
+        .toColor();
+    final dark = hsl
+        .withSaturation((saturation * .92).clamp(.28, .72).toDouble())
+        .withLightness(.16)
+        .toColor();
+    final deep = hsl
+        .withSaturation((saturation * .72).clamp(.22, .58).toDouble())
+        .withLightness(.055)
+        .toColor();
+    final glow = hsl
+        .withHue((hue + 16) % 360)
+        .withSaturation((saturation * 1.12).clamp(.42, .9).toDouble())
+        .withLightness(.58)
+        .toColor();
+    final accent = hsl
+        .withHue((hue + 34) % 360)
+        .withSaturation((saturation * 1.18).clamp(.48, .92).toDouble())
+        .withLightness(.66)
+        .toColor();
+    final disc = hsl
+        .withSaturation((saturation * .72).clamp(.24, .6).toDouble())
+        .withLightness(.24)
+        .toColor();
+    return _ArtworkPalette(
+      base: base,
+      dark: dark,
+      deep: deep,
+      glow: glow,
+      accent: accent,
+      disc: disc,
+    );
   }
 }
 
@@ -361,9 +560,15 @@ class _MiniPlayerProgress extends StatelessWidget {
 }
 
 class _DynamicBackdrop extends StatelessWidget {
-  const _DynamicBackdrop({required this.track});
+  const _DynamicBackdrop({
+    required this.track,
+    required this.palette,
+    required this.isPlaying,
+  });
 
   final SourceTrack? track;
+  final _ArtworkPalette palette;
+  final bool isPlaying;
 
   @override
   Widget build(BuildContext context) {
@@ -379,9 +584,9 @@ class _DynamicBackdrop extends StatelessWidget {
         children: [
           RepaintBoundary(
             child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+              imageFilter: ImageFilter.blur(sigmaX: 46, sigmaY: 46),
               child: Transform.scale(
-                scale: 1.12,
+                scale: 1.18,
                 child: artwork == null || artwork.toString().isEmpty
                     ? _BackdropPlaceholder(seed: currentTrack?.title ?? 'melo')
                     : Image(
@@ -396,54 +601,63 @@ class _DynamicBackdrop extends StatelessWidget {
               ),
             ),
           ),
-          DecoratedBox(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 720),
+            curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  const Color(0xFF020817).withValues(alpha: .88),
-                  const Color(0xFF051C43).withValues(alpha: .74),
-                  const Color(0xFF052B62).withValues(alpha: .62),
-                  const Color(0xFF03101F).withValues(alpha: .88),
+                  palette.deep.withValues(alpha: .9),
+                  palette.dark.withValues(alpha: .76),
+                  palette.base.withValues(alpha: .48),
+                  palette.deep.withValues(alpha: .92),
                 ],
                 stops: const [0, .34, .68, 1],
               ),
             ),
           ),
-          DecoratedBox(
+          _BackdropMotionOverlay(palette: palette, isPlaying: isPlaying),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 720),
+            curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0, .76),
-                radius: .88,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF2EA8FF).withValues(alpha: .42),
-                  const Color(0xFF0E5EB8).withValues(alpha: .18),
-                  Colors.transparent,
+                  Colors.black.withValues(alpha: .24),
+                  palette.dark.withValues(alpha: .12),
+                  Colors.black.withValues(alpha: .48),
                 ],
-                stops: const [0, .42, 1],
+                stops: const [0, .52, 1],
               ),
             ),
           ),
-          DecoratedBox(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 720),
+            curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
               gradient: RadialGradient(
-                center: const Alignment(-.72, -.42),
-                radius: .96,
+                center: const Alignment(-.74, -.54),
+                radius: 1.05,
                 colors: [
-                  const Color(0xFF13F2FF).withValues(alpha: .16),
+                  palette.accent.withValues(alpha: .17),
                   Colors.transparent,
                 ],
               ),
             ),
           ),
-          DecoratedBox(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 720),
+            curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
               gradient: RadialGradient(
                 center: const Alignment(.82, .12),
                 radius: .86,
                 colors: [
-                  const Color(0xFF6BAEFF).withValues(alpha: .15),
+                  palette.glow.withValues(alpha: .13),
                   Colors.transparent,
                 ],
               ),
@@ -451,6 +665,98 @@ class _DynamicBackdrop extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BackdropMotionOverlay extends StatefulWidget {
+  const _BackdropMotionOverlay({
+    required this.palette,
+    required this.isPlaying,
+  });
+
+  final _ArtworkPalette palette;
+  final bool isPlaying;
+
+  @override
+  State<_BackdropMotionOverlay> createState() => _BackdropMotionOverlayState();
+}
+
+class _BackdropMotionOverlayState extends State<_BackdropMotionOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 18),
+    );
+    if (widget.isPlaying) _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BackdropMotionOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isPlaying && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.isPlaying && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Transform.rotate(
+              angle: _controller.value * 6.283185307179586,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: SweepGradient(
+                    center: Alignment.center,
+                    colors: [
+                      Colors.transparent,
+                      widget.palette.glow.withValues(alpha: .18),
+                      Colors.transparent,
+                      widget.palette.accent.withValues(alpha: .11),
+                      Colors.transparent,
+                    ],
+                    stops: const [0, .18, .36, .62, 1],
+                  ),
+                ),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(.1, .82),
+                  radius: .94,
+                  colors: [
+                    widget.palette.glow.withValues(
+                      alpha: widget.isPlaying ? .36 : .2,
+                    ),
+                    widget.palette.base.withValues(alpha: .14),
+                    Colors.transparent,
+                  ],
+                  stops: const [0, .42, 1],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -607,11 +913,13 @@ class _DesktopFullScreenLayout extends StatelessWidget {
     required this.track,
     required this.repository,
     required this.mode,
+    required this.palette,
   });
 
   final SourceTrack? track;
   final DemoRepository repository;
   final RightSidebarMode mode;
+  final _ArtworkPalette palette;
 
   @override
   Widget build(BuildContext context) {
@@ -636,6 +944,7 @@ class _DesktopFullScreenLayout extends StatelessWidget {
                           track: track,
                           repository: repository,
                           recordSize: recordSize,
+                          palette: palette,
                         ),
                       ),
                     ),
@@ -680,7 +989,7 @@ class _DesktopFullScreenLayout extends StatelessWidget {
   }
 }
 
-/// 为 [GlassVinylRecord] 构建专辑封面 widget
+/// 为全屏封面舞台构建专辑封面 widget。
 Widget _fullscreenArtwork(SourceTrack track) {
   final url = track.artwork;
   if (url != null && url.toString().isNotEmpty) {
@@ -702,16 +1011,277 @@ ImageProvider<Object> _fullscreenArtworkProvider(Uri artwork) {
   );
 }
 
+class _FullscreenArtworkStage extends StatefulWidget {
+  const _FullscreenArtworkStage({
+    required this.track,
+    required this.palette,
+    required this.isPlaying,
+    required this.size,
+    super.key,
+  });
+
+  final SourceTrack track;
+  final _ArtworkPalette palette;
+  final bool isPlaying;
+  final double size;
+
+  @override
+  State<_FullscreenArtworkStage> createState() =>
+      _FullscreenArtworkStageState();
+}
+
+class _FullscreenArtworkStageState extends State<_FullscreenArtworkStage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 28),
+    );
+    if (widget.isPlaying) _controller.repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant _FullscreenArtworkStage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isPlaying && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.isPlaying && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = widget.size;
+    final stageSize = size + 42;
+    final coverSize = (size * .76).clamp(176.0, 292.0);
+    final radius = BorderRadius.circular(coverSize * .105);
+
+    return SizedBox(
+      width: stageSize,
+      height: stageSize,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final pulse = widget.isPlaying
+              ? .88 + math.sin(_controller.value * math.pi * 2) * .12
+              : .58;
+          return Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _FullscreenArtworkHaloPainter(
+                    palette: widget.palette,
+                    progress: _controller.value,
+                    pulse: pulse,
+                    isPlaying: widget.isPlaying,
+                  ),
+                ),
+              ),
+              Transform.rotate(
+                angle: _controller.value * math.pi * 2,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: radius,
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.palette.deep.withValues(alpha: .54),
+                        blurRadius: 44,
+                        offset: const Offset(0, 24),
+                      ),
+                      BoxShadow(
+                        color: widget.palette.glow.withValues(
+                          alpha: widget.isPlaying ? .34 : .18,
+                        ),
+                        blurRadius: 32,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: radius,
+                    child: SizedBox.square(
+                      dimension: coverSize,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _fullscreenArtwork(widget.track),
+                          IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: radius,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: .18),
+                                  width: 1.2,
+                                ),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.white.withValues(alpha: .16),
+                                    Colors.transparent,
+                                    Colors.black.withValues(alpha: .18),
+                                  ],
+                                  stops: const [0, .38, 1],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              IgnorePointer(
+                child: Transform.rotate(
+                  angle: -_controller.value * math.pi * 2,
+                  child: CustomPaint(
+                    size: Size.square(coverSize + 34),
+                    painter: _FullscreenCoverNeedlePainter(
+                      color: widget.palette.accent.withValues(
+                        alpha: widget.isPlaying ? .68 : .36,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _FullscreenArtworkHaloPainter extends CustomPainter {
+  const _FullscreenArtworkHaloPainter({
+    required this.palette,
+    required this.progress,
+    required this.pulse,
+    required this.isPlaying,
+  });
+
+  final _ArtworkPalette palette;
+  final double progress;
+  final double pulse;
+  final bool isPlaying;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide * .42;
+
+    final fog = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          palette.glow.withValues(alpha: .2 * pulse),
+          palette.base.withValues(alpha: .1 * pulse),
+          Colors.transparent,
+        ],
+        stops: const [0, .52, 1],
+      ).createShader(Rect.fromCircle(center: center, radius: radius * 1.32));
+    canvas.drawCircle(center, radius * 1.32, fog);
+
+    final disc = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          palette.disc.withValues(alpha: .18),
+          palette.deep.withValues(alpha: .5),
+          Colors.black.withValues(alpha: .28),
+        ],
+        stops: const [0, .62, 1],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+    canvas.drawCircle(center, radius, disc);
+
+    final groovePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .75;
+    for (var i = 0; i < 16; i++) {
+      final t = i / 15;
+      groovePaint.color = Color.lerp(palette.accent, Colors.white, .22)!
+          .withValues(alpha: (.035 + t * .08) * pulse);
+      canvas.drawCircle(center, radius * (.42 + t * .52), groovePaint);
+    }
+
+    final sweep = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round
+      ..shader = SweepGradient(
+        transform: GradientRotation(progress * math.pi * 2),
+        colors: [
+          Colors.transparent,
+          palette.accent.withValues(alpha: isPlaying ? .72 : .34),
+          palette.glow.withValues(alpha: isPlaying ? .4 : .2),
+          Colors.transparent,
+        ],
+        stops: const [0, .18, .29, .46],
+      ).createShader(Rect.fromCircle(center: center, radius: radius + 2));
+    canvas.drawCircle(center, radius + 2, sweep);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FullscreenArtworkHaloPainter oldDelegate) {
+    return oldDelegate.palette != palette ||
+        oldDelegate.progress != progress ||
+        oldDelegate.pulse != pulse ||
+        oldDelegate.isPlaying != isPlaying;
+  }
+}
+
+class _FullscreenCoverNeedlePainter extends CustomPainter {
+  const _FullscreenCoverNeedlePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: size.width / 2 - 2),
+      -math.pi * .78,
+      math.pi * .32,
+      false,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _FullscreenCoverNeedlePainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
 class _DesktopAlbumStage extends StatelessWidget {
   const _DesktopAlbumStage({
     required this.track,
     required this.repository,
     required this.recordSize,
+    required this.palette,
   });
 
   final SourceTrack? track;
   final DemoRepository repository;
   final double recordSize;
+  final _ArtworkPalette palette;
 
   @override
   Widget build(BuildContext context) {
@@ -735,10 +1305,11 @@ class _DesktopAlbumStage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            GlassVinylRecord(
+            _FullscreenArtworkStage(
               size: recordSize,
               isPlaying: repository.isPlaybackActive,
-              artwork: _fullscreenArtwork(current),
+              track: current,
+              palette: palette,
             ),
             const SizedBox(height: 18),
             Text(
@@ -856,10 +1427,12 @@ class _MobileFullScreenLayout extends StatefulWidget {
   const _MobileFullScreenLayout({
     required this.track,
     required this.repository,
+    required this.palette,
   });
 
   final SourceTrack? track;
   final DemoRepository repository;
+  final _ArtworkPalette palette;
 
   @override
   State<_MobileFullScreenLayout> createState() =>
@@ -911,6 +1484,7 @@ class _MobileFullScreenLayoutState extends State<_MobileFullScreenLayout> {
               track: widget.track,
               repository: widget.repository,
               coverSize: coverSize,
+              palette: widget.palette,
               compact: true,
               showLyrics: _showLyrics,
               onLyricsToggle: widget.track == null
@@ -930,6 +1504,7 @@ class _PrimaryPlayerPanel extends StatelessWidget {
     required this.track,
     required this.repository,
     required this.coverSize,
+    required this.palette,
     this.compact = false,
     this.showLyrics = false,
     this.onLyricsToggle,
@@ -939,6 +1514,7 @@ class _PrimaryPlayerPanel extends StatelessWidget {
   final SourceTrack? track;
   final DemoRepository repository;
   final double coverSize;
+  final _ArtworkPalette palette;
   final bool compact;
   final bool showLyrics;
   final VoidCallback? onLyricsToggle;
@@ -985,11 +1561,12 @@ class _PrimaryPlayerPanel extends StatelessWidget {
                               compact: true,
                             ),
                           )
-                        : GlassVinylRecord(
+                        : _FullscreenArtworkStage(
                             key: const ValueKey('mobile-artwork-stage'),
                             size: artworkSize.clamp(220, 318),
                             isPlaying: repository.isPlaybackActive,
-                            artwork: _fullscreenArtwork(track!),
+                            track: track!,
+                            palette: palette,
                           ),
                   ),
                   const SizedBox(height: 42),
@@ -1070,11 +1647,12 @@ class _PrimaryPlayerPanel extends StatelessWidget {
                   compact: true,
                 ),
               )
-            : GlassVinylRecord(
+            : _FullscreenArtworkStage(
                 key: const ValueKey('mobile-artwork-stage'),
                 size: artworkSize,
                 isPlaying: repository.isPlaybackActive,
-                artwork: _fullscreenArtwork(track!),
+                track: track!,
+                palette: palette,
               ),
       ),
       SizedBox(height: compact ? 16 : MeloSpacing.xl),

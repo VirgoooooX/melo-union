@@ -1,4 +1,4 @@
-import 'dart:math' show Random;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -23,7 +23,6 @@ const Color _deepNavy = Color(0xFF031B3A);
 const Color _vinylBlue = Color(0xFF0A315C);
 const Color _grooveBlue = Color(0xFF6D93B6);
 const Color _edgeCyan = Color(0xFF3EE7E1);
-const Color _edgeTeal = Color(0xFF0DB6B2);
 const Color _mistBlue = Color(0xFF1E79BA);
 
 // ============================================================================
@@ -36,6 +35,11 @@ class GlassVinylRecord extends StatefulWidget {
     /// 嵌入唱片中央的专辑封面 widget（外部构建，组件用 ClipOval 裁圆）。
     /// 传 null 则仅显示深色唱片本体，不展示封面区域。
     this.artwork,
+    this.accentColor = _edgeCyan,
+    this.glowColor = _mistBlue,
+    this.discColor = _vinylBlue,
+    this.artworkBorderRadius,
+    this.artworkSizeFactor = .57,
 
     /// 是否正在播放。`true` 时唱片持续旋转，`false` 时停止。
     required this.isPlaying,
@@ -69,6 +73,11 @@ class GlassVinylRecord extends StatefulWidget {
   });
 
   final Widget? artwork;
+  final Color accentColor;
+  final Color glowColor;
+  final Color discColor;
+  final BorderRadius? artworkBorderRadius;
+  final double artworkSizeFactor;
   final bool isPlaying;
   final double size;
   final int grooveCount;
@@ -128,136 +137,191 @@ class _GlassVinylRecordState extends State<GlassVinylRecord>
     final d = widget.size;
     final total = d + _glowPad * 2;
 
-    return SizedBox(
-      width: total,
-      height: total,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // ── 1. 外圈蓝色扩散辉光 ──
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _BackGlowPainter(
-                discRadius: d / 2,
-                glowOpacity: widget.glowOpacity,
-              ),
-            ),
-          ),
-
-          // ── 2. 星点背景 ──
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _StarFieldPainter(seed: d.toInt()),
-            ),
-          ),
-
-          // ── 3. 旋转唱片主体（含刻纹、封面、轴点）──
-          Positioned(
-            left: _glowPad,
-            top: _glowPad,
-            child: SizedBox(
-              width: d,
-              height: d,
-              child: RotationTransition(
-                turns: _controller,
-                child: RepaintBoundary(
-                  child: Stack(
-                    children: [
-                      // 唱片盘面 + 刻纹
-                      CustomPaint(
-                        painter: _GlassVinylDiscPainter(
-                          grooveCount: widget.grooveCount,
-                          discOpacity: widget.discOpacity,
-                        ),
-                        child: Center(
-                          child: ClipOval(
-                            child: SizedBox(
-                              width: d * 0.57,
-                              height: d * 0.57,
-                              child: widget.artwork,
-                            ),
-                          ),
-                        ),
-                      ),
-                      // 中心轴点
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: Center(
-                            child: Container(
-                              width: d * 0.038,
-                              height: d * 0.038,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: const RadialGradient(
-                                  colors: [
-                                    Color(0xE0FFFFFF),
-                                    Color(0x88FFFFFF),
-                                  ],
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: .26),
-                                    blurRadius: 3,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final playingPulse = widget.isPlaying
+            ? .9 + math.sin(_controller.value * math.pi * 2) * .1
+            : .58;
+        return SizedBox(
+          width: total,
+          height: total,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // ── 1. 外圈封面取色扩散辉光 ──
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _BackGlowPainter(
+                    discRadius: d / 2,
+                    glowOpacity: widget.glowOpacity,
+                    glowColor: widget.glowColor,
+                    pulse: playingPulse,
                   ),
                 ),
               ),
-            ),
-          ),
 
-          // ── 4. 镜面高光（斜向银灰半透明，不旋转）──
-          Positioned(
-            left: _glowPad,
-            top: _glowPad,
-            child: ClipOval(
-              child: SizedBox(
-                width: d,
-                height: d,
-                child: Transform.rotate(
-                  angle: widget.highlightAngle,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.white
-                              .withValues(alpha: widget.highlightOpacity * .30),
-                          Colors.white
-                              .withValues(alpha: widget.highlightOpacity),
-                          Colors.white
-                              .withValues(alpha: widget.highlightOpacity * .30),
-                          Colors.transparent,
+              // ── 2. 星点背景 ──
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _StarFieldPainter(seed: d.toInt()),
+                ),
+              ),
+
+              // ── 3. 旋转唱片主体（含刻纹、封面、轴点）──
+              Positioned(
+                left: _glowPad,
+                top: _glowPad,
+                child: SizedBox(
+                  width: d,
+                  height: d,
+                  child: RotationTransition(
+                    turns: _controller,
+                    child: RepaintBoundary(
+                      child: Stack(
+                        children: [
+                          // 唱片盘面 + 刻纹
+                          CustomPaint(
+                            painter: _GlassVinylDiscPainter(
+                              grooveCount: widget.grooveCount,
+                              discOpacity: widget.discOpacity,
+                              discColor: widget.discColor,
+                              accentColor: widget.accentColor,
+                            ),
+                            child: Center(
+                              child: _RecordArtworkClip(
+                                borderRadius: widget.artworkBorderRadius,
+                                child: SizedBox(
+                                  width: d *
+                                      widget.artworkSizeFactor.clamp(.38, .74),
+                                  height: d *
+                                      widget.artworkSizeFactor.clamp(.38, .74),
+                                  child: widget.artwork,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // 中心轴点
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: Center(
+                                child: Container(
+                                  width: d * 0.038,
+                                  height: d * 0.038,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: RadialGradient(
+                                      colors: [
+                                        Colors.white.withValues(alpha: .9),
+                                        widget.accentColor
+                                            .withValues(alpha: .52),
+                                      ],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color:
+                                            Colors.black.withValues(alpha: .26),
+                                        blurRadius: 3,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
-                        stops: const [0, .36, .48, .56, 1],
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
 
-          // ── 5. 不完整青蓝边缘发光弧线 ──
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _EdgeArcPainter(
-                discRadius: d / 2,
-                glowOpacity: widget.glowOpacity,
-                arcStartAngle: widget.arcStartAngle,
-                arcSweepAngle: widget.arcSweepAngle,
+              // ── 4. 镜面高光（斜向银灰半透明，不旋转）──
+              Positioned(
+                left: _glowPad,
+                top: _glowPad,
+                child: ClipOval(
+                  child: SizedBox(
+                    width: d,
+                    height: d,
+                    child: Transform.rotate(
+                      angle: widget.highlightAngle,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.white.withValues(
+                                alpha: widget.highlightOpacity * .30,
+                              ),
+                              Colors.white
+                                  .withValues(alpha: widget.highlightOpacity),
+                              Colors.white.withValues(
+                                alpha: widget.highlightOpacity * .30,
+                              ),
+                              Colors.transparent,
+                            ],
+                            stops: const [0, .36, .48, .56, 1],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
+
+              // ── 5. 不完整取色边缘发光弧线 ──
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _EdgeArcPainter(
+                    discRadius: d / 2,
+                    glowOpacity: widget.glowOpacity * playingPulse,
+                    arcStartAngle: widget.arcStartAngle +
+                        (_controller.value * math.pi * 2),
+                    arcSweepAngle: widget.arcSweepAngle,
+                    accentColor: widget.accentColor,
+                    glowColor: widget.glowColor,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        );
+      },
+    );
+  }
+}
+
+class _RecordArtworkClip extends StatelessWidget {
+  const _RecordArtworkClip({
+    required this.child,
+    this.borderRadius,
+  });
+
+  final Widget child;
+  final BorderRadius? borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = borderRadius;
+    if (radius == null) {
+      return ClipOval(child: child);
+    }
+    return ClipRRect(
+      borderRadius: radius,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .24),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: child,
       ),
     );
   }
@@ -270,10 +334,14 @@ class _BackGlowPainter extends CustomPainter {
   const _BackGlowPainter({
     required this.discRadius,
     required this.glowOpacity,
+    required this.glowColor,
+    required this.pulse,
   });
 
   final double discRadius;
   final double glowOpacity;
+  final Color glowColor;
+  final double pulse;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -286,8 +354,8 @@ class _BackGlowPainter extends CustomPainter {
         center: const Alignment(0, .08),
         radius: .92,
         colors: [
-          _mistBlue.withValues(alpha: .14 * glowOpacity),
-          _mistBlue.withValues(alpha: .06 * glowOpacity),
+          glowColor.withValues(alpha: .18 * glowOpacity * pulse),
+          glowColor.withValues(alpha: .07 * glowOpacity * pulse),
           Colors.transparent,
         ],
         stops: const [0, .58, 1],
@@ -301,8 +369,8 @@ class _BackGlowPainter extends CustomPainter {
       ..shader = SweepGradient(
         colors: [
           Colors.transparent,
-          _edgeCyan.withValues(alpha: .08 * glowOpacity),
-          _edgeTeal.withValues(alpha: .04 * glowOpacity),
+          glowColor.withValues(alpha: .12 * glowOpacity * pulse),
+          glowColor.withValues(alpha: .05 * glowOpacity * pulse),
           Colors.transparent,
         ],
         stops: const [0, .14, .30, .44],
@@ -312,7 +380,10 @@ class _BackGlowPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BackGlowPainter old) =>
-      old.discRadius != discRadius || old.glowOpacity != glowOpacity;
+      old.discRadius != discRadius ||
+      old.glowOpacity != glowOpacity ||
+      old.glowColor != glowColor ||
+      old.pulse != pulse;
 }
 
 // ============================================================================
@@ -324,7 +395,7 @@ class _StarFieldPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rng = Random(seed);
+    final rng = math.Random(seed);
     final paint = Paint()..style = PaintingStyle.fill;
 
     for (var i = 0; i < 28; i++) {
@@ -348,10 +419,14 @@ class _GlassVinylDiscPainter extends CustomPainter {
   const _GlassVinylDiscPainter({
     required this.grooveCount,
     required this.discOpacity,
+    required this.discColor,
+    required this.accentColor,
   });
 
   final int grooveCount;
   final double discOpacity;
+  final Color discColor;
+  final Color accentColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -364,8 +439,10 @@ class _GlassVinylDiscPainter extends CustomPainter {
         center: const Alignment(-.16, -.18),
         radius: .84,
         colors: [
-          _vinylBlue.withValues(alpha: discOpacity),
-          const Color(0xFF0A203E).withValues(alpha: discOpacity),
+          Color.lerp(discColor, Colors.white, .12)!
+              .withValues(alpha: discOpacity),
+          Color.lerp(discColor, Colors.black, .28)!
+              .withValues(alpha: discOpacity),
           _deepNavy.withValues(alpha: discOpacity),
         ],
         stops: const [0, .52, 1],
@@ -403,8 +480,8 @@ class _GlassVinylDiscPainter extends CustomPainter {
       final t = i / (count - 1);
       final alpha = .06 + t * .14 + (i % 5) * .008;
       groove.color = i.isEven
-          ? _grooveBlue.withValues(alpha: alpha.clamp(0, .22))
-          : const Color(0xFF4A7A9E)
+          ? accentColor.withValues(alpha: alpha.clamp(0, .22))
+          : Color.lerp(accentColor, _grooveBlue, .46)!
               .withValues(alpha: (alpha * .78).clamp(0, .18));
 
       canvas.drawCircle(center, r, groove);
@@ -427,7 +504,10 @@ class _GlassVinylDiscPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GlassVinylDiscPainter old) =>
-      old.grooveCount != grooveCount || old.discOpacity != discOpacity;
+      old.grooveCount != grooveCount ||
+      old.discOpacity != discOpacity ||
+      old.discColor != discColor ||
+      old.accentColor != accentColor;
 }
 
 // ============================================================================
@@ -439,12 +519,16 @@ class _EdgeArcPainter extends CustomPainter {
     required this.glowOpacity,
     required this.arcStartAngle,
     required this.arcSweepAngle,
+    required this.accentColor,
+    required this.glowColor,
   });
 
   final double discRadius;
   final double glowOpacity;
   final double arcStartAngle;
   final double arcSweepAngle;
+  final Color accentColor;
+  final Color glowColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -460,7 +544,7 @@ class _EdgeArcPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.8
       ..strokeCap = StrokeCap.round
-      ..color = _edgeCyan.withValues(alpha: (.72 * glowOpacity).clamp(0, 1));
+      ..color = accentColor.withValues(alpha: (.78 * glowOpacity).clamp(0, 1));
     canvas.drawArc(arcRect, arcStartAngle, arcSweepAngle, false, arc);
 
     // ── 内层辅助弧（稍亮、稍细，产生双层光晕感）──
@@ -472,7 +556,7 @@ class _EdgeArcPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
-      ..color = _edgeTeal.withValues(alpha: (.48 * glowOpacity).clamp(0, 1));
+      ..color = glowColor.withValues(alpha: (.52 * glowOpacity).clamp(0, 1));
     canvas.drawArc(
       innerRect,
       arcStartAngle + .06,
@@ -493,7 +577,7 @@ class _EdgeArcPainter extends CustomPainter {
         colors: [
           Colors.transparent,
           Colors.transparent,
-          _edgeCyan.withValues(alpha: (.08 * glowOpacity).clamp(0, 1)),
+          accentColor.withValues(alpha: (.12 * glowOpacity).clamp(0, 1)),
           Colors.transparent,
           Colors.transparent,
         ],
@@ -508,5 +592,7 @@ class _EdgeArcPainter extends CustomPainter {
       old.discRadius != discRadius ||
       old.glowOpacity != glowOpacity ||
       old.arcStartAngle != arcStartAngle ||
-      old.arcSweepAngle != arcSweepAngle;
+      old.arcSweepAngle != arcSweepAngle ||
+      old.accentColor != accentColor ||
+      old.glowColor != glowColor;
 }
