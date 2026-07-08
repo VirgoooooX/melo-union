@@ -12,7 +12,7 @@
     <img src="https://img.shields.io/badge/Architecture-Clean%20%26%20Extensible-blue?style=for-the-badge" alt="Architecture" />
   </a>
   <a href="LICENSE">
-    <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License" />
+    <img src="https://img.shields.io/badge/License-AGPL--3.0-green?style=for-the-badge" alt="License" />
   </a>
 </p>
 
@@ -259,6 +259,12 @@ MeloUnion 极力保障您的账号凭据与会话安全，在开发和运行中�
 > **开发环境防意外泄露**
 >
 > 本地开发期产生的临时 Cookie 缓存文件 (`*.cookie` / `*.session`)、本地数据库快照 (`*.sqlite*`) 及敏感配置文件 (`.env*`) 已在 [`.gitignore`](.gitignore) 中进行了全局忽略，切勿强制提交。
+
+---
+
+## 🙏 参考与致谢
+
+MeloUnion 在调研多音乐源协议、播放凭证解析与下载链路时，参考了 [guohuiyuan/go-music-dl](https://github.com/guohuiyuan/go-music-dl) 及其相关 [music-lib](https://github.com/guohuiyuan/music-lib) 的公开实现与社区经验，并在 Flutter / Dart 的 Provider 架构内重新适配相关链路。本仓库未直接 vendoring 上游 Go 源码或声明其 Go 包依赖；出于保守合规考虑，MeloUnion 按 [AGPL-3.0](LICENSE) 发布。
 
 ---
 
