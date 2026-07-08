@@ -129,6 +129,11 @@ class _MeloFullScreenPlayerState extends ConsumerState<MeloFullScreenPlayer> {
 
   void _scheduleArtworkPrecache(DemoRepository repository) {
     final tracks = _fullscreenPrecacheTracks(repository);
+    final precachePixels = _fullscreenDecodedPixels(
+      context,
+      MediaQuery.sizeOf(context).longestSide,
+      scale: 1.15,
+    );
     final signature = Object.hashAll(
       tracks.expand(
         (track) => [
@@ -148,7 +153,12 @@ class _MeloFullScreenPlayerState extends ConsumerState<MeloFullScreenPlayer> {
         if (artwork == null || artwork.toString().isEmpty) continue;
         unawaited(
           precacheImage(
-            _fullscreenArtworkProvider(artwork),
+            _fullscreenArtworkProvider(
+              artwork,
+              targetPixels: precachePixels,
+              cacheWidth: precachePixels,
+              cacheHeight: precachePixels,
+            ),
             context,
           ).catchError((Object _) {}),
         );
@@ -589,14 +599,41 @@ class _DynamicBackdrop extends StatelessWidget {
                 scale: 1.18,
                 child: artwork == null || artwork.toString().isEmpty
                     ? _BackdropPlaceholder(seed: currentTrack?.title ?? 'melo')
-                    : Image(
-                        image: _fullscreenArtworkProvider(artwork),
-                        fit: BoxFit.cover,
-                        filterQuality: FilterQuality.low,
-                        gaplessPlayback: true,
-                        errorBuilder: (_, __, ___) => _BackdropPlaceholder(
-                          seed: currentTrack?.title ?? 'melo',
-                        ),
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final backdropPixels = _fullscreenDecodedPixels(
+                            context,
+                            constraints.biggest.longestSide,
+                            scale: 1.15,
+                          );
+                          return Image(
+                            image: _fullscreenArtworkProvider(
+                              artwork,
+                              targetPixels: backdropPixels,
+                              cacheWidth: backdropPixels,
+                              cacheHeight: backdropPixels,
+                            ),
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.low,
+                            gaplessPlayback: true,
+                            frameBuilder: (
+                              context,
+                              child,
+                              frame,
+                              wasSynchronouslyLoaded,
+                            ) {
+                              if (wasSynchronouslyLoaded || frame != null) {
+                                return child;
+                              }
+                              return _BackdropPlaceholder(
+                                seed: currentTrack?.title ?? 'melo',
+                              );
+                            },
+                            errorBuilder: (_, __, ___) => _BackdropPlaceholder(
+                              seed: currentTrack?.title ?? 'melo',
+                            ),
+                          );
+                        },
                       ),
               ),
             ),
@@ -720,21 +757,19 @@ class _BackdropMotionOverlayState extends State<_BackdropMotionOverlay>
         return Stack(
           fit: StackFit.expand,
           children: [
-            Transform.rotate(
-              angle: _controller.value * 6.283185307179586,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: SweepGradient(
-                    center: Alignment.center,
-                    colors: [
-                      Colors.transparent,
-                      widget.palette.glow.withValues(alpha: .18),
-                      Colors.transparent,
-                      widget.palette.accent.withValues(alpha: .11),
-                      Colors.transparent,
-                    ],
-                    stops: const [0, .18, .36, .62, 1],
-                  ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: SweepGradient(
+                  center: Alignment.center,
+                  transform: GradientRotation(_controller.value * 2 * math.pi),
+                  colors: [
+                    Colors.transparent,
+                    widget.palette.glow.withValues(alpha: .18),
+                    Colors.transparent,
+                    widget.palette.accent.withValues(alpha: .11),
+                    Colors.transparent,
+                  ],
+                  stops: const [0, .18, .36, .62, 1],
                 ),
               ),
             ),
@@ -990,24 +1025,59 @@ class _DesktopFullScreenLayout extends StatelessWidget {
 }
 
 /// 为全屏封面舞台构建专辑封面 widget。
-Widget _fullscreenArtwork(SourceTrack track) {
+Widget _fullscreenArtwork(
+  BuildContext context,
+  SourceTrack track, {
+  required double displaySize,
+}) {
   final url = track.artwork;
   if (url != null && url.toString().isNotEmpty) {
+    final decodedPixels = _fullscreenDecodedPixels(context, displaySize);
     return Image(
-      image: _fullscreenArtworkProvider(url),
+      image: _fullscreenArtworkProvider(
+        url,
+        targetPixels: decodedPixels,
+        cacheWidth: decodedPixels,
+        cacheHeight: decodedPixels,
+      ),
       fit: BoxFit.cover,
+      filterQuality: FilterQuality.high,
       gaplessPlayback: true,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) return child;
+        return _ArtworkPlaceholder(seed: track.title);
+      },
       errorBuilder: (_, __, ___) => _ArtworkPlaceholder(seed: track.title),
     );
   }
   return _ArtworkPlaceholder(seed: track.title);
 }
 
-ImageProvider<Object> _fullscreenArtworkProvider(Uri artwork) {
+int _fullscreenDecodedPixels(
+  BuildContext context,
+  double displaySize, {
+  double scale = 1.35,
+}) {
+  final effectiveSize =
+      displaySize.isFinite && displaySize > 0 ? displaySize : 640.0;
+  return (effectiveSize * MediaQuery.devicePixelRatioOf(context) * scale)
+      .round()
+      .clamp(320, 1000)
+      .toInt();
+}
+
+ImageProvider<Object> _fullscreenArtworkProvider(
+  Uri artwork, {
+  int targetPixels = 1000,
+  int? cacheWidth,
+  int? cacheHeight,
+}) {
   return meloCachedArtworkProvider(
     artwork,
-    targetPixels: 1000,
+    targetPixels: targetPixels,
     highResolution: true,
+    cacheWidth: cacheWidth,
+    cacheHeight: cacheHeight,
   );
 }
 
@@ -1090,8 +1160,8 @@ class _FullscreenArtworkStageState extends State<_FullscreenArtworkStage>
                   ),
                 ),
               ),
-              Transform.rotate(
-                angle: _controller.value * math.pi * 2,
+              Transform.scale(
+                scale: widget.isPlaying ? 1 + (pulse - .88) * .025 : 1,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: radius,
@@ -1117,7 +1187,11 @@ class _FullscreenArtworkStageState extends State<_FullscreenArtworkStage>
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          _fullscreenArtwork(widget.track),
+                          _fullscreenArtwork(
+                            context,
+                            widget.track,
+                            displaySize: coverSize,
+                          ),
                           IgnorePointer(
                             child: DecoratedBox(
                               decoration: BoxDecoration(
@@ -1146,14 +1220,11 @@ class _FullscreenArtworkStageState extends State<_FullscreenArtworkStage>
                 ),
               ),
               IgnorePointer(
-                child: Transform.rotate(
-                  angle: -_controller.value * math.pi * 2,
-                  child: CustomPaint(
-                    size: Size.square(coverSize + 34),
-                    painter: _FullscreenCoverNeedlePainter(
-                      color: widget.palette.accent.withValues(
-                        alpha: widget.isPlaying ? .68 : .36,
-                      ),
+                child: CustomPaint(
+                  size: Size.square(coverSize + 34),
+                  painter: _FullscreenCoverNeedlePainter(
+                    color: widget.palette.accent.withValues(
+                      alpha: widget.isPlaying ? .52 : .26,
                     ),
                   ),
                 ),
