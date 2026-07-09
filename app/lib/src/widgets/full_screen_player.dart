@@ -156,6 +156,7 @@ class _MeloFullScreenPlayerState extends ConsumerState<MeloFullScreenPlayer> {
             _fullscreenArtworkProvider(
               artwork,
               targetPixels: precachePixels,
+              highResolution: true,
               cacheWidth: precachePixels,
               cacheHeight: precachePixels,
             ),
@@ -610,6 +611,7 @@ class _DynamicBackdrop extends StatelessWidget {
                             image: _fullscreenArtworkProvider(
                               artwork,
                               targetPixels: backdropPixels,
+                              highResolution: true,
                               cacheWidth: backdropPixels,
                               cacheHeight: backdropPixels,
                             ),
@@ -629,8 +631,11 @@ class _DynamicBackdrop extends StatelessWidget {
                                 seed: currentTrack?.title ?? 'melo',
                               );
                             },
-                            errorBuilder: (_, __, ___) => _BackdropPlaceholder(
-                              seed: currentTrack?.title ?? 'melo',
+                            errorBuilder: (_, __, ___) =>
+                                _fullscreenBackdropFallback(
+                              artwork,
+                              currentTrack,
+                              targetPixels: backdropPixels,
                             ),
                           );
                         },
@@ -704,6 +709,31 @@ class _DynamicBackdrop extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _fullscreenBackdropFallback(
+  Uri artwork,
+  SourceTrack? currentTrack, {
+  required int targetPixels,
+}) {
+  return Image(
+    image: _fullscreenArtworkProvider(
+      artwork,
+      targetPixels: targetPixels,
+      highResolution: false,
+      cacheWidth: targetPixels,
+      cacheHeight: targetPixels,
+    ),
+    fit: BoxFit.cover,
+    filterQuality: FilterQuality.low,
+    gaplessPlayback: true,
+    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+      if (wasSynchronouslyLoaded || frame != null) return child;
+      return _BackdropPlaceholder(seed: currentTrack?.title ?? 'melo');
+    },
+    errorBuilder: (_, __, ___) =>
+        _BackdropPlaceholder(seed: currentTrack?.title ?? 'melo'),
+  );
 }
 
 class _BackdropMotionOverlay extends StatefulWidget {
@@ -1037,6 +1067,7 @@ Widget _fullscreenArtwork(
       image: _fullscreenArtworkProvider(
         url,
         targetPixels: decodedPixels,
+        highResolution: true,
         cacheWidth: decodedPixels,
         cacheHeight: decodedPixels,
       ),
@@ -1047,10 +1078,43 @@ Widget _fullscreenArtwork(
         if (wasSynchronouslyLoaded || frame != null) return child;
         return _ArtworkPlaceholder(seed: track.title);
       },
-      errorBuilder: (_, __, ___) => _ArtworkPlaceholder(seed: track.title),
+      errorBuilder: (_, __, ___) => _fullscreenArtworkFallback(
+        context,
+        track,
+        displaySize: displaySize,
+      ),
     );
   }
   return _ArtworkPlaceholder(seed: track.title);
+}
+
+Widget _fullscreenArtworkFallback(
+  BuildContext context,
+  SourceTrack track, {
+  required double displaySize,
+}) {
+  final url = track.artwork;
+  if (url == null || url.toString().isEmpty) {
+    return _ArtworkPlaceholder(seed: track.title);
+  }
+  final decodedPixels = _fullscreenDecodedPixels(context, displaySize);
+  return Image(
+    image: _fullscreenArtworkProvider(
+      url,
+      targetPixels: decodedPixels,
+      highResolution: false,
+      cacheWidth: decodedPixels,
+      cacheHeight: decodedPixels,
+    ),
+    fit: BoxFit.cover,
+    filterQuality: FilterQuality.high,
+    gaplessPlayback: true,
+    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+      if (wasSynchronouslyLoaded || frame != null) return child;
+      return _ArtworkPlaceholder(seed: track.title);
+    },
+    errorBuilder: (_, __, ___) => _ArtworkPlaceholder(seed: track.title),
+  );
 }
 
 int _fullscreenDecodedPixels(
@@ -1069,13 +1133,14 @@ int _fullscreenDecodedPixels(
 ImageProvider<Object> _fullscreenArtworkProvider(
   Uri artwork, {
   int targetPixels = 1000,
+  required bool highResolution,
   int? cacheWidth,
   int? cacheHeight,
 }) {
   return meloCachedArtworkProvider(
     artwork,
     targetPixels: targetPixels,
-    highResolution: true,
+    highResolution: highResolution,
     cacheWidth: cacheWidth,
     cacheHeight: cacheHeight,
   );
