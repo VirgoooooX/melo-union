@@ -1,22 +1,24 @@
 name: One-shot MeloUnion core hardening
 
 on:
-  push:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
     branches: [main]
-    paths:
-      - .github/workflows/one-shot-core-hardening.yml
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   harden:
+    if: github.event.pull_request.head.ref == 'automation/core-hardening'
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
       - name: Check out main
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Set up Flutter
@@ -28,6 +30,20 @@ jobs:
       - name: Apply hardening patches
         shell: pwsh
         run: python tool/apply_core_hardening.py
+
+      - name: Apply compile-safe fixups
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          path = Path('app/lib/src/bootstrap/demo_repository.dart')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              "unawaited(File(filePath).delete().catchError((Object _) => File(filePath)));",
+              "unawaited(File(filePath).delete().then<void>((_) {}).catchError((Object _) {}));",
+          )
+          path.write_text(text, encoding='utf-8')
+          '@ | python
 
       - name: Format Dart sources
         shell: pwsh
