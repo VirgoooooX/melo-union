@@ -1,0 +1,66 @@
+name: One-shot MeloUnion core hardening
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/one-shot-core-hardening.yml
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Apply hardening patches
+        shell: pwsh
+        run: python tool/apply_core_hardening.py
+
+      - name: Format Dart sources
+        shell: pwsh
+        run: |
+          dart format app/lib app/test packages/music_domain/lib packages/music_domain/test packages/music_data/lib
+
+      - name: Test music_domain
+        shell: pwsh
+        working-directory: packages/music_domain
+        run: |
+          flutter pub get
+          flutter test
+
+      - name: Test music_data
+        shell: pwsh
+        working-directory: packages/music_data
+        run: |
+          flutter pub get
+          flutter test
+
+      - name: Test app
+        shell: pwsh
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter test
+
+      - name: Commit verified changes to main
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm tool/apply_core_hardening.py .github/workflows/one-shot-core-hardening.yml
+          git add -A
+          git commit -m "fix: harden persistence downloads and gapless playback"
+          git push origin HEAD:main
