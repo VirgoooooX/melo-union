@@ -39,12 +39,12 @@ final class MeloJsonCodec {
       'playbackQuality': snapshot.playbackQuality.name,
       'downloadQuality': snapshot.downloadQuality.name,
       'volume': snapshot.volume,
-      'playbackPreferences': _encodePlaybackPreferences(
+      'playbackPreferences': encodePlaybackPreferences(
         snapshot.playbackPreferences,
       ),
       'playbackQueue': snapshot.playbackQueue == null
           ? null
-          : _encodePlaybackQueue(snapshot.playbackQueue!),
+          : encodePlaybackQueue(snapshot.playbackQueue!),
       'downloadDirectory': snapshot.downloadDirectory,
       'favoritesOverrides': _encodeFavoritesOverrides(
         snapshot.favoritesOverrides,
@@ -119,10 +119,10 @@ final class MeloJsonCodec {
         json['downloadQuality'] as String? ?? AudioQuality.standard.name,
       ),
       volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
-      playbackPreferences: _decodePlaybackPreferences(
+      playbackPreferences: decodePlaybackPreferences(
         json['playbackPreferences'],
       ),
-      playbackQueue: _decodeOptionalPlaybackQueue(json['playbackQueue']),
+      playbackQueue: decodeOptionalPlaybackQueue(json['playbackQueue']),
       downloadDirectory: json['downloadDirectory'] as String?,
       favoritesOverrides: overrides,
     );
@@ -317,7 +317,7 @@ final class MeloJsonCodec {
     );
   }
 
-  Map<String, Object?> _encodePlaybackPreferences(
+  Map<String, Object?> encodePlaybackPreferences(
     PlaybackPreferencesSnapshot preferences,
   ) {
     return {
@@ -326,7 +326,7 @@ final class MeloJsonCodec {
     };
   }
 
-  PlaybackPreferencesSnapshot _decodePlaybackPreferences(Object? raw) {
+  PlaybackPreferencesSnapshot decodePlaybackPreferences(Object? raw) {
     final json = _stringKeyedMap(raw as Map<Object?, Object?>?);
     return PlaybackPreferencesSnapshot(
       rememberQueue: json['rememberQueue'] as bool? ?? false,
@@ -334,7 +334,7 @@ final class MeloJsonCodec {
     );
   }
 
-  Map<String, Object?> _encodePlaybackQueue(PlaybackQueueSnapshot queue) {
+  Map<String, Object?> encodePlaybackQueue(PlaybackQueueSnapshot queue) {
     return {
       'entries': [
         for (final entry in queue.entries) _encodePlaybackQueueEntry(entry),
@@ -347,7 +347,7 @@ final class MeloJsonCodec {
     };
   }
 
-  PlaybackQueueSnapshot? _decodeOptionalPlaybackQueue(Object? raw) {
+  PlaybackQueueSnapshot? decodeOptionalPlaybackQueue(Object? raw) {
     if (raw == null) return null;
     final json = _stringKeyedMap(raw as Map<Object?, Object?>);
     return PlaybackQueueSnapshot(

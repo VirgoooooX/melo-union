@@ -24,6 +24,8 @@ import 'netease_session_store.dart';
 import 'qq_music_session_store.dart';
 import 'kugou_session_store.dart';
 import 'audio_cache_manager.dart';
+import 'persistence_coordinator.dart';
+import 'download_manager.dart';
 
 class _CacheEntry<T> {
   _CacheEntry(this.data, {DateTime? fetchedAt})
@@ -164,6 +166,19 @@ class DemoRepository extends ChangeNotifier {
       defaultQuality: playbackQuality,
       localPlaybackResolver: _resolveLocalPlaybackTicket,
     );
+    _persistence = PersistenceCoordinator(
+      store: snapshotStore,
+      snapshotProvider: toSnapshot,
+    );
+    _downloadManager = DownloadManager(
+      coordinator: downloadCoordinator,
+      onProgressOrStatusChanged: () {
+        _persistSoon();
+        notifyListeners();
+      },
+      resolveDownloadFile: _downloadFileFor,
+      embedMetadata: _embedDownloadedMetadata,
+    );
     _restorePlaybackQueue(playbackQueue);
     unawaited(_audioPlayer.setVolume(_volume));
     unawaited(_syncAudioLoopMode());
@@ -176,7 +191,7 @@ class DemoRepository extends ChangeNotifier {
         return;
       }
       _lastPlaybackPositionPersistAt = now;
-      _persistSoon();
+      _persistPlaybackStateSoon();
     });
     // Notify UI when audio player state changes (play/pause/complete)
     _audioPlayer.playerStateStream.listen((state) {
@@ -404,6 +419,8 @@ class DemoRepository extends ChangeNotifier {
 
   late final PlaybackCoordinator playbackCoordinator;
   late final DownloadCoordinator downloadCoordinator;
+  late final PersistenceCoordinator _persistence;
+  late final DownloadManager _downloadManager;
   final FavoritesOverrideRegistry favoritesOverrideRegistry;
   final LikedAtLedger favoriteLikedAtLedger;
   final Map<ProviderId, FavoriteSnapshot> _favoriteProviderSnapshots;
@@ -853,7 +870,7 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<void> persistNow() async {
-    await snapshotStore?.write(toSnapshot());
+    await _persistence.persistNow();
   }
 
   Future<void> setRememberQueue(bool value) async {
@@ -1588,6 +1605,16 @@ class DemoRepository extends ChangeNotifier {
     }
     if (previousRef == null) return;
 
+    // Check if previousRef is already the previous item in the native concatenating source
+    final currentIndex = _audioPlayer.currentIndex;
+    if (currentIndex != null &&
+        currentIndex - 1 >= 0 &&
+        _nativeAudioSourceRefs.length > currentIndex - 1 &&
+        _nativeAudioSourceRefs[currentIndex - 1] == previousRef) {
+      await _audioPlayer.seek(Duration.zero, index: currentIndex - 1);
+      return;
+    }
+
     await playbackCoordinator.selectTrack(previousRef);
     _clearPendingRestorePosition();
     _playingTrackId = null; // Force new playback
@@ -1644,31 +1671,19 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<void> startDownload(ProviderTrackRef ref) async {
-    await downloadCoordinator.startTask(ref);
-    _persistSoon();
-    notifyListeners();
-    await _materializeDownload(ref);
-    _persistSoon();
-    notifyListeners();
+    await _downloadManager.startDownload(ref);
   }
 
   void pauseDownload(ProviderTrackRef ref) {
-    downloadCoordinator.pauseTask(ref);
-    _persistSoon();
-    notifyListeners();
+    _downloadManager.pauseDownload(ref);
   }
 
   Future<void> resumeDownload(ProviderTrackRef ref) async {
-    await downloadCoordinator.resumeTask(ref);
-    _persistSoon();
-    notifyListeners();
+    await _downloadManager.startDownload(ref);
   }
 
   void cancelDownload(ProviderTrackRef ref) {
-    downloadCoordinator.cancelTask(ref);
-    downloadCoordinator.removeTask(ref);
-    _persistSoon();
-    notifyListeners();
+    _downloadManager.cancelDownload(ref);
   }
 
   void removeLocalMedia(ProviderTrackRef ref) {
@@ -2036,8 +2051,55 @@ class DemoRepository extends ChangeNotifier {
     try {
       await playbackCoordinator.selectTrack(ref);
       _clearPendingRestorePosition();
-      _playingTrackId = null;
-      await _syncNativePlayback(playWhenReady: true);
+
+      final queueState = queue;
+      final current = queueState.current?.track;
+      final currentTicket = playbackCoordinator.currentTicket;
+      if (current != null && currentTicket != null) {
+        _setEffectivePlaybackSource(current, currentTicket);
+        _playingTrackId = current.ref.trackId;
+      }
+
+      final source = _audioPlayer.audioSource;
+      if (source is ConcatenatingAudioSource) {
+        final prev = _previousTrackForNotification(queueState);
+        final next = _nextTrackForNotification(queueState);
+
+        final newRefs = [
+          if (prev != null) prev.ref,
+          current!.ref,
+          if (next != null) next.ref,
+        ];
+
+        if (_nativeAudioSourceRefs.length >= 2 &&
+            newRefs.isNotEmpty &&
+            _nativeAudioSourceRefs[1] == newRefs[0]) {
+          await source.removeAt(0);
+          _nativeAudioSourceRefs.removeAt(0);
+
+          if (next != null) {
+            final ticket = playbackCoordinator.nextTicket ?? await _resolvePlaybackTicketForTrack(next);
+            if (ticket != null) {
+              final nextSource = await _nativeSourceFor(next, ticket);
+              await source.add(nextSource.toAudioSource());
+              _nativeAudioSourceRefs.add(next.ref);
+            }
+          }
+        } else if (_nativeAudioSourceRefs.isNotEmpty &&
+            newRefs.length > _nativeAudioSourceRefs.length &&
+            newRefs[0] == prev?.ref &&
+            _nativeAudioSourceRefs[0] == current.ref) {
+          if (prev != null) {
+            final ticket = await _resolvePlaybackTicketForTrack(prev);
+            if (ticket != null) {
+              final prevSource = await _nativeSourceFor(prev, ticket);
+              await source.insert(0, prevSource.toAudioSource());
+              _nativeAudioSourceRefs.insert(0, prev.ref);
+            }
+          }
+        }
+      }
+
       _persistPlaybackStateSoon();
       notifyListeners();
     } finally {
@@ -2361,80 +2423,7 @@ class DemoRepository extends ChangeNotifier {
     return text;
   }
 
-  Future<void> _materializeDownload(ProviderTrackRef ref) async {
-    final task = downloadCoordinator.getTask(ref);
-    final ticket = task?.ticket;
-    if (task == null ||
-        task.status != DownloadStatus.downloading ||
-        ticket == null) {
-      return;
-    }
 
-    final uri = ticket.mediaUri;
-    if (!uri.isScheme('http') && !uri.isScheme('https')) {
-      downloadCoordinator.failTask(
-        ref,
-        'Unsupported download URI scheme: ${uri.scheme}',
-      );
-      return;
-    }
-
-    File? tempFile;
-    IOSink? sink;
-    final client = HttpClient();
-    try {
-      final target = await _downloadFileFor(task.track, ticket);
-      await target.parent.create(recursive: true);
-      tempFile = File('${target.path}.part');
-      final request = await client.getUrl(uri);
-      ticket.headers.forEach(request.headers.add);
-      final response = await request.close();
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        await response.drain<List<int>>(<int>[]);
-        throw HttpException(
-          'Download failed with HTTP ${response.statusCode}.',
-          uri: uri,
-        );
-      }
-
-      sink = tempFile.openWrite();
-      var received = 0;
-      final total = response.contentLength;
-      await for (final chunk in response) {
-        sink.add(chunk);
-        received += chunk.length.toInt();
-        if (total > 0) {
-          downloadCoordinator.updateProgress(ref, received / total);
-          notifyListeners();
-        }
-      }
-      await sink.close();
-      sink = null;
-      if (await target.exists()) {
-        await target.delete();
-      }
-      await tempFile.rename(target.path);
-      await _embedDownloadedMetadata(target, task.track, ticket);
-      final fileSize = await target.length();
-      downloadCoordinator.completeTask(
-        ref: ref,
-        filePath: target.path,
-        fileSize: fileSize,
-      );
-    } catch (error) {
-      downloadCoordinator.failTask(ref, error);
-      try {
-        await sink?.close();
-        if (tempFile != null && await tempFile.exists()) {
-          await tempFile.delete();
-        }
-      } on FileSystemException {
-        // Best-effort cleanup only.
-      }
-    } finally {
-      client.close(force: true);
-    }
-  }
 
   Future<File> _downloadFileFor(
     SourceTrack track,
@@ -2990,16 +2979,14 @@ class DemoRepository extends ChangeNotifier {
 
   @override
   void dispose() {
+    _downloadManager.close();
+    unawaited(_persistence.close());
     _audioPlayer.dispose();
     super.dispose();
   }
 
   void _persistSoon() {
-    final store = snapshotStore;
-    if (store == null) {
-      return;
-    }
-    Future<void>(() => store.write(toSnapshot()));
+    _persistence.scheduleFullWrite();
   }
 
   void _replaceNeteaseProvider(NeteaseCredentials? credentials) {

@@ -87,3 +87,14 @@ final class FavoriteProviderStateSnapshot {
   final DateTime? lastFailureAt;
   final String? lastFailureMessage;
 }
+
+final class PlaybackStateSnapshot {
+  PlaybackStateSnapshot({
+    required this.preferences,
+    required this.queue,
+  });
+
+  final PlaybackPreferencesSnapshot preferences;
+  final PlaybackQueueSnapshot? queue;
+}
+

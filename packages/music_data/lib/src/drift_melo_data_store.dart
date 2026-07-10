@@ -9,7 +9,7 @@ import 'melo_data_snapshot.dart';
 import 'melo_json_codec.dart';
 import 'melo_snapshot_store.dart';
 
-final class DriftMeloDataStore implements MeloSnapshotStore {
+final class DriftMeloDataStore implements MeloSnapshotStore, PlaybackStateStore {
   DriftMeloDataStore({
     required this.database,
     MeloJsonCodec codec = const MeloJsonCodec(),
@@ -20,6 +20,8 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
 
   @override
   Future<MeloDataSnapshot> read() async {
+    final playbackState = await readPlaybackState();
+
     final metaRows = await database.select(database.meloMetaRows).get();
     final version = metaRows
             .where((row) => row.key == 'schemaVersion')
@@ -110,6 +112,12 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
             'lastFailureMessage': row.lastFailureMessage,
           },
       ],
+      'playbackPreferences': playbackState != null
+          ? _codec.encodePlaybackPreferences(playbackState.preferences)
+          : null,
+      'playbackQueue': playbackState != null && playbackState.queue != null
+          ? _codec.encodePlaybackQueue(playbackState.queue!)
+          : null,
     });
   }
 
@@ -141,6 +149,7 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
       await database.delete(database.favoriteLikedAtLedgerRows).go();
       await database.delete(database.unifiedFavoriteCacheRows).go();
       await database.delete(database.favoriteProviderStates).go();
+      await database.delete(database.playbackStateRows).go();
 
       await database.into(database.meloMetaRows).insert(
             MeloMetaRowsCompanion.insert(
@@ -215,6 +224,20 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
       await _writeLikedAtLedgerRows(likedAtLedger);
       await _writeUnifiedFavoriteCacheRows(unifiedFavoritesCache);
       await _writeFavoriteProviderStateRows(favoriteProviderStates);
+      
+      final prefJson = jsonEncode(_codec.encodePlaybackPreferences(snapshot.playbackPreferences));
+      final queueJson = snapshot.playbackQueue != null
+          ? jsonEncode(_codec.encodePlaybackQueue(snapshot.playbackQueue!))
+          : null;
+      await database.into(database.playbackStateRows).insert(
+            PlaybackStateRowsCompanion.insert(
+              id: const Value(1),
+              preferencesJson: prefJson,
+              queueJson: Value(queueJson),
+              updatedAt: DateTime.now().toUtc(),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
     });
   }
 
@@ -230,7 +253,47 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
       await database.delete(database.favoriteLikedAtLedgerRows).go();
       await database.delete(database.unifiedFavoriteCacheRows).go();
       await database.delete(database.favoriteProviderStates).go();
+      await database.delete(database.playbackStateRows).go();
     });
+  }
+
+  @override
+  Future<PlaybackStateSnapshot?> readPlaybackState() async {
+    final row = await (database.select(database.playbackStateRows)
+          ..where((t) => t.id.equals(1)))
+        .getSingleOrNull();
+    if (row == null) return null;
+
+    final prefMap = jsonDecode(row.preferencesJson) as Map<String, Object?>;
+    final queueMap = row.queueJson != null
+        ? jsonDecode(row.queueJson!) as Map<String, Object?>
+        : null;
+
+    return PlaybackStateSnapshot(
+      preferences: _codec.decodePlaybackPreferences(prefMap),
+      queue: queueMap != null ? _codec.decodeOptionalPlaybackQueue(queueMap) : null,
+    );
+  }
+
+  @override
+  Future<void> writePlaybackState({
+    required PlaybackPreferencesSnapshot preferences,
+    required PlaybackQueueSnapshot? queue,
+  }) async {
+    final prefJson = jsonEncode(_codec.encodePlaybackPreferences(preferences));
+    final queueJson = queue != null
+        ? jsonEncode(_codec.encodePlaybackQueue(queue))
+        : null;
+
+    await database.into(database.playbackStateRows).insert(
+          PlaybackStateRowsCompanion.insert(
+            id: const Value(1),
+            preferencesJson: prefJson,
+            queueJson: Value(queueJson),
+            updatedAt: DateTime.now().toUtc(),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
   }
 
   Future<void> _writeFavoriteProviderRows(

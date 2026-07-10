@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:provider_contract/provider_contract.dart';
 
 import 'playback_queue.dart';
@@ -23,6 +24,7 @@ class PlaybackCoordinator {
   PlaybackTicket? _currentTicket;
   PlaybackTicket? _nextTicket;
   Object? _currentError;
+  Future<void>? prefetchFuture;
 
   PlaybackQueueState get queueState => _queueState;
   PlaybackTicket? get currentTicket => _currentTicket;
@@ -184,7 +186,8 @@ class PlaybackCoordinator {
     }
 
     // Pre-resolve next track if available
-    await preResolveNext();
+    prefetchFuture = preResolveNext();
+    unawaited(prefetchFuture!);
   }
 
   Future<void> preResolveNext() async {
