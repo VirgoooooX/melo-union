@@ -2547,6 +2547,715 @@ class FavoriteProviderStatesCompanion
   }
 }
 
+class $StoredAudioCacheEntriesTable extends StoredAudioCacheEntries
+    with TableInfo<$StoredAudioCacheEntriesTable, StoredAudioCacheEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StoredAudioCacheEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _identityKeyMeta =
+      const VerificationMeta('identityKey');
+  @override
+  late final GeneratedColumn<String> identityKey = GeneratedColumn<String>(
+      'identity_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _providerIdMeta =
+      const VerificationMeta('providerId');
+  @override
+  late final GeneratedColumn<String> providerId = GeneratedColumn<String>(
+      'provider_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _trackIdMeta =
+      const VerificationMeta('trackId');
+  @override
+  late final GeneratedColumn<String> trackId = GeneratedColumn<String>(
+      'track_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _qualityMeta =
+      const VerificationMeta('quality');
+  @override
+  late final GeneratedColumn<String> quality = GeneratedColumn<String>(
+      'quality', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _filePathMeta =
+      const VerificationMeta('filePath');
+  @override
+  late final GeneratedColumn<String> filePath = GeneratedColumn<String>(
+      'file_path', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _fileSizeMeta =
+      const VerificationMeta('fileSize');
+  @override
+  late final GeneratedColumn<int> fileSize = GeneratedColumn<int>(
+      'file_size', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _completedAtMeta =
+      const VerificationMeta('completedAt');
+  @override
+  late final GeneratedColumn<DateTime> completedAt = GeneratedColumn<DateTime>(
+      'completed_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _lastAccessedAtMeta =
+      const VerificationMeta('lastAccessedAt');
+  @override
+  late final GeneratedColumn<DateTime> lastAccessedAt =
+      GeneratedColumn<DateTime>('last_accessed_at', aliasedName, false,
+          type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        identityKey,
+        providerId,
+        trackId,
+        quality,
+        filePath,
+        fileSize,
+        completedAt,
+        lastAccessedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'stored_audio_cache_entries';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<StoredAudioCacheEntry> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('identity_key')) {
+      context.handle(
+          _identityKeyMeta,
+          identityKey.isAcceptableOrUnknown(
+              data['identity_key']!, _identityKeyMeta));
+    } else if (isInserting) {
+      context.missing(_identityKeyMeta);
+    }
+    if (data.containsKey('provider_id')) {
+      context.handle(
+          _providerIdMeta,
+          providerId.isAcceptableOrUnknown(
+              data['provider_id']!, _providerIdMeta));
+    } else if (isInserting) {
+      context.missing(_providerIdMeta);
+    }
+    if (data.containsKey('track_id')) {
+      context.handle(_trackIdMeta,
+          trackId.isAcceptableOrUnknown(data['track_id']!, _trackIdMeta));
+    } else if (isInserting) {
+      context.missing(_trackIdMeta);
+    }
+    if (data.containsKey('quality')) {
+      context.handle(_qualityMeta,
+          quality.isAcceptableOrUnknown(data['quality']!, _qualityMeta));
+    } else if (isInserting) {
+      context.missing(_qualityMeta);
+    }
+    if (data.containsKey('file_path')) {
+      context.handle(_filePathMeta,
+          filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta));
+    } else if (isInserting) {
+      context.missing(_filePathMeta);
+    }
+    if (data.containsKey('file_size')) {
+      context.handle(_fileSizeMeta,
+          fileSize.isAcceptableOrUnknown(data['file_size']!, _fileSizeMeta));
+    } else if (isInserting) {
+      context.missing(_fileSizeMeta);
+    }
+    if (data.containsKey('completed_at')) {
+      context.handle(
+          _completedAtMeta,
+          completedAt.isAcceptableOrUnknown(
+              data['completed_at']!, _completedAtMeta));
+    } else if (isInserting) {
+      context.missing(_completedAtMeta);
+    }
+    if (data.containsKey('last_accessed_at')) {
+      context.handle(
+          _lastAccessedAtMeta,
+          lastAccessedAt.isAcceptableOrUnknown(
+              data['last_accessed_at']!, _lastAccessedAtMeta));
+    } else if (isInserting) {
+      context.missing(_lastAccessedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {identityKey};
+  @override
+  StoredAudioCacheEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredAudioCacheEntry(
+      identityKey: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}identity_key'])!,
+      providerId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}provider_id'])!,
+      trackId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}track_id'])!,
+      quality: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}quality'])!,
+      filePath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}file_path'])!,
+      fileSize: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}file_size'])!,
+      completedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}completed_at'])!,
+      lastAccessedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}last_accessed_at'])!,
+    );
+  }
+
+  @override
+  $StoredAudioCacheEntriesTable createAlias(String alias) {
+    return $StoredAudioCacheEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class StoredAudioCacheEntry extends DataClass
+    implements Insertable<StoredAudioCacheEntry> {
+  final String identityKey;
+  final String providerId;
+  final String trackId;
+  final String quality;
+  final String filePath;
+  final int fileSize;
+  final DateTime completedAt;
+  final DateTime lastAccessedAt;
+  const StoredAudioCacheEntry(
+      {required this.identityKey,
+      required this.providerId,
+      required this.trackId,
+      required this.quality,
+      required this.filePath,
+      required this.fileSize,
+      required this.completedAt,
+      required this.lastAccessedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['identity_key'] = Variable<String>(identityKey);
+    map['provider_id'] = Variable<String>(providerId);
+    map['track_id'] = Variable<String>(trackId);
+    map['quality'] = Variable<String>(quality);
+    map['file_path'] = Variable<String>(filePath);
+    map['file_size'] = Variable<int>(fileSize);
+    map['completed_at'] = Variable<DateTime>(completedAt);
+    map['last_accessed_at'] = Variable<DateTime>(lastAccessedAt);
+    return map;
+  }
+
+  StoredAudioCacheEntriesCompanion toCompanion(bool nullToAbsent) {
+    return StoredAudioCacheEntriesCompanion(
+      identityKey: Value(identityKey),
+      providerId: Value(providerId),
+      trackId: Value(trackId),
+      quality: Value(quality),
+      filePath: Value(filePath),
+      fileSize: Value(fileSize),
+      completedAt: Value(completedAt),
+      lastAccessedAt: Value(lastAccessedAt),
+    );
+  }
+
+  factory StoredAudioCacheEntry.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredAudioCacheEntry(
+      identityKey: serializer.fromJson<String>(json['identityKey']),
+      providerId: serializer.fromJson<String>(json['providerId']),
+      trackId: serializer.fromJson<String>(json['trackId']),
+      quality: serializer.fromJson<String>(json['quality']),
+      filePath: serializer.fromJson<String>(json['filePath']),
+      fileSize: serializer.fromJson<int>(json['fileSize']),
+      completedAt: serializer.fromJson<DateTime>(json['completedAt']),
+      lastAccessedAt: serializer.fromJson<DateTime>(json['lastAccessedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'identityKey': serializer.toJson<String>(identityKey),
+      'providerId': serializer.toJson<String>(providerId),
+      'trackId': serializer.toJson<String>(trackId),
+      'quality': serializer.toJson<String>(quality),
+      'filePath': serializer.toJson<String>(filePath),
+      'fileSize': serializer.toJson<int>(fileSize),
+      'completedAt': serializer.toJson<DateTime>(completedAt),
+      'lastAccessedAt': serializer.toJson<DateTime>(lastAccessedAt),
+    };
+  }
+
+  StoredAudioCacheEntry copyWith(
+          {String? identityKey,
+          String? providerId,
+          String? trackId,
+          String? quality,
+          String? filePath,
+          int? fileSize,
+          DateTime? completedAt,
+          DateTime? lastAccessedAt}) =>
+      StoredAudioCacheEntry(
+        identityKey: identityKey ?? this.identityKey,
+        providerId: providerId ?? this.providerId,
+        trackId: trackId ?? this.trackId,
+        quality: quality ?? this.quality,
+        filePath: filePath ?? this.filePath,
+        fileSize: fileSize ?? this.fileSize,
+        completedAt: completedAt ?? this.completedAt,
+        lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+      );
+  StoredAudioCacheEntry copyWithCompanion(
+      StoredAudioCacheEntriesCompanion data) {
+    return StoredAudioCacheEntry(
+      identityKey:
+          data.identityKey.present ? data.identityKey.value : this.identityKey,
+      providerId:
+          data.providerId.present ? data.providerId.value : this.providerId,
+      trackId: data.trackId.present ? data.trackId.value : this.trackId,
+      quality: data.quality.present ? data.quality.value : this.quality,
+      filePath: data.filePath.present ? data.filePath.value : this.filePath,
+      fileSize: data.fileSize.present ? data.fileSize.value : this.fileSize,
+      completedAt:
+          data.completedAt.present ? data.completedAt.value : this.completedAt,
+      lastAccessedAt: data.lastAccessedAt.present
+          ? data.lastAccessedAt.value
+          : this.lastAccessedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredAudioCacheEntry(')
+          ..write('identityKey: $identityKey, ')
+          ..write('providerId: $providerId, ')
+          ..write('trackId: $trackId, ')
+          ..write('quality: $quality, ')
+          ..write('filePath: $filePath, ')
+          ..write('fileSize: $fileSize, ')
+          ..write('completedAt: $completedAt, ')
+          ..write('lastAccessedAt: $lastAccessedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(identityKey, providerId, trackId, quality,
+      filePath, fileSize, completedAt, lastAccessedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredAudioCacheEntry &&
+          other.identityKey == this.identityKey &&
+          other.providerId == this.providerId &&
+          other.trackId == this.trackId &&
+          other.quality == this.quality &&
+          other.filePath == this.filePath &&
+          other.fileSize == this.fileSize &&
+          other.completedAt == this.completedAt &&
+          other.lastAccessedAt == this.lastAccessedAt);
+}
+
+class StoredAudioCacheEntriesCompanion
+    extends UpdateCompanion<StoredAudioCacheEntry> {
+  final Value<String> identityKey;
+  final Value<String> providerId;
+  final Value<String> trackId;
+  final Value<String> quality;
+  final Value<String> filePath;
+  final Value<int> fileSize;
+  final Value<DateTime> completedAt;
+  final Value<DateTime> lastAccessedAt;
+  final Value<int> rowid;
+  const StoredAudioCacheEntriesCompanion({
+    this.identityKey = const Value.absent(),
+    this.providerId = const Value.absent(),
+    this.trackId = const Value.absent(),
+    this.quality = const Value.absent(),
+    this.filePath = const Value.absent(),
+    this.fileSize = const Value.absent(),
+    this.completedAt = const Value.absent(),
+    this.lastAccessedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StoredAudioCacheEntriesCompanion.insert({
+    required String identityKey,
+    required String providerId,
+    required String trackId,
+    required String quality,
+    required String filePath,
+    required int fileSize,
+    required DateTime completedAt,
+    required DateTime lastAccessedAt,
+    this.rowid = const Value.absent(),
+  })  : identityKey = Value(identityKey),
+        providerId = Value(providerId),
+        trackId = Value(trackId),
+        quality = Value(quality),
+        filePath = Value(filePath),
+        fileSize = Value(fileSize),
+        completedAt = Value(completedAt),
+        lastAccessedAt = Value(lastAccessedAt);
+  static Insertable<StoredAudioCacheEntry> custom({
+    Expression<String>? identityKey,
+    Expression<String>? providerId,
+    Expression<String>? trackId,
+    Expression<String>? quality,
+    Expression<String>? filePath,
+    Expression<int>? fileSize,
+    Expression<DateTime>? completedAt,
+    Expression<DateTime>? lastAccessedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (identityKey != null) 'identity_key': identityKey,
+      if (providerId != null) 'provider_id': providerId,
+      if (trackId != null) 'track_id': trackId,
+      if (quality != null) 'quality': quality,
+      if (filePath != null) 'file_path': filePath,
+      if (fileSize != null) 'file_size': fileSize,
+      if (completedAt != null) 'completed_at': completedAt,
+      if (lastAccessedAt != null) 'last_accessed_at': lastAccessedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StoredAudioCacheEntriesCompanion copyWith(
+      {Value<String>? identityKey,
+      Value<String>? providerId,
+      Value<String>? trackId,
+      Value<String>? quality,
+      Value<String>? filePath,
+      Value<int>? fileSize,
+      Value<DateTime>? completedAt,
+      Value<DateTime>? lastAccessedAt,
+      Value<int>? rowid}) {
+    return StoredAudioCacheEntriesCompanion(
+      identityKey: identityKey ?? this.identityKey,
+      providerId: providerId ?? this.providerId,
+      trackId: trackId ?? this.trackId,
+      quality: quality ?? this.quality,
+      filePath: filePath ?? this.filePath,
+      fileSize: fileSize ?? this.fileSize,
+      completedAt: completedAt ?? this.completedAt,
+      lastAccessedAt: lastAccessedAt ?? this.lastAccessedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (identityKey.present) {
+      map['identity_key'] = Variable<String>(identityKey.value);
+    }
+    if (providerId.present) {
+      map['provider_id'] = Variable<String>(providerId.value);
+    }
+    if (trackId.present) {
+      map['track_id'] = Variable<String>(trackId.value);
+    }
+    if (quality.present) {
+      map['quality'] = Variable<String>(quality.value);
+    }
+    if (filePath.present) {
+      map['file_path'] = Variable<String>(filePath.value);
+    }
+    if (fileSize.present) {
+      map['file_size'] = Variable<int>(fileSize.value);
+    }
+    if (completedAt.present) {
+      map['completed_at'] = Variable<DateTime>(completedAt.value);
+    }
+    if (lastAccessedAt.present) {
+      map['last_accessed_at'] = Variable<DateTime>(lastAccessedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredAudioCacheEntriesCompanion(')
+          ..write('identityKey: $identityKey, ')
+          ..write('providerId: $providerId, ')
+          ..write('trackId: $trackId, ')
+          ..write('quality: $quality, ')
+          ..write('filePath: $filePath, ')
+          ..write('fileSize: $fileSize, ')
+          ..write('completedAt: $completedAt, ')
+          ..write('lastAccessedAt: $lastAccessedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AudioCacheSettingsTable extends AudioCacheSettings
+    with TableInfo<$AudioCacheSettingsTable, AudioCacheSetting> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AudioCacheSettingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _enabledMeta =
+      const VerificationMeta('enabled');
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+      'enabled', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: true,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("enabled" IN (0, 1))'));
+  static const VerificationMeta _wifiOnlyMeta =
+      const VerificationMeta('wifiOnly');
+  @override
+  late final GeneratedColumn<bool> wifiOnly = GeneratedColumn<bool>(
+      'wifi_only', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: true,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("wifi_only" IN (0, 1))'));
+  static const VerificationMeta _maxBytesMeta =
+      const VerificationMeta('maxBytes');
+  @override
+  late final GeneratedColumn<int> maxBytes = GeneratedColumn<int>(
+      'max_bytes', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [id, enabled, wifiOnly, maxBytes];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'audio_cache_settings';
+  @override
+  VerificationContext validateIntegrity(Insertable<AudioCacheSetting> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(_enabledMeta,
+          enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta));
+    } else if (isInserting) {
+      context.missing(_enabledMeta);
+    }
+    if (data.containsKey('wifi_only')) {
+      context.handle(_wifiOnlyMeta,
+          wifiOnly.isAcceptableOrUnknown(data['wifi_only']!, _wifiOnlyMeta));
+    } else if (isInserting) {
+      context.missing(_wifiOnlyMeta);
+    }
+    if (data.containsKey('max_bytes')) {
+      context.handle(_maxBytesMeta,
+          maxBytes.isAcceptableOrUnknown(data['max_bytes']!, _maxBytesMeta));
+    } else if (isInserting) {
+      context.missing(_maxBytesMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AudioCacheSetting map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AudioCacheSetting(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      enabled: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}enabled'])!,
+      wifiOnly: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}wifi_only'])!,
+      maxBytes: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}max_bytes'])!,
+    );
+  }
+
+  @override
+  $AudioCacheSettingsTable createAlias(String alias) {
+    return $AudioCacheSettingsTable(attachedDatabase, alias);
+  }
+}
+
+class AudioCacheSetting extends DataClass
+    implements Insertable<AudioCacheSetting> {
+  final int id;
+  final bool enabled;
+  final bool wifiOnly;
+  final int maxBytes;
+  const AudioCacheSetting(
+      {required this.id,
+      required this.enabled,
+      required this.wifiOnly,
+      required this.maxBytes});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['enabled'] = Variable<bool>(enabled);
+    map['wifi_only'] = Variable<bool>(wifiOnly);
+    map['max_bytes'] = Variable<int>(maxBytes);
+    return map;
+  }
+
+  AudioCacheSettingsCompanion toCompanion(bool nullToAbsent) {
+    return AudioCacheSettingsCompanion(
+      id: Value(id),
+      enabled: Value(enabled),
+      wifiOnly: Value(wifiOnly),
+      maxBytes: Value(maxBytes),
+    );
+  }
+
+  factory AudioCacheSetting.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AudioCacheSetting(
+      id: serializer.fromJson<int>(json['id']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+      wifiOnly: serializer.fromJson<bool>(json['wifiOnly']),
+      maxBytes: serializer.fromJson<int>(json['maxBytes']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'enabled': serializer.toJson<bool>(enabled),
+      'wifiOnly': serializer.toJson<bool>(wifiOnly),
+      'maxBytes': serializer.toJson<int>(maxBytes),
+    };
+  }
+
+  AudioCacheSetting copyWith(
+          {int? id, bool? enabled, bool? wifiOnly, int? maxBytes}) =>
+      AudioCacheSetting(
+        id: id ?? this.id,
+        enabled: enabled ?? this.enabled,
+        wifiOnly: wifiOnly ?? this.wifiOnly,
+        maxBytes: maxBytes ?? this.maxBytes,
+      );
+  AudioCacheSetting copyWithCompanion(AudioCacheSettingsCompanion data) {
+    return AudioCacheSetting(
+      id: data.id.present ? data.id.value : this.id,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      wifiOnly: data.wifiOnly.present ? data.wifiOnly.value : this.wifiOnly,
+      maxBytes: data.maxBytes.present ? data.maxBytes.value : this.maxBytes,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AudioCacheSetting(')
+          ..write('id: $id, ')
+          ..write('enabled: $enabled, ')
+          ..write('wifiOnly: $wifiOnly, ')
+          ..write('maxBytes: $maxBytes')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, enabled, wifiOnly, maxBytes);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AudioCacheSetting &&
+          other.id == this.id &&
+          other.enabled == this.enabled &&
+          other.wifiOnly == this.wifiOnly &&
+          other.maxBytes == this.maxBytes);
+}
+
+class AudioCacheSettingsCompanion extends UpdateCompanion<AudioCacheSetting> {
+  final Value<int> id;
+  final Value<bool> enabled;
+  final Value<bool> wifiOnly;
+  final Value<int> maxBytes;
+  const AudioCacheSettingsCompanion({
+    this.id = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.wifiOnly = const Value.absent(),
+    this.maxBytes = const Value.absent(),
+  });
+  AudioCacheSettingsCompanion.insert({
+    this.id = const Value.absent(),
+    required bool enabled,
+    required bool wifiOnly,
+    required int maxBytes,
+  })  : enabled = Value(enabled),
+        wifiOnly = Value(wifiOnly),
+        maxBytes = Value(maxBytes);
+  static Insertable<AudioCacheSetting> custom({
+    Expression<int>? id,
+    Expression<bool>? enabled,
+    Expression<bool>? wifiOnly,
+    Expression<int>? maxBytes,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (enabled != null) 'enabled': enabled,
+      if (wifiOnly != null) 'wifi_only': wifiOnly,
+      if (maxBytes != null) 'max_bytes': maxBytes,
+    });
+  }
+
+  AudioCacheSettingsCompanion copyWith(
+      {Value<int>? id,
+      Value<bool>? enabled,
+      Value<bool>? wifiOnly,
+      Value<int>? maxBytes}) {
+    return AudioCacheSettingsCompanion(
+      id: id ?? this.id,
+      enabled: enabled ?? this.enabled,
+      wifiOnly: wifiOnly ?? this.wifiOnly,
+      maxBytes: maxBytes ?? this.maxBytes,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (wifiOnly.present) {
+      map['wifi_only'] = Variable<bool>(wifiOnly.value);
+    }
+    if (maxBytes.present) {
+      map['max_bytes'] = Variable<int>(maxBytes.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AudioCacheSettingsCompanion(')
+          ..write('id: $id, ')
+          ..write('enabled: $enabled, ')
+          ..write('wifiOnly: $wifiOnly, ')
+          ..write('maxBytes: $maxBytes')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$MeloDriftDatabase extends GeneratedDatabase {
   _$MeloDriftDatabase(QueryExecutor e) : super(e);
   $MeloDriftDatabaseManager get managers => $MeloDriftDatabaseManager(this);
@@ -2567,6 +3276,10 @@ abstract class _$MeloDriftDatabase extends GeneratedDatabase {
       $UnifiedFavoriteCacheRowsTable(this);
   late final $FavoriteProviderStatesTable favoriteProviderStates =
       $FavoriteProviderStatesTable(this);
+  late final $StoredAudioCacheEntriesTable storedAudioCacheEntries =
+      $StoredAudioCacheEntriesTable(this);
+  late final $AudioCacheSettingsTable audioCacheSettings =
+      $AudioCacheSettingsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2580,7 +3293,9 @@ abstract class _$MeloDriftDatabase extends GeneratedDatabase {
         favoriteProviderTracks,
         favoriteLikedAtLedgerRows,
         unifiedFavoriteCacheRows,
-        favoriteProviderStates
+        favoriteProviderStates,
+        storedAudioCacheEntries,
+        audioCacheSettings
       ];
 }
 
@@ -4063,6 +4778,389 @@ typedef $$FavoriteProviderStatesTableProcessedTableManager
         ),
         FavoriteProviderState,
         PrefetchHooks Function()>;
+typedef $$StoredAudioCacheEntriesTableCreateCompanionBuilder
+    = StoredAudioCacheEntriesCompanion Function({
+  required String identityKey,
+  required String providerId,
+  required String trackId,
+  required String quality,
+  required String filePath,
+  required int fileSize,
+  required DateTime completedAt,
+  required DateTime lastAccessedAt,
+  Value<int> rowid,
+});
+typedef $$StoredAudioCacheEntriesTableUpdateCompanionBuilder
+    = StoredAudioCacheEntriesCompanion Function({
+  Value<String> identityKey,
+  Value<String> providerId,
+  Value<String> trackId,
+  Value<String> quality,
+  Value<String> filePath,
+  Value<int> fileSize,
+  Value<DateTime> completedAt,
+  Value<DateTime> lastAccessedAt,
+  Value<int> rowid,
+});
+
+class $$StoredAudioCacheEntriesTableFilterComposer
+    extends Composer<_$MeloDriftDatabase, $StoredAudioCacheEntriesTable> {
+  $$StoredAudioCacheEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get identityKey => $composableBuilder(
+      column: $table.identityKey, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get trackId => $composableBuilder(
+      column: $table.trackId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get quality => $composableBuilder(
+      column: $table.quality, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get filePath => $composableBuilder(
+      column: $table.filePath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get fileSize => $composableBuilder(
+      column: $table.fileSize, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get completedAt => $composableBuilder(
+      column: $table.completedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get lastAccessedAt => $composableBuilder(
+      column: $table.lastAccessedAt,
+      builder: (column) => ColumnFilters(column));
+}
+
+class $$StoredAudioCacheEntriesTableOrderingComposer
+    extends Composer<_$MeloDriftDatabase, $StoredAudioCacheEntriesTable> {
+  $$StoredAudioCacheEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get identityKey => $composableBuilder(
+      column: $table.identityKey, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get trackId => $composableBuilder(
+      column: $table.trackId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get quality => $composableBuilder(
+      column: $table.quality, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get filePath => $composableBuilder(
+      column: $table.filePath, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get fileSize => $composableBuilder(
+      column: $table.fileSize, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get completedAt => $composableBuilder(
+      column: $table.completedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get lastAccessedAt => $composableBuilder(
+      column: $table.lastAccessedAt,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$StoredAudioCacheEntriesTableAnnotationComposer
+    extends Composer<_$MeloDriftDatabase, $StoredAudioCacheEntriesTable> {
+  $$StoredAudioCacheEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get identityKey => $composableBuilder(
+      column: $table.identityKey, builder: (column) => column);
+
+  GeneratedColumn<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => column);
+
+  GeneratedColumn<String> get trackId =>
+      $composableBuilder(column: $table.trackId, builder: (column) => column);
+
+  GeneratedColumn<String> get quality =>
+      $composableBuilder(column: $table.quality, builder: (column) => column);
+
+  GeneratedColumn<String> get filePath =>
+      $composableBuilder(column: $table.filePath, builder: (column) => column);
+
+  GeneratedColumn<int> get fileSize =>
+      $composableBuilder(column: $table.fileSize, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get completedAt => $composableBuilder(
+      column: $table.completedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastAccessedAt => $composableBuilder(
+      column: $table.lastAccessedAt, builder: (column) => column);
+}
+
+class $$StoredAudioCacheEntriesTableTableManager extends RootTableManager<
+    _$MeloDriftDatabase,
+    $StoredAudioCacheEntriesTable,
+    StoredAudioCacheEntry,
+    $$StoredAudioCacheEntriesTableFilterComposer,
+    $$StoredAudioCacheEntriesTableOrderingComposer,
+    $$StoredAudioCacheEntriesTableAnnotationComposer,
+    $$StoredAudioCacheEntriesTableCreateCompanionBuilder,
+    $$StoredAudioCacheEntriesTableUpdateCompanionBuilder,
+    (
+      StoredAudioCacheEntry,
+      BaseReferences<_$MeloDriftDatabase, $StoredAudioCacheEntriesTable,
+          StoredAudioCacheEntry>
+    ),
+    StoredAudioCacheEntry,
+    PrefetchHooks Function()> {
+  $$StoredAudioCacheEntriesTableTableManager(
+      _$MeloDriftDatabase db, $StoredAudioCacheEntriesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StoredAudioCacheEntriesTableFilterComposer(
+                  $db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StoredAudioCacheEntriesTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StoredAudioCacheEntriesTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> identityKey = const Value.absent(),
+            Value<String> providerId = const Value.absent(),
+            Value<String> trackId = const Value.absent(),
+            Value<String> quality = const Value.absent(),
+            Value<String> filePath = const Value.absent(),
+            Value<int> fileSize = const Value.absent(),
+            Value<DateTime> completedAt = const Value.absent(),
+            Value<DateTime> lastAccessedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              StoredAudioCacheEntriesCompanion(
+            identityKey: identityKey,
+            providerId: providerId,
+            trackId: trackId,
+            quality: quality,
+            filePath: filePath,
+            fileSize: fileSize,
+            completedAt: completedAt,
+            lastAccessedAt: lastAccessedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String identityKey,
+            required String providerId,
+            required String trackId,
+            required String quality,
+            required String filePath,
+            required int fileSize,
+            required DateTime completedAt,
+            required DateTime lastAccessedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              StoredAudioCacheEntriesCompanion.insert(
+            identityKey: identityKey,
+            providerId: providerId,
+            trackId: trackId,
+            quality: quality,
+            filePath: filePath,
+            fileSize: fileSize,
+            completedAt: completedAt,
+            lastAccessedAt: lastAccessedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$StoredAudioCacheEntriesTableProcessedTableManager
+    = ProcessedTableManager<
+        _$MeloDriftDatabase,
+        $StoredAudioCacheEntriesTable,
+        StoredAudioCacheEntry,
+        $$StoredAudioCacheEntriesTableFilterComposer,
+        $$StoredAudioCacheEntriesTableOrderingComposer,
+        $$StoredAudioCacheEntriesTableAnnotationComposer,
+        $$StoredAudioCacheEntriesTableCreateCompanionBuilder,
+        $$StoredAudioCacheEntriesTableUpdateCompanionBuilder,
+        (
+          StoredAudioCacheEntry,
+          BaseReferences<_$MeloDriftDatabase, $StoredAudioCacheEntriesTable,
+              StoredAudioCacheEntry>
+        ),
+        StoredAudioCacheEntry,
+        PrefetchHooks Function()>;
+typedef $$AudioCacheSettingsTableCreateCompanionBuilder
+    = AudioCacheSettingsCompanion Function({
+  Value<int> id,
+  required bool enabled,
+  required bool wifiOnly,
+  required int maxBytes,
+});
+typedef $$AudioCacheSettingsTableUpdateCompanionBuilder
+    = AudioCacheSettingsCompanion Function({
+  Value<int> id,
+  Value<bool> enabled,
+  Value<bool> wifiOnly,
+  Value<int> maxBytes,
+});
+
+class $$AudioCacheSettingsTableFilterComposer
+    extends Composer<_$MeloDriftDatabase, $AudioCacheSettingsTable> {
+  $$AudioCacheSettingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+      column: $table.enabled, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get wifiOnly => $composableBuilder(
+      column: $table.wifiOnly, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get maxBytes => $composableBuilder(
+      column: $table.maxBytes, builder: (column) => ColumnFilters(column));
+}
+
+class $$AudioCacheSettingsTableOrderingComposer
+    extends Composer<_$MeloDriftDatabase, $AudioCacheSettingsTable> {
+  $$AudioCacheSettingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+      column: $table.enabled, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get wifiOnly => $composableBuilder(
+      column: $table.wifiOnly, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get maxBytes => $composableBuilder(
+      column: $table.maxBytes, builder: (column) => ColumnOrderings(column));
+}
+
+class $$AudioCacheSettingsTableAnnotationComposer
+    extends Composer<_$MeloDriftDatabase, $AudioCacheSettingsTable> {
+  $$AudioCacheSettingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<bool> get wifiOnly =>
+      $composableBuilder(column: $table.wifiOnly, builder: (column) => column);
+
+  GeneratedColumn<int> get maxBytes =>
+      $composableBuilder(column: $table.maxBytes, builder: (column) => column);
+}
+
+class $$AudioCacheSettingsTableTableManager extends RootTableManager<
+    _$MeloDriftDatabase,
+    $AudioCacheSettingsTable,
+    AudioCacheSetting,
+    $$AudioCacheSettingsTableFilterComposer,
+    $$AudioCacheSettingsTableOrderingComposer,
+    $$AudioCacheSettingsTableAnnotationComposer,
+    $$AudioCacheSettingsTableCreateCompanionBuilder,
+    $$AudioCacheSettingsTableUpdateCompanionBuilder,
+    (
+      AudioCacheSetting,
+      BaseReferences<_$MeloDriftDatabase, $AudioCacheSettingsTable,
+          AudioCacheSetting>
+    ),
+    AudioCacheSetting,
+    PrefetchHooks Function()> {
+  $$AudioCacheSettingsTableTableManager(
+      _$MeloDriftDatabase db, $AudioCacheSettingsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AudioCacheSettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AudioCacheSettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AudioCacheSettingsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<bool> enabled = const Value.absent(),
+            Value<bool> wifiOnly = const Value.absent(),
+            Value<int> maxBytes = const Value.absent(),
+          }) =>
+              AudioCacheSettingsCompanion(
+            id: id,
+            enabled: enabled,
+            wifiOnly: wifiOnly,
+            maxBytes: maxBytes,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required bool enabled,
+            required bool wifiOnly,
+            required int maxBytes,
+          }) =>
+              AudioCacheSettingsCompanion.insert(
+            id: id,
+            enabled: enabled,
+            wifiOnly: wifiOnly,
+            maxBytes: maxBytes,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$AudioCacheSettingsTableProcessedTableManager = ProcessedTableManager<
+    _$MeloDriftDatabase,
+    $AudioCacheSettingsTable,
+    AudioCacheSetting,
+    $$AudioCacheSettingsTableFilterComposer,
+    $$AudioCacheSettingsTableOrderingComposer,
+    $$AudioCacheSettingsTableAnnotationComposer,
+    $$AudioCacheSettingsTableCreateCompanionBuilder,
+    $$AudioCacheSettingsTableUpdateCompanionBuilder,
+    (
+      AudioCacheSetting,
+      BaseReferences<_$MeloDriftDatabase, $AudioCacheSettingsTable,
+          AudioCacheSetting>
+    ),
+    AudioCacheSetting,
+    PrefetchHooks Function()>;
 
 class $MeloDriftDatabaseManager {
   final _$MeloDriftDatabase _db;
@@ -4090,4 +5188,9 @@ class $MeloDriftDatabaseManager {
   $$FavoriteProviderStatesTableTableManager get favoriteProviderStates =>
       $$FavoriteProviderStatesTableTableManager(
           _db, _db.favoriteProviderStates);
+  $$StoredAudioCacheEntriesTableTableManager get storedAudioCacheEntries =>
+      $$StoredAudioCacheEntriesTableTableManager(
+          _db, _db.storedAudioCacheEntries);
+  $$AudioCacheSettingsTableTableManager get audioCacheSettings =>
+      $$AudioCacheSettingsTableTableManager(_db, _db.audioCacheSettings);
 }

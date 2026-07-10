@@ -132,7 +132,8 @@ final class BackupArchiveService {
         'Unsupported backup version: ${manifest.backupVersion}.',
       );
     }
-    if (manifest.snapshotSchemaVersion != MeloJsonCodec.schemaVersion) {
+    if (manifest.snapshotSchemaVersion < 1 ||
+        manifest.snapshotSchemaVersion > MeloJsonCodec.schemaVersion) {
       throw FormatException(
         'Unsupported snapshot schema: ${manifest.snapshotSchemaVersion}.',
       );

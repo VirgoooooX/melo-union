@@ -148,6 +148,8 @@ class _MobileMineView extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 10),
+        const _AudioCacheSettingsCard(),
+        const SizedBox(height: 10),
         _SettingsCard(
           title: '播放恢复',
           subtitle: '保留队列和进度；重新打开后不会自动播放。',
@@ -729,6 +731,8 @@ class _SettingsContent extends StatelessWidget {
                 },
               ),
             ),
+            const SizedBox(height: MeloSpacing.md),
+            const _AudioCacheSettingsCard(),
           ],
         ),
       _SettingsSection.downloads => _SettingsPanel(
@@ -1466,6 +1470,9 @@ String _backupEntrySubtitle(BackupRemoteEntry entry) {
 String _formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  if (bytes >= 1024 * 1024 * 1024) {
+    return '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(1)} GB';
+  }
   return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
 }
 

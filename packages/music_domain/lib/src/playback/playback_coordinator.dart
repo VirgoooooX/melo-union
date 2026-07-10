@@ -1,13 +1,22 @@
 import 'package:provider_contract/provider_contract.dart';
+
 import 'playback_queue.dart';
+
+typedef LocalPlaybackResolver = Future<PlaybackTicket?> Function(
+  SourceTrack track,
+  AudioQuality requestedQuality, {
+  required bool allowLowerQuality,
+});
 
 class PlaybackCoordinator {
   PlaybackCoordinator({
     required this.registry,
     AudioQuality defaultQuality = AudioQuality.standard,
+    this.localPlaybackResolver,
   }) : _quality = defaultQuality;
 
   final StaticProviderRegistry registry;
+  final LocalPlaybackResolver? localPlaybackResolver;
   AudioQuality _quality;
 
   PlaybackQueueState _queueState = PlaybackQueueState.empty();
@@ -193,6 +202,27 @@ class PlaybackCoordinator {
   }
 
   Future<PlaybackTicket> _resolveTicketForTrack(SourceTrack track) async {
+    final local = await localPlaybackResolver?.call(
+      track,
+      _quality,
+      allowLowerQuality: false,
+    );
+    if (local != null) return local;
+
+    try {
+      return await _resolveRemoteTicketForTrack(track);
+    } catch (_) {
+      final fallback = await localPlaybackResolver?.call(
+        track,
+        _quality,
+        allowLowerQuality: true,
+      );
+      if (fallback != null) return fallback;
+      rethrow;
+    }
+  }
+
+  Future<PlaybackTicket> _resolveRemoteTicketForTrack(SourceTrack track) async {
     final providerId = track.ref.providerId;
     final entry = registry.entryOf(providerId);
 

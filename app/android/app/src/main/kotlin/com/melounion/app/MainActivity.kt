@@ -71,6 +71,7 @@ class MainActivity : AudioServiceActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getApplicationSupportDirectory" -> result.success(filesDir.absolutePath)
+                "getApplicationCacheDirectory" -> result.success(cacheDir.absolutePath)
                 else -> result.notImplemented()
             }
         }

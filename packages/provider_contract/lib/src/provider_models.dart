@@ -7,6 +7,10 @@ enum AudioQuality {
   lossless;
 }
 
+extension AudioQualityComparison on AudioQuality {
+  bool meetsOrExceeds(AudioQuality requested) => index >= requested.index;
+}
+
 final class ProviderAccountProfile {
   const ProviderAccountProfile({
     required this.accountId,

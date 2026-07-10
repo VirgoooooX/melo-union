@@ -6,7 +6,7 @@ import 'melo_data_snapshot.dart';
 final class MeloJsonCodec {
   const MeloJsonCodec();
 
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
 
   Map<String, Object?> encodeSnapshot(MeloDataSnapshot snapshot) {
     return {
@@ -54,7 +54,7 @@ final class MeloJsonCodec {
 
   MeloDataSnapshot decodeSnapshot(Map<String, Object?> json) {
     final version = json['schemaVersion'];
-    if (version != schemaVersion) {
+    if (version is! int || version < 1 || version > schemaVersion) {
       throw FormatException('Unsupported Melo data schema: $version');
     }
 
@@ -202,6 +202,7 @@ final class MeloJsonCodec {
       'filePath': item.filePath,
       'fileSize': item.fileSize,
       'downloadedAt': item.downloadedAt.toUtc().toIso8601String(),
+      'quality': item.quality.name,
     };
   }
 
@@ -392,6 +393,9 @@ final class MeloJsonCodec {
       fileSize: json['fileSize'] as int,
       downloadedAt:
           DateTime.parse(_requiredString(json, 'downloadedAt')).toUtc(),
+      quality: AudioQuality.values.byName(
+        json['quality'] as String? ?? AudioQuality.low.name,
+      ),
     );
   }
 

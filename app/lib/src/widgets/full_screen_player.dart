@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -1284,16 +1285,6 @@ class _FullscreenArtworkStageState extends State<_FullscreenArtworkStage>
                   ),
                 ),
               ),
-              IgnorePointer(
-                child: CustomPaint(
-                  size: Size.square(coverSize + 34),
-                  painter: _FullscreenCoverNeedlePainter(
-                    color: widget.palette.accent.withValues(
-                      alpha: widget.isPlaying ? .52 : .26,
-                    ),
-                  ),
-                ),
-              ),
             ],
           );
         },
@@ -1378,34 +1369,6 @@ class _FullscreenArtworkHaloPainter extends CustomPainter {
   }
 }
 
-class _FullscreenCoverNeedlePainter extends CustomPainter {
-  const _FullscreenCoverNeedlePainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round
-      ..color = color;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: size.width / 2 - 2),
-      -math.pi * .78,
-      math.pi * .32,
-      false,
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _FullscreenCoverNeedlePainter oldDelegate) {
-    return oldDelegate.color != color;
-  }
-}
-
 class _DesktopAlbumStage extends StatelessWidget {
   const _DesktopAlbumStage({
     required this.track,
@@ -1480,7 +1443,7 @@ class _DesktopAlbumStage extends StatelessWidget {
               runSpacing: MeloSpacing.xs,
               children: [
                 _MobileProviderBadge(providerId: current.ref.providerId),
-                _GlassPill(label: _qualityLabel(repository.playbackQuality)),
+                _GlassPill(label: _playbackQualityStatus(repository)),
                 if (current.isFavorited)
                   const _GlassPill(
                     label: '已收藏',
@@ -1826,7 +1789,7 @@ class _PrimaryPlayerPanel extends StatelessWidget {
           runSpacing: MeloSpacing.xs,
           children: [
             _MobileProviderBadge(providerId: track!.ref.providerId),
-            _GlassPill(label: _qualityLabel(repository.playbackQuality)),
+            _GlassPill(label: _playbackQualityStatus(repository)),
             if (track!.isFavorited)
               const _GlassPill(
                 label: '已收藏',
@@ -3075,6 +3038,16 @@ String _qualityLabel(AudioQuality quality) => switch (quality) {
       AudioQuality.high => '极高',
       AudioQuality.lossless => '无损',
     };
+
+String _playbackQualityStatus(DemoRepository repository) {
+  final source = switch (repository.playbackSourceKind) {
+    PlaybackSourceKind.network => '在线',
+    PlaybackSourceKind.download => '本地下载',
+    PlaybackSourceKind.cache => '缓存',
+    PlaybackSourceKind.fallback => '本地回退',
+  };
+  return '${_qualityLabel(repository.effectivePlaybackQuality)} · $source';
+}
 
 String _repeatTooltip(PlaybackRepeatMode mode) => switch (mode) {
       PlaybackRepeatMode.off => '开启列表循环',

@@ -22,8 +22,34 @@ Future<ManagedSnapshotStore> createSnapshotStore() async {
 
   return ManagedSnapshotStore(
     store: DriftMeloDataStore(database: database),
+    audioCacheStore: DriftAudioCacheStore(database: database),
+    audioCacheDirectory: await _resolveAudioCacheDirectory(),
     close: database.close,
   );
+}
+
+Future<Directory> _resolveAudioCacheDirectory() async {
+  if (Platform.isAndroid) {
+    try {
+      final androidPath = await _androidStorageChannel.invokeMethod<String>(
+        'getApplicationCacheDirectory',
+      );
+      if (androidPath != null && androidPath.trim().isNotEmpty) {
+        return Directory(path.join(androidPath, 'melo_union', 'audio'));
+      }
+    } on MissingPluginException {
+      // Unit tests and non-Flutter VM runs use the generic fallback.
+    } on PlatformException {
+      // Fall through to the generic writable location.
+    }
+  }
+  if (Platform.isWindows) {
+    final root =
+        Platform.environment['LOCALAPPDATA'] ?? Directory.systemTemp.path;
+    return Directory(path.join(root, 'MeloUnion', 'Cache', 'audio'));
+  }
+  return Directory(
+      path.join(_defaultSupportRoot().path, 'MeloUnion', 'Cache', 'audio'));
 }
 
 Future<Directory> _resolveDataDirectory() async {

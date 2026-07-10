@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
@@ -22,6 +23,7 @@ import '../platform/notification_permission_bridge.dart';
 import 'netease_session_store.dart';
 import 'qq_music_session_store.dart';
 import 'kugou_session_store.dart';
+import 'audio_cache_manager.dart';
 
 class _CacheEntry<T> {
   _CacheEntry(this.data, {DateTime? fetchedAt})
@@ -66,27 +68,18 @@ final class _NativePlaybackSource {
   const _NativePlaybackSource({
     required this.track,
     required this.ticket,
+    required this.audioSource,
+    this.usesAutoCache = false,
   });
 
   final SourceTrack track;
   final PlaybackTicket ticket;
+  final AudioSource audioSource;
+  final bool usesAutoCache;
 
   ProviderTrackRef get ref => track.ref;
 
-  AudioSource toAudioSource() {
-    return AudioSource.uri(
-      ticket.mediaUri,
-      headers: ticket.headers.isEmpty ? null : ticket.headers,
-      tag: MediaItem(
-        id: '${track.ref.providerId.value}:${track.ref.trackId}',
-        title: track.title,
-        artist: track.artists.join(' / '),
-        album: track.album,
-        duration: track.duration,
-        artUri: track.artwork,
-      ),
-    );
-  }
+  AudioSource toAudioSource() => audioSource;
 }
 
 final class _NativePlaybackWindow {
@@ -129,6 +122,7 @@ class DemoRepository extends ChangeNotifier {
     QqMusicCredentials? qqMusicCredentials,
     this.qqMusicSessionStore,
     this.kugouSessionStore,
+    this.audioCacheManager,
     this.notificationPermissionBridge = const NotificationPermissionBridge(),
     AudioQuality playbackQuality = AudioQuality.standard,
     double volume = 1.0,
@@ -160,14 +154,15 @@ class DemoRepository extends ChangeNotifier {
         _selectedPlaylistId = playlists.listPlaylists().isEmpty
             ? null
             : playlists.listPlaylists().first.id {
-    playbackCoordinator = PlaybackCoordinator(
-      registry: registry,
-      defaultQuality: playbackQuality,
-    );
     downloadCoordinator = DownloadCoordinator(
       registry: registry,
       seedTasks: seedDownloadTasks,
       seedLocalItems: seedLocalMediaItems,
+    );
+    playbackCoordinator = PlaybackCoordinator(
+      registry: registry,
+      defaultQuality: playbackQuality,
+      localPlaybackResolver: _resolveLocalPlaybackTicket,
     );
     _restorePlaybackQueue(playbackQueue);
     unawaited(_audioPlayer.setVolume(_volume));
@@ -187,6 +182,8 @@ class DemoRepository extends ChangeNotifier {
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
         _playbackRequested = false;
+        unawaited(audioCacheManager?.releaseInUse(_activeAudioCachePath));
+        _activeAudioCachePath = null;
         notifyListeners();
         unawaited(_handlePlaybackCompleted());
         return;
@@ -228,6 +225,7 @@ class DemoRepository extends ChangeNotifier {
     QqMusicSessionStore? qqMusicSessionStore,
     KugouSession? kugouSession,
     KugouSessionStore? kugouSessionStore,
+    AudioCacheManager? audioCacheManager,
     List<MusicProvider> additionalProviders = const [],
   }) {
     final catalogId = ProviderId('compass_catalog');
@@ -361,6 +359,7 @@ class DemoRepository extends ChangeNotifier {
       qqMusicCredentials: qqMusicCredentials,
       qqMusicSessionStore: qqMusicSessionStore,
       kugouSessionStore: kugouSessionStore,
+      audioCacheManager: audioCacheManager,
       notificationPermissionBridge: const NotificationPermissionBridge(),
       playbackQuality: snapshot?.playbackQuality ?? AudioQuality.standard,
       volume: snapshot?.volume ?? 1.0,
@@ -388,6 +387,7 @@ class DemoRepository extends ChangeNotifier {
   }
 
   final StaticProviderRegistry registry;
+  final AudioCacheManager? audioCacheManager;
   final InMemoryLocalPlaylistRepository playlists;
   final Map<ProviderId, FakeMusicProvider> providers;
   final MeloSnapshotStore? snapshotStore;
@@ -417,6 +417,8 @@ class DemoRepository extends ChangeNotifier {
   final Map<ProviderTrackRef, SourceTrack> _trackCache = {};
   String? _playingTrackId;
   PlaybackIssue? _playbackIssue;
+  PlaybackSourceKind _playbackSourceKind = PlaybackSourceKind.network;
+  AudioQuality? _effectivePlaybackQuality;
   double _volume;
   bool _rememberQueue;
   bool _restorePlaybackState;
@@ -432,6 +434,8 @@ class DemoRepository extends ChangeNotifier {
   bool _shuffleEnabled = false;
   bool _isAdvancingAfterCompletion = false;
   PlaybackRepeatMode _repeatMode = PlaybackRepeatMode.off;
+  final Set<StreamSubscription<double>> _cacheProgressSubscriptions = {};
+  String? _activeAudioCachePath;
 
   /// Incremented on login/logout/toggle to trigger [allFavoritesProvider] refresh.
   int _favoritesVersion = 0;
@@ -449,6 +453,63 @@ class DemoRepository extends ChangeNotifier {
   AudioPlayer get audioPlayer => _audioPlayer;
 
   PlaybackIssue? get playbackIssue => _playbackIssue;
+
+  PlaybackSourceKind get playbackSourceKind => _playbackSourceKind;
+
+  AudioQuality get effectivePlaybackQuality =>
+      _effectivePlaybackQuality ?? playbackQuality;
+
+  AudioCachePolicy? get audioCachePolicy => audioCacheManager?.policy;
+
+  int get audioCacheBytes => audioCacheManager?.totalBytes ?? 0;
+
+  int get audioCacheTrackCount => audioCacheManager?.entries.length ?? 0;
+
+  Map<ProviderId, int> get audioCacheBytesByProvider {
+    final result = <ProviderId, int>{};
+    for (final entry
+        in audioCacheManager?.entries ?? const <AudioCacheEntry>[]) {
+      result.update(
+        entry.providerId,
+        (bytes) => bytes + entry.fileSize,
+        ifAbsent: () => entry.fileSize,
+      );
+    }
+    return result;
+  }
+
+  Future<void> setAudioCacheEnabled(bool enabled) async {
+    final manager = audioCacheManager;
+    final policy = manager?.policy;
+    if (manager == null || policy == null) return;
+    await manager.updatePolicy(policy.copyWith(enabled: enabled));
+    notifyListeners();
+  }
+
+  Future<void> setAudioCacheWifiOnly(bool wifiOnly) async {
+    final manager = audioCacheManager;
+    final policy = manager?.policy;
+    if (manager == null || policy == null) return;
+    await manager.updatePolicy(policy.copyWith(wifiOnly: wifiOnly));
+    notifyListeners();
+  }
+
+  Future<void> setAudioCacheMaxBytes(int bytes) async {
+    final manager = audioCacheManager;
+    final policy = manager?.policy;
+    if (manager == null || policy == null) return;
+    const min = 256 * 1024 * 1024;
+    const max = 50 * 1024 * 1024 * 1024;
+    await manager.updatePolicy(
+      policy.copyWith(maxBytes: bytes.clamp(min, max).toInt()),
+    );
+    notifyListeners();
+  }
+
+  Future<void> clearAudioCache({ProviderId? providerId}) async {
+    await audioCacheManager?.clear(providerId: providerId);
+    notifyListeners();
+  }
 
   bool get hasPlaybackIssue => _playbackIssue != null;
 
@@ -1717,6 +1778,81 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<PlaybackTicket?> _resolveLocalPlaybackTicket(
+    SourceTrack track,
+    AudioQuality requestedQuality, {
+    required bool allowLowerQuality,
+  }) async {
+    final downloaded = downloadCoordinator.findLocalItem(
+      track.ref,
+      requestedQuality: requestedQuality,
+      allowLowerQuality: allowLowerQuality,
+    );
+    final downloadedTicket = await _localTicketForDownload(track, downloaded);
+    if (!allowLowerQuality && downloadedTicket != null) return downloadedTicket;
+
+    final cached = allowLowerQuality
+        ? await audioCacheManager?.findBestFallback(track.ref)
+        : await audioCacheManager?.findEligible(track.ref, requestedQuality);
+    final cachedTicket = cached == null
+        ? null
+        : _localPlaybackTicket(track, cached.filePath, cached.quality);
+    if (!allowLowerQuality) return cachedTicket;
+
+    if (downloadedTicket == null) return cachedTicket;
+    if (cachedTicket == null) return downloadedTicket;
+    return cachedTicket.quality.index > downloadedTicket.quality.index
+        ? cachedTicket
+        : downloadedTicket;
+  }
+
+  Future<PlaybackTicket?> _localTicketForDownload(
+    SourceTrack track,
+    LocalMediaItem? item,
+  ) async {
+    if (item == null || item.filePath.startsWith('local://')) return null;
+    final file = File(item.filePath);
+    if (!await file.exists() || await file.length() <= 0) {
+      downloadCoordinator.removeLocalItem(item.sourceRef);
+      _persistSoon();
+      return null;
+    }
+    return _localPlaybackTicket(track, item.filePath, item.quality);
+  }
+
+  PlaybackTicket _localPlaybackTicket(
+    SourceTrack track,
+    String filePath,
+    AudioQuality quality,
+  ) {
+    return PlaybackTicket(
+      mediaUri: Uri.file(filePath),
+      headers: const {},
+      expiresAt: DateTime.utc(9999),
+      trackRef: track.ref,
+      quality: quality,
+    );
+  }
+
+  void _setEffectivePlaybackSource(SourceTrack track, PlaybackTicket ticket) {
+    _effectivePlaybackQuality = ticket.quality;
+    if (!ticket.mediaUri.isScheme('file')) {
+      _playbackSourceKind = PlaybackSourceKind.network;
+      return;
+    }
+    final filePath = ticket.mediaUri.toFilePath();
+    final isDownloaded = downloadCoordinator.localItems.any((item) =>
+        item.sourceRef.providerId == track.ref.providerId &&
+        item.sourceRef.trackId == track.ref.trackId &&
+        item.filePath == filePath);
+    if (ticket.quality.index < playbackQuality.index) {
+      _playbackSourceKind = PlaybackSourceKind.fallback;
+    } else {
+      _playbackSourceKind =
+          isDownloaded ? PlaybackSourceKind.download : PlaybackSourceKind.cache;
+    }
+  }
+
   Future<void> _syncNativePlayback({
     required bool playWhenReady,
     bool forceReload = false,
@@ -1738,6 +1874,8 @@ class DemoRepository extends ChangeNotifier {
       return;
     }
 
+    _setEffectivePlaybackSource(current, currentTicket);
+
     // Dedup: don't restart if the same track is already playing.
     final trackId = current.ref.trackId;
     if (!forceReload && _playingTrackId == trackId && _audioPlayer.playing) {
@@ -1757,6 +1895,8 @@ class DemoRepository extends ChangeNotifier {
         }
         debugPrint('AUDIO: playing "${current.title}"');
         await _audioPlayer.stop();
+        await audioCacheManager?.releaseInUse(_activeAudioCachePath);
+        _activeAudioCachePath = null;
         await _syncAudioLoopMode();
         final nativeWindow =
             await _buildNativePlaybackWindow(queue, current, currentTicket);
@@ -1790,6 +1930,10 @@ class DemoRepository extends ChangeNotifier {
       } catch (e) {
         _updatingNativeAudioSource = false;
         debugPrint('Audio Error: $e');
+        if (await _tryRecoverPlayback(
+            current, currentTicket, initialPosition)) {
+          return;
+        }
         _playingTrackId = null;
         _playbackRequested = false;
         _setPlaybackIssue(
@@ -1798,6 +1942,77 @@ class DemoRepository extends ChangeNotifier {
           message: _playbackErrorMessage(e),
         );
       }
+    }
+  }
+
+  Future<bool> _tryRecoverPlayback(
+    SourceTrack track,
+    PlaybackTicket failedTicket,
+    Duration? initialPosition,
+  ) async {
+    if (failedTicket.mediaUri.isScheme('file')) {
+      final remote =
+          await _resolvePlaybackTicketForTrack(track, ignoreLocal: true);
+      if (remote != null && !remote.mediaUri.isScheme('file')) {
+        return _startSinglePlayback(track, remote, initialPosition);
+      }
+      final fallback = await _resolveLocalPlaybackTicket(
+        track,
+        playbackCoordinator.quality,
+        allowLowerQuality: true,
+      );
+      if (fallback == null || fallback.mediaUri == failedTicket.mediaUri) {
+        return false;
+      }
+      return _startSinglePlayback(track, fallback, initialPosition);
+    }
+
+    // A failed caching proxy must never prevent ordinary remote playback.
+    if (await _startSinglePlayback(track, failedTicket, initialPosition)) {
+      return true;
+    }
+
+    final fallback = await _resolveLocalPlaybackTicket(
+      track,
+      playbackCoordinator.quality,
+      allowLowerQuality: true,
+    );
+    if (fallback == null || fallback.mediaUri == failedTicket.mediaUri) {
+      return false;
+    }
+    return _startSinglePlayback(track, fallback, initialPosition);
+  }
+
+  Future<bool> _startSinglePlayback(
+    SourceTrack track,
+    PlaybackTicket ticket,
+    Duration? initialPosition,
+  ) async {
+    if (!_isSupportedPlaybackUri(ticket.mediaUri)) return false;
+    try {
+      await _audioPlayer.stop();
+      await audioCacheManager?.releaseInUse(_activeAudioCachePath);
+      _activeAudioCachePath = null;
+      final source = await _nativeSourceFor(track, ticket);
+      _nativeAudioSourceRefs = [track.ref];
+      _updatingNativeAudioSource = true;
+      final startPosition = initialPosition ?? _pendingRestorePosition;
+      await _audioPlayer.setAudioSource(
+        source.toAudioSource(),
+        initialPosition: startPosition,
+      );
+      _updatingNativeAudioSource = false;
+      _pendingRestorePosition = null;
+      _setEffectivePlaybackSource(track, ticket);
+      _playbackIssue = null;
+      _playingTrackId = track.ref.trackId;
+      _playbackRequested = true;
+      _startAudioPlayer();
+      return true;
+    } catch (error) {
+      _updatingNativeAudioSource = false;
+      debugPrint('Audio recovery failed: $error');
+      return false;
     }
   }
 
@@ -1837,7 +2052,10 @@ class DemoRepository extends ChangeNotifier {
   ) async {
     if (_repeatMode == PlaybackRepeatMode.one) {
       return _NativePlaybackWindow(
-        sources: [_NativePlaybackSource(track: current, ticket: currentTicket)],
+        sources: [
+          await _nativeSourceFor(current, currentTicket,
+              cacheWhilePlaying: true),
+        ],
         currentIndex: 0,
       );
     }
@@ -1847,12 +2065,14 @@ class DemoRepository extends ChangeNotifier {
     if (previous != null) {
       final ticket = await _resolvePlaybackTicketForTrack(previous);
       if (ticket != null) {
-        sources.add(_NativePlaybackSource(track: previous, ticket: ticket));
+        sources.add(await _nativeSourceFor(previous, ticket));
       }
     }
 
     final currentIndex = sources.length;
-    sources.add(_NativePlaybackSource(track: current, ticket: currentTicket));
+    sources.add(
+      await _nativeSourceFor(current, currentTicket, cacheWhilePlaying: true),
+    );
 
     final next = _nextTrackForNotification(queueState);
     if (next != null) {
@@ -1863,7 +2083,7 @@ class DemoRepository extends ChangeNotifier {
           ? prefetched
           : await _resolvePlaybackTicketForTrack(next);
       if (ticket != null) {
-        sources.add(_NativePlaybackSource(track: next, ticket: ticket));
+        sources.add(await _nativeSourceFor(next, ticket));
       }
     }
 
@@ -1873,9 +2093,109 @@ class DemoRepository extends ChangeNotifier {
     );
   }
 
-  Future<PlaybackTicket?> _resolvePlaybackTicketForTrack(
+  Future<_NativePlaybackSource> _nativeSourceFor(
     SourceTrack track,
-  ) async {
+    PlaybackTicket ticket, {
+    bool cacheWhilePlaying = false,
+  }) async {
+    final tag = MediaItem(
+      id: '${track.ref.providerId.value}:${track.ref.trackId}',
+      title: track.title,
+      artist: track.artists.join(' / '),
+      album: track.album,
+      duration: track.duration,
+      artUri: track.artwork,
+    );
+    final cacheManager = audioCacheManager;
+    if (cacheWhilePlaying &&
+        cacheManager != null &&
+        (ticket.mediaUri.isScheme('http') ||
+            ticket.mediaUri.isScheme('https')) &&
+        await _shouldAutoCache()) {
+      final file = await cacheManager.fileFor(
+        track.ref,
+        ticket.quality,
+        ticket.mediaUri,
+      );
+      // ignore: experimental_member_use
+      final source = LockCachingAudioSource(
+        ticket.mediaUri,
+        headers: ticket.headers.isEmpty ? null : ticket.headers,
+        cacheFile: file,
+        tag: tag,
+      );
+      late final StreamSubscription<double> subscription;
+      subscription = source.downloadProgressStream.listen(
+        (progress) {
+          if (progress < 1.0) return;
+          _cacheProgressSubscriptions.remove(subscription);
+          unawaited(subscription.cancel());
+          unawaited(cacheManager.complete(
+            ref: track.ref,
+            quality: ticket.quality,
+            file: file,
+          ));
+        },
+        onError: (_, __) {
+          _cacheProgressSubscriptions.remove(subscription);
+          unawaited(subscription.cancel());
+        },
+      );
+      _cacheProgressSubscriptions.add(subscription);
+      cacheManager.markInUse(file.path);
+      _activeAudioCachePath = file.path;
+      return _NativePlaybackSource(
+        track: track,
+        ticket: ticket,
+        audioSource: source,
+        usesAutoCache: true,
+      );
+    }
+    if (cacheWhilePlaying && ticket.mediaUri.isScheme('file')) {
+      final filePath = ticket.mediaUri.toFilePath();
+      final isCacheFile =
+          cacheManager?.entries.any((entry) => entry.filePath == filePath) ??
+              false;
+      if (isCacheFile) {
+        cacheManager?.markInUse(filePath);
+        _activeAudioCachePath = filePath;
+      }
+    }
+    return _NativePlaybackSource(
+      track: track,
+      ticket: ticket,
+      audioSource: AudioSource.uri(
+        ticket.mediaUri,
+        headers: ticket.headers.isEmpty ? null : ticket.headers,
+        tag: tag,
+      ),
+    );
+  }
+
+  Future<bool> _shouldAutoCache() async {
+    final policy = audioCacheManager?.policy;
+    if (policy == null || !policy.enabled || policy.maxBytes <= 0) return false;
+    if (!Platform.isAndroid || !policy.wifiOnly) return true;
+    try {
+      final result = await Connectivity().checkConnectivity();
+      return result.contains(ConnectivityResult.wifi);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<PlaybackTicket?> _resolvePlaybackTicketForTrack(
+    SourceTrack track, {
+    bool ignoreLocal = false,
+  }) async {
+    if (!ignoreLocal) {
+      final local = await _resolveLocalPlaybackTicket(
+        track,
+        playbackCoordinator.quality,
+        allowLowerQuality: false,
+      );
+      if (local != null) return local;
+    }
     try {
       final entry = registry.entryOf(track.ref.providerId);
       if (entry == null || !entry.isEnabled) return null;
@@ -1896,7 +2216,12 @@ class DemoRepository extends ChangeNotifier {
         quality: ticket.quality,
       );
     } catch (_) {
-      return null;
+      if (ignoreLocal) return null;
+      return _resolveLocalPlaybackTicket(
+        track,
+        playbackCoordinator.quality,
+        allowLowerQuality: true,
+      );
     }
   }
 

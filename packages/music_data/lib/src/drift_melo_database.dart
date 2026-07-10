@@ -92,6 +92,30 @@ class FavoriteProviderStates extends Table {
   Set<Column<Object>> get primaryKey => {providerId};
 }
 
+class StoredAudioCacheEntries extends Table {
+  TextColumn get identityKey => text()();
+  TextColumn get providerId => text()();
+  TextColumn get trackId => text()();
+  TextColumn get quality => text()();
+  TextColumn get filePath => text()();
+  IntColumn get fileSize => integer()();
+  DateTimeColumn get completedAt => dateTime()();
+  DateTimeColumn get lastAccessedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {identityKey};
+}
+
+class AudioCacheSettings extends Table {
+  IntColumn get id => integer()();
+  BoolColumn get enabled => boolean()();
+  BoolColumn get wifiOnly => boolean()();
+  IntColumn get maxBytes => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     MeloMetaRows,
@@ -103,12 +127,14 @@ class FavoriteProviderStates extends Table {
     FavoriteLikedAtLedgerRows,
     UnifiedFavoriteCacheRows,
     FavoriteProviderStates,
+    StoredAudioCacheEntries,
+    AudioCacheSettings,
   ],
 )
 class MeloDriftDatabase extends _$MeloDriftDatabase {
   MeloDriftDatabase(super.executor);
 
-  static const currentSchemaVersion = 2;
+  static const currentSchemaVersion = 3;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -121,6 +147,10 @@ class MeloDriftDatabase extends _$MeloDriftDatabase {
             await m.createTable(favoriteLikedAtLedgerRows);
             await m.createTable(unifiedFavoriteCacheRows);
             await m.createTable(favoriteProviderStates);
+          }
+          if (from < 3) {
+            await m.createTable(storedAudioCacheEntries);
+            await m.createTable(audioCacheSettings);
           }
         },
       );

@@ -265,6 +265,12 @@ class _QualityMenuButton extends ConsumerWidget {
     final playbackQuality = ref.watch(
       demoRepositoryProvider.select((r) => r.playbackQuality),
     );
+    final effectiveQuality = ref.watch(
+      demoRepositoryProvider.select((r) => r.effectivePlaybackQuality),
+    );
+    final sourceKind = ref.watch(
+      demoRepositoryProvider.select((r) => r.playbackSourceKind),
+    );
 
     return PopupMenuButton<AudioQuality>(
       tooltip: '音质',
@@ -302,7 +308,7 @@ class _QualityMenuButton extends ConsumerWidget {
             const Icon(Icons.high_quality_rounded, size: 17),
             const SizedBox(width: 6),
             Text(
-              _qualityLabel(playbackQuality),
+              '${_qualityLabel(effectiveQuality)} · ${_playbackSourceLabel(sourceKind)}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -447,6 +453,13 @@ String _qualityLabel(AudioQuality quality) => switch (quality) {
       AudioQuality.standard => '较高',
       AudioQuality.high => '极高',
       AudioQuality.lossless => '无损',
+    };
+
+String _playbackSourceLabel(PlaybackSourceKind kind) => switch (kind) {
+      PlaybackSourceKind.network => '在线',
+      PlaybackSourceKind.download => '本地下载',
+      PlaybackSourceKind.cache => '缓存',
+      PlaybackSourceKind.fallback => '本地回退',
     };
 
 String _repeatTooltip(PlaybackRepeatMode mode) => switch (mode) {

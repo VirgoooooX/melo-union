@@ -37,6 +37,30 @@ class DownloadCoordinator {
       _localLibrary.containsKey(ref);
   LocalMediaItem? getLocalItem(ProviderTrackRef ref) => _localLibrary[ref];
 
+  /// Resolves by the stable provider and track identifier so transient metadata
+  /// in [ProviderTrackRef.extraIds] does not prevent reuse of a downloaded file.
+  LocalMediaItem? findLocalItem(
+    ProviderTrackRef ref, {
+    required AudioQuality requestedQuality,
+    required bool allowLowerQuality,
+  }) {
+    final matches = _localLibrary.values
+        .where((item) =>
+            item.sourceRef.providerId == ref.providerId &&
+            item.sourceRef.trackId == ref.trackId)
+        .toList(growable: false);
+    if (matches.isEmpty) return null;
+    final eligible = allowLowerQuality
+        ? matches
+        : matches
+            .where((item) => item.quality.meetsOrExceeds(requestedQuality))
+            .toList(growable: false);
+    if (eligible.isEmpty) return null;
+    eligible.sort(
+        (left, right) => right.quality.index.compareTo(left.quality.index));
+    return eligible.first;
+  }
+
   void addTask(SourceTrack track,
       {AudioQuality quality = AudioQuality.standard}) {
     if (_localLibrary.containsKey(track.ref)) return;
@@ -96,6 +120,7 @@ class DownloadCoordinator {
       filePath: filePath,
       fileSize: fileSize,
       downloadedAt: DateTime.now().toUtc(),
+      quality: task.ticket?.quality ?? task.quality,
     );
     _localLibrary[ref] = item;
     _updateTask(task.copyWith(

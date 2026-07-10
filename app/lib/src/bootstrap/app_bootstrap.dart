@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:music_domain/music_domain.dart';
 import 'package:provider_kugou/provider_kugou.dart';
+import 'audio_cache_manager.dart';
 import 'demo_repository.dart';
 import 'kugou_session_store.dart';
 import 'kugou_session_store_factory.dart';
@@ -34,6 +38,21 @@ Future<AppBootstrap> createAppBootstrap({
   final neteaseSessionStore = createNeteaseStore();
   final qqMusicSessionStore = createQqMusicStore();
   final kugouSessionStore = createKugouStore();
+  final cacheStore = managedStore.audioCacheStore;
+  final cacheDirectory = managedStore.audioCacheDirectory;
+  final audioCacheManager = cacheStore == null || cacheDirectory == null
+      ? null
+      : await AudioCacheManager.open(
+          store: cacheStore,
+          directory: cacheDirectory,
+          defaultPolicy: AudioCachePolicy(
+            enabled: true,
+            wifiOnly: true,
+            maxBytes: Platform.isAndroid
+                ? 1024 * 1024 * 1024
+                : 2 * 1024 * 1024 * 1024,
+          ),
+        );
   final snapshot = await managedStore.store?.read();
   final neteaseCredentials = await neteaseSessionStore.read();
   final qqMusicCredentials = await qqMusicSessionStore.read();
@@ -47,6 +66,7 @@ Future<AppBootstrap> createAppBootstrap({
     qqMusicSessionStore: qqMusicSessionStore,
     kugouSession: kugouSession,
     kugouSessionStore: kugouSessionStore,
+    audioCacheManager: audioCacheManager,
   );
 
   return AppBootstrap(

@@ -96,7 +96,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify no assertion error was thrown and items are sorted (Alpha Song first, then Beta Song)
-    final listFinder = find.byType(AnimatedList);
+    final listFinder = find.byType(ListView);
     final alphaInList = find.descendant(of: listFinder, matching: find.text('Alpha Song'));
     final betaInList = find.descendant(of: listFinder, matching: find.text('Beta Song'));
     

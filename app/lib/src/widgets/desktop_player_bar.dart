@@ -1,6 +1,7 @@
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 import '../bootstrap/demo_repository.dart';

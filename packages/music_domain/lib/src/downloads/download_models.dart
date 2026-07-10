@@ -64,6 +64,7 @@ final class LocalMediaItem {
     required this.filePath,
     required this.fileSize,
     required this.downloadedAt,
+    this.quality = AudioQuality.low,
   });
 
   final ProviderTrackRef sourceRef;
@@ -73,4 +74,7 @@ final class LocalMediaItem {
   final String filePath;
   final int fileSize;
   final DateTime downloadedAt;
+
+  /// The quality actually returned by the provider, not merely requested.
+  final AudioQuality quality;
 }

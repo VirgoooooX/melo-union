@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
@@ -22,4 +23,5 @@ import '../../widgets/melo_components.dart';
 import '../../widgets/melo_logo_mark.dart';
 
 part 'settings_page_view.dart';
+part 'settings_audio_cache_card.dart';
 part 'settings_source_card.dart';

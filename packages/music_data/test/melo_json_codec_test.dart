@@ -80,6 +80,7 @@ void main() {
           filePath: 'local://downloads/aurora_stream/alpha_midnight.mp3',
           fileSize: 1024,
           downloadedAt: DateTime.utc(2026, 6, 29, 9),
+          quality: AudioQuality.high,
         ),
       ],
       playbackQuality: AudioQuality.lossless,
@@ -106,9 +107,37 @@ void main() {
     expect(decoded.volume, closeTo(0.7, 0.001));
     expect(decoded.downloadDirectory, r'C:\Music\MeloUnion');
     expect(decoded.localMediaItems.single.filePath, contains('alpha_midnight'));
+    expect(decoded.localMediaItems.single.quality, AudioQuality.high);
     expect(decoded.favoritesOverrides.shouldMerge(sourceRef, alternateRef),
         isTrue);
     expect(decoded.favoritesOverrides.hiddenTracks, contains(alternateRef));
+  });
+
+  test('legacy snapshots without local media quality decode conservatively',
+      () {
+    final encoded = codec.encodeSnapshot(
+      MeloDataSnapshot(
+        localMediaItems: [
+          LocalMediaItem(
+            sourceRef: sourceRef,
+            title: track.title,
+            artists: track.artists,
+            duration: track.duration,
+            filePath: 'local://downloads/aurora_stream/alpha_midnight.mp3',
+            fileSize: 1024,
+            downloadedAt: DateTime.utc(2026, 6, 29, 9),
+            quality: AudioQuality.lossless,
+          ),
+        ],
+      ),
+    );
+    encoded['schemaVersion'] = 1;
+    final media = (encoded['localMediaItems']! as List).single as Map;
+    media.remove('quality');
+
+    final decoded = codec.decodeSnapshot(encoded);
+
+    expect(decoded.localMediaItems.single.quality, AudioQuality.low);
   });
 
   test('snapshot round trips favorite caches and liked-at ledger', () {
