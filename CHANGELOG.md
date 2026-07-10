@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.0] - 2026-07-10
+
+### Added
+- Implemented full-screen player with dynamic artwork palette extraction and precaching.
+- Implemented responsive recommendations feature with mobile and desktop views.
+
+### Fixed
+- Removed yellow needle/stylus arc line on the full-screen player cover.
+- Fixed Drift companion compile error in audio cache store.
+- Restored Android fullscreen artwork and media notification.
+
 ## [1.0.1] - 2026-07-08
 
 ### Added
