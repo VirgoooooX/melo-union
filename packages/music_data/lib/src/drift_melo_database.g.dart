@@ -3256,6 +3256,270 @@ class AudioCacheSettingsCompanion extends UpdateCompanion<AudioCacheSetting> {
   }
 }
 
+class $PlaybackStateRowsTable extends PlaybackStateRows
+    with TableInfo<$PlaybackStateRowsTable, PlaybackStateRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlaybackStateRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _preferencesJsonMeta =
+      const VerificationMeta('preferencesJson');
+  @override
+  late final GeneratedColumn<String> preferencesJson = GeneratedColumn<String>(
+      'preferences_json', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _queueJsonMeta =
+      const VerificationMeta('queueJson');
+  @override
+  late final GeneratedColumn<String> queueJson = GeneratedColumn<String>(
+      'queue_json', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, preferencesJson, queueJson, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'playback_state_rows';
+  @override
+  VerificationContext validateIntegrity(Insertable<PlaybackStateRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('preferences_json')) {
+      context.handle(
+          _preferencesJsonMeta,
+          preferencesJson.isAcceptableOrUnknown(
+              data['preferences_json']!, _preferencesJsonMeta));
+    } else if (isInserting) {
+      context.missing(_preferencesJsonMeta);
+    }
+    if (data.containsKey('queue_json')) {
+      context.handle(_queueJsonMeta,
+          queueJson.isAcceptableOrUnknown(data['queue_json']!, _queueJsonMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlaybackStateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlaybackStateRow(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      preferencesJson: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}preferences_json'])!,
+      queueJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}queue_json']),
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $PlaybackStateRowsTable createAlias(String alias) {
+    return $PlaybackStateRowsTable(attachedDatabase, alias);
+  }
+}
+
+class PlaybackStateRow extends DataClass
+    implements Insertable<PlaybackStateRow> {
+  final int id;
+  final String preferencesJson;
+  final String? queueJson;
+  final DateTime updatedAt;
+  const PlaybackStateRow(
+      {required this.id,
+      required this.preferencesJson,
+      this.queueJson,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['preferences_json'] = Variable<String>(preferencesJson);
+    if (!nullToAbsent || queueJson != null) {
+      map['queue_json'] = Variable<String>(queueJson);
+    }
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  PlaybackStateRowsCompanion toCompanion(bool nullToAbsent) {
+    return PlaybackStateRowsCompanion(
+      id: Value(id),
+      preferencesJson: Value(preferencesJson),
+      queueJson: queueJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(queueJson),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory PlaybackStateRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlaybackStateRow(
+      id: serializer.fromJson<int>(json['id']),
+      preferencesJson: serializer.fromJson<String>(json['preferencesJson']),
+      queueJson: serializer.fromJson<String?>(json['queueJson']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'preferencesJson': serializer.toJson<String>(preferencesJson),
+      'queueJson': serializer.toJson<String?>(queueJson),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  PlaybackStateRow copyWith(
+          {int? id,
+          String? preferencesJson,
+          Value<String?> queueJson = const Value.absent(),
+          DateTime? updatedAt}) =>
+      PlaybackStateRow(
+        id: id ?? this.id,
+        preferencesJson: preferencesJson ?? this.preferencesJson,
+        queueJson: queueJson.present ? queueJson.value : this.queueJson,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  PlaybackStateRow copyWithCompanion(PlaybackStateRowsCompanion data) {
+    return PlaybackStateRow(
+      id: data.id.present ? data.id.value : this.id,
+      preferencesJson: data.preferencesJson.present
+          ? data.preferencesJson.value
+          : this.preferencesJson,
+      queueJson: data.queueJson.present ? data.queueJson.value : this.queueJson,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackStateRow(')
+          ..write('id: $id, ')
+          ..write('preferencesJson: $preferencesJson, ')
+          ..write('queueJson: $queueJson, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, preferencesJson, queueJson, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlaybackStateRow &&
+          other.id == this.id &&
+          other.preferencesJson == this.preferencesJson &&
+          other.queueJson == this.queueJson &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PlaybackStateRowsCompanion extends UpdateCompanion<PlaybackStateRow> {
+  final Value<int> id;
+  final Value<String> preferencesJson;
+  final Value<String?> queueJson;
+  final Value<DateTime> updatedAt;
+  const PlaybackStateRowsCompanion({
+    this.id = const Value.absent(),
+    this.preferencesJson = const Value.absent(),
+    this.queueJson = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  PlaybackStateRowsCompanion.insert({
+    this.id = const Value.absent(),
+    required String preferencesJson,
+    this.queueJson = const Value.absent(),
+    required DateTime updatedAt,
+  })  : preferencesJson = Value(preferencesJson),
+        updatedAt = Value(updatedAt);
+  static Insertable<PlaybackStateRow> custom({
+    Expression<int>? id,
+    Expression<String>? preferencesJson,
+    Expression<String>? queueJson,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (preferencesJson != null) 'preferences_json': preferencesJson,
+      if (queueJson != null) 'queue_json': queueJson,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  PlaybackStateRowsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? preferencesJson,
+      Value<String?>? queueJson,
+      Value<DateTime>? updatedAt}) {
+    return PlaybackStateRowsCompanion(
+      id: id ?? this.id,
+      preferencesJson: preferencesJson ?? this.preferencesJson,
+      queueJson: queueJson ?? this.queueJson,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (preferencesJson.present) {
+      map['preferences_json'] = Variable<String>(preferencesJson.value);
+    }
+    if (queueJson.present) {
+      map['queue_json'] = Variable<String>(queueJson.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaybackStateRowsCompanion(')
+          ..write('id: $id, ')
+          ..write('preferencesJson: $preferencesJson, ')
+          ..write('queueJson: $queueJson, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$MeloDriftDatabase extends GeneratedDatabase {
   _$MeloDriftDatabase(QueryExecutor e) : super(e);
   $MeloDriftDatabaseManager get managers => $MeloDriftDatabaseManager(this);
@@ -3280,6 +3544,8 @@ abstract class _$MeloDriftDatabase extends GeneratedDatabase {
       $StoredAudioCacheEntriesTable(this);
   late final $AudioCacheSettingsTable audioCacheSettings =
       $AudioCacheSettingsTable(this);
+  late final $PlaybackStateRowsTable playbackStateRows =
+      $PlaybackStateRowsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3295,7 +3561,8 @@ abstract class _$MeloDriftDatabase extends GeneratedDatabase {
         unifiedFavoriteCacheRows,
         favoriteProviderStates,
         storedAudioCacheEntries,
-        audioCacheSettings
+        audioCacheSettings,
+        playbackStateRows
       ];
 }
 
@@ -5161,6 +5428,164 @@ typedef $$AudioCacheSettingsTableProcessedTableManager = ProcessedTableManager<
     ),
     AudioCacheSetting,
     PrefetchHooks Function()>;
+typedef $$PlaybackStateRowsTableCreateCompanionBuilder
+    = PlaybackStateRowsCompanion Function({
+  Value<int> id,
+  required String preferencesJson,
+  Value<String?> queueJson,
+  required DateTime updatedAt,
+});
+typedef $$PlaybackStateRowsTableUpdateCompanionBuilder
+    = PlaybackStateRowsCompanion Function({
+  Value<int> id,
+  Value<String> preferencesJson,
+  Value<String?> queueJson,
+  Value<DateTime> updatedAt,
+});
+
+class $$PlaybackStateRowsTableFilterComposer
+    extends Composer<_$MeloDriftDatabase, $PlaybackStateRowsTable> {
+  $$PlaybackStateRowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get preferencesJson => $composableBuilder(
+      column: $table.preferencesJson,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get queueJson => $composableBuilder(
+      column: $table.queueJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$PlaybackStateRowsTableOrderingComposer
+    extends Composer<_$MeloDriftDatabase, $PlaybackStateRowsTable> {
+  $$PlaybackStateRowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get preferencesJson => $composableBuilder(
+      column: $table.preferencesJson,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get queueJson => $composableBuilder(
+      column: $table.queueJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PlaybackStateRowsTableAnnotationComposer
+    extends Composer<_$MeloDriftDatabase, $PlaybackStateRowsTable> {
+  $$PlaybackStateRowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get preferencesJson => $composableBuilder(
+      column: $table.preferencesJson, builder: (column) => column);
+
+  GeneratedColumn<String> get queueJson =>
+      $composableBuilder(column: $table.queueJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$PlaybackStateRowsTableTableManager extends RootTableManager<
+    _$MeloDriftDatabase,
+    $PlaybackStateRowsTable,
+    PlaybackStateRow,
+    $$PlaybackStateRowsTableFilterComposer,
+    $$PlaybackStateRowsTableOrderingComposer,
+    $$PlaybackStateRowsTableAnnotationComposer,
+    $$PlaybackStateRowsTableCreateCompanionBuilder,
+    $$PlaybackStateRowsTableUpdateCompanionBuilder,
+    (
+      PlaybackStateRow,
+      BaseReferences<_$MeloDriftDatabase, $PlaybackStateRowsTable,
+          PlaybackStateRow>
+    ),
+    PlaybackStateRow,
+    PrefetchHooks Function()> {
+  $$PlaybackStateRowsTableTableManager(
+      _$MeloDriftDatabase db, $PlaybackStateRowsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlaybackStateRowsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlaybackStateRowsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlaybackStateRowsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> preferencesJson = const Value.absent(),
+            Value<String?> queueJson = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+          }) =>
+              PlaybackStateRowsCompanion(
+            id: id,
+            preferencesJson: preferencesJson,
+            queueJson: queueJson,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String preferencesJson,
+            Value<String?> queueJson = const Value.absent(),
+            required DateTime updatedAt,
+          }) =>
+              PlaybackStateRowsCompanion.insert(
+            id: id,
+            preferencesJson: preferencesJson,
+            queueJson: queueJson,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PlaybackStateRowsTableProcessedTableManager = ProcessedTableManager<
+    _$MeloDriftDatabase,
+    $PlaybackStateRowsTable,
+    PlaybackStateRow,
+    $$PlaybackStateRowsTableFilterComposer,
+    $$PlaybackStateRowsTableOrderingComposer,
+    $$PlaybackStateRowsTableAnnotationComposer,
+    $$PlaybackStateRowsTableCreateCompanionBuilder,
+    $$PlaybackStateRowsTableUpdateCompanionBuilder,
+    (
+      PlaybackStateRow,
+      BaseReferences<_$MeloDriftDatabase, $PlaybackStateRowsTable,
+          PlaybackStateRow>
+    ),
+    PlaybackStateRow,
+    PrefetchHooks Function()>;
 
 class $MeloDriftDatabaseManager {
   final _$MeloDriftDatabase _db;
@@ -5193,4 +5618,6 @@ class $MeloDriftDatabaseManager {
           _db, _db.storedAudioCacheEntries);
   $$AudioCacheSettingsTableTableManager get audioCacheSettings =>
       $$AudioCacheSettingsTableTableManager(_db, _db.audioCacheSettings);
+  $$PlaybackStateRowsTableTableManager get playbackStateRows =>
+      $$PlaybackStateRowsTableTableManager(_db, _db.playbackStateRows);
 }

@@ -306,6 +306,7 @@ void main() {
 
       coordinator.setQueue([track, nextTrack]);
       await coordinator.selectTrack(track.ref);
+      await coordinator.prefetchFuture;
 
       expect(coordinator.currentTicket, isNotNull);
       expect(coordinator.currentTicket!.trackRef, track.ref);
@@ -315,6 +316,7 @@ void main() {
       // Verify moving next promotes next ticket
       final previousNextTicket = coordinator.nextTicket;
       await coordinator.next();
+      await coordinator.prefetchFuture;
       expect(coordinator.currentTicket, same(previousNextTicket));
     });
 

@@ -92,6 +92,16 @@ class FavoriteProviderStates extends Table {
   Set<Column<Object>> get primaryKey => {providerId};
 }
 
+class PlaybackStateRows extends Table {
+  IntColumn get id => integer()();
+  TextColumn get preferencesJson => text()();
+  TextColumn get queueJson => text().nullable()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 class StoredAudioCacheEntries extends Table {
   TextColumn get identityKey => text()();
   TextColumn get providerId => text()();
@@ -129,12 +139,13 @@ class AudioCacheSettings extends Table {
     FavoriteProviderStates,
     StoredAudioCacheEntries,
     AudioCacheSettings,
+    PlaybackStateRows,
   ],
 )
 class MeloDriftDatabase extends _$MeloDriftDatabase {
   MeloDriftDatabase(super.executor);
 
-  static const currentSchemaVersion = 3;
+  static const currentSchemaVersion = 4;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -151,6 +162,9 @@ class MeloDriftDatabase extends _$MeloDriftDatabase {
           if (from < 3) {
             await m.createTable(storedAudioCacheEntries);
             await m.createTable(audioCacheSettings);
+          }
+          if (from < 4) {
+            await m.createTable(playbackStateRows);
           }
         },
       );
