@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:just_audio/just_audio.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -177,6 +178,7 @@ class DemoRepository extends ChangeNotifier {
     unawaited(_reconcileDownloadState());
     unawaited(_audioPlayer.setVolume(_volume));
     unawaited(_syncAudioLoopMode());
+    unawaited(_configureAudioSession());
     _audioPlayer.positionStream.listen((position) {
       _lastKnownPlaybackPosition = position;
       if (!_rememberQueue || !_restorePlaybackState) return;
@@ -444,10 +446,13 @@ class DemoRepository extends ChangeNotifier {
   bool _updatingNativeAudioSource = false;
   bool _handlingNativeAudioIndexChange = false;
   bool _playbackRequested = false;
+  bool _userPaused = false;
+  bool _systemPaused = false;
   bool _shuffleEnabled = false;
   bool _isAdvancingAfterCompletion = false;
   PlaybackRepeatMode _repeatMode = PlaybackRepeatMode.off;
   final Set<StreamSubscription<double>> _cacheProgressSubscriptions = {};
+  final List<StreamSubscription<dynamic>> _platformSubscriptions = [];
   String? _activeAudioCachePath;
   final Map<ProviderTrackRef, HttpClient> _activeDownloadClients = {};
   final Map<ProviderTrackRef, File> _activeDownloadParts = {};
@@ -1962,15 +1967,49 @@ class DemoRepository extends ChangeNotifier {
 
   Future<void> togglePlayPause() async {
     if (_audioPlayer.playing || _playbackRequested) {
+      _userPaused = true;
+      _systemPaused = false;
       _playbackRequested = false;
       await _audioPlayer.pause();
     } else if (_playingTrackId != null) {
+      _userPaused = false;
       _playbackRequested = true;
       _startAudioPlayer();
     } else {
       await refreshPlaybackTicket();
     }
     notifyListeners();
+  }
+
+  Future<void> _configureAudioSession() async {
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.music());
+    _platformSubscriptions.add(session.interruptionEventStream.listen((event) {
+      if (event.begin) {
+        if (event.type == AudioInterruptionType.duck) {
+          unawaited(_audioPlayer.setVolume(_volume * 0.35));
+        } else if (_audioPlayer.playing || _playbackRequested) {
+          _systemPaused = true;
+          _playbackRequested = false;
+          unawaited(_audioPlayer.pause());
+        }
+        return;
+      }
+      unawaited(_audioPlayer.setVolume(_volume));
+      if (_systemPaused && !_userPaused) {
+        _systemPaused = false;
+        _playbackRequested = true;
+        _startAudioPlayer();
+      }
+    }));
+    _platformSubscriptions.add(session.becomingNoisyEventStream.listen((_) {
+      if (_audioPlayer.playing || _playbackRequested) {
+        _systemPaused = true;
+        _playbackRequested = false;
+        unawaited(_audioPlayer.pause());
+        notifyListeners();
+      }
+    }));
   }
 
   Future<void> retryCurrentPlayback() async {
