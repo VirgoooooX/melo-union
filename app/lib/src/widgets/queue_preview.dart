@@ -16,7 +16,17 @@ class _QueuePreview extends ConsumerWidget {
         return _QueuePreviewRow(
           entry: entry,
           selected: selected,
+          playNextStatus: repository.playNextStatusForEntry(entry.entryId),
           onPlay: () => repository.playOrToggleQueueTrack(entry.track.ref),
+          onPlayNext: () async {
+            await repository.moveQueueEntryNext(entry.entryId);
+            if (context.mounted) {
+              MeloSnackbar.show(
+                context: context,
+                message: '已设为下一首：${entry.track.title}',
+              );
+            }
+          },
           onRemove: () => repository.removeQueueEntry(index),
         );
       },
@@ -28,13 +38,17 @@ class _QueuePreviewRow extends StatefulWidget {
   const _QueuePreviewRow({
     required this.entry,
     required this.selected,
+    required this.playNextStatus,
     required this.onPlay,
+    required this.onPlayNext,
     required this.onRemove,
   });
 
   final PlaybackQueueEntry entry;
   final bool selected;
+  final PlayNextButtonStatus playNextStatus;
   final VoidCallback onPlay;
+  final VoidCallback onPlayNext;
   final VoidCallback onRemove;
 
   @override
@@ -97,6 +111,11 @@ class _QueuePreviewRowState extends State<_QueuePreviewRow> {
                         ),
                       ],
                     ),
+                  ),
+                  MeloPlayNextButton(
+                    status: widget.playNextStatus,
+                    onPressed: widget.onPlayNext,
+                    size: 18,
                   ),
                   AnimatedOpacity(
                     duration: const Duration(milliseconds: 120),

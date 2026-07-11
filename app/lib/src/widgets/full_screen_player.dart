@@ -2137,6 +2137,11 @@ class _QueueDrawer extends ConsumerWidget {
                       return _QueueDrawerRow(
                         track: entry.track,
                         selected: index == queue.currentIndex,
+                        playNextStatus:
+                            repository.playNextStatusForEntry(entry.entryId),
+                        onPlayNext: () =>
+                            repository.moveQueueEntryNext(entry.entryId),
+                        alwaysShowActions: false,
                         onPlay: () =>
                             repository.playOrToggleQueueTrack(entry.track.ref),
                         onRemove: () => repository.removeQueueEntry(index),
@@ -2236,6 +2241,11 @@ class _MobileQueueSheet extends ConsumerWidget {
                           return _QueueDrawerRow(
                             track: entry.track,
                             selected: index == queue.currentIndex,
+                            playNextStatus:
+                                repo.playNextStatusForEntry(entry.entryId),
+                            onPlayNext: () =>
+                                repo.moveQueueEntryNext(entry.entryId),
+                            alwaysShowActions: true,
                             onPlay: () =>
                                 repo.playOrToggleQueueTrack(entry.track.ref),
                             onRemove: () => repo.removeQueueEntry(index),
@@ -2257,12 +2267,18 @@ class _QueueDrawerRow extends StatefulWidget {
   const _QueueDrawerRow({
     required this.track,
     required this.selected,
+    required this.playNextStatus,
+    required this.onPlayNext,
+    required this.alwaysShowActions,
     required this.onPlay,
     required this.onRemove,
   });
 
   final SourceTrack track;
   final bool selected;
+  final PlayNextButtonStatus playNextStatus;
+  final VoidCallback onPlayNext;
+  final bool alwaysShowActions;
   final VoidCallback onPlay;
   final VoidCallback onRemove;
 
@@ -2352,27 +2368,38 @@ class _QueueDrawerRowState extends State<_QueueDrawerRow> {
                 ),
               ),
               const SizedBox(width: 8),
+              MeloPlayNextButton(
+                status: widget.playNextStatus,
+                onPressed: widget.onPlayNext,
+              ),
               AnimatedOpacity(
                 duration: const Duration(milliseconds: 120),
-                opacity: _hovered || widget.selected ? 1 : 0,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: widget.selected ? '暂停/播放' : '播放这首',
-                      onPressed: widget.onPlay,
-                      icon: Icon(
-                        widget.selected
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
+                opacity: widget.alwaysShowActions || _hovered || widget.selected
+                    ? 1
+                    : 0,
+                child: IgnorePointer(
+                  ignoring: !(widget.alwaysShowActions ||
+                      _hovered ||
+                      widget.selected),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: widget.selected ? '暂停/播放' : '播放这首',
+                        onPressed: widget.onPlay,
+                        icon: Icon(
+                          widget.selected
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: '移出队列',
-                      onPressed: widget.onRemove,
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
+                      IconButton(
+                        tooltip: '移出队列',
+                        onPressed: widget.onRemove,
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
