@@ -687,6 +687,8 @@ class DemoRepository extends ChangeNotifier {
   final Map<String, _CacheEntry<List<SourceTrack>>> _recCache = {};
   final Map<String, _CacheEntry<List<ProviderPlaylist>>> _playlistCache = {};
   final Map<String, _CacheEntry<List<SourceTrack>>> _playlistTrackCache = {};
+  final Map<String, _CacheEntry<List<ProviderSearchResults>>> _searchCache = {};
+  static const _searchTtl = Duration(minutes: 2);
 
   void _rememberTrack(SourceTrack track) {
     _trackCache[track.ref] = track;
@@ -1000,10 +1002,20 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<List<ProviderSearchResults>> search(String query) {
-    if (query.trim().isEmpty) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) {
       return Future.value(const []);
     }
-    return searchService.searchEverywhere(registry: registry, query: query);
+    final cached = _searchCache[normalized];
+    if (cached != null && cached.isFresh(_searchTtl)) {
+      return Future.value(cached.data);
+    }
+    return searchService
+        .searchEverywhere(registry: registry, query: query.trim())
+        .then((results) {
+      _searchCache[normalized] = _CacheEntry(results);
+      return results;
+    });
   }
 
   SourceTrack? sourceTrackByRef(ProviderTrackRef ref) {

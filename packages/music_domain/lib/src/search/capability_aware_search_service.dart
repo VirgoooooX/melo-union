@@ -16,30 +16,29 @@ final class CapabilityAwareSearchService {
   Future<List<ProviderSearchResults>> searchEverywhere({
     required StaticProviderRegistry registry,
     required String query,
+    Duration providerTimeout = const Duration(seconds: 6),
   }) async {
-    final groups = <ProviderSearchResults>[];
-    for (final entry in registry.allEntries()) {
-      if (!entry.isEnabled ||
-          !entry.descriptor.supports(ProviderCapability.search)) {
-        continue;
-      }
-      try {
-        final tracks = await entry.provider.search(query);
-        groups.add(
-          ProviderSearchResults(
-            provider: entry.descriptor,
-            tracks: List.unmodifiable(tracks),
-          ),
-        );
-      } on ProviderException {
-        groups.add(
-          ProviderSearchResults(
-            provider: entry.descriptor,
-            tracks: const [],
-          ),
-        );
-      }
-    }
+    final eligible = registry.allEntries().where((entry) =>
+        entry.isEnabled &&
+        entry.descriptor.supports(ProviderCapability.search));
+    final groups = await Future.wait([
+      for (final entry in eligible)
+        () async {
+          try {
+            final tracks =
+                await entry.provider.search(query).timeout(providerTimeout);
+            return ProviderSearchResults(
+              provider: entry.descriptor,
+              tracks: List.unmodifiable(tracks),
+            );
+          } on Object {
+            return ProviderSearchResults(
+              provider: entry.descriptor,
+              tracks: const [],
+            );
+          }
+        }(),
+    ]);
     return List.unmodifiable(groups);
   }
 }

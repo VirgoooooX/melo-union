@@ -11,6 +11,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   late final TextEditingController _controller;
   String _selectedSource = 'all';
   String _query = '';
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -20,13 +21,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final repository = ref.watch(demoRepositoryProvider);
+    final repository = ref.read(demoRepositoryProvider);
     final compact = MediaQuery.sizeOf(context).width < 760;
     final searchable = repository.providerEntries
         .where((entry) =>
@@ -87,7 +89,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               controller: _controller,
               autofocus: true,
               textInputAction: TextInputAction.search,
-              onChanged: (value) => setState(() => _query = value.trim()),
+              onChanged: (value) {
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 350), () {
+                  if (mounted) setState(() => _query = value.trim());
+                });
+              },
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search_rounded),
                 hintText: '搜索歌曲、歌手或专辑',
@@ -116,6 +123,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         tooltip: '清除',
                         onPressed: () {
                           _controller.clear();
+                          _debounce?.cancel();
                           setState(() => _query = '');
                         },
                         icon: const Icon(Icons.close_rounded),
