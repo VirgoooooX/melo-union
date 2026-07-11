@@ -222,6 +222,50 @@ void main() {
     expect(disabled.playbackQueue, isNull);
   });
 
+  test('play-next policy moves entries and keeps the current song stable',
+      () async {
+    final providerId = ProviderId('aurora_stream');
+    SourceTrack track(String id) => SourceTrack(
+          ref: ProviderTrackRef(providerId: providerId, trackId: id),
+          title: id,
+          artists: const ['Melo Artist'],
+          duration: const Duration(minutes: 3),
+          isFavorited: false,
+        );
+    final tracks = ['a', 'b', 'c'].map(track).toList();
+    final repository = DemoRepository.seeded(
+      snapshot: MeloDataSnapshot(
+        playbackPreferences:
+            const PlaybackPreferencesSnapshot(rememberQueue: true),
+        playbackQueue: PlaybackQueueSnapshot(
+          entries: [
+            for (var i = 0; i < tracks.length; i++)
+              PlaybackQueueEntrySnapshot(
+                entryId: 'entry-$i',
+                track: tracks[i],
+                queuedAt: DateTime.utc(2026, 7, 11, 10, i),
+              ),
+          ],
+          currentIndex: 1,
+        ),
+      ),
+    );
+
+    expect(repository.playNextStatusForEntry('entry-1'),
+        PlayNextButtonStatus.disabledCurrent);
+    expect(repository.playNextStatusForEntry('entry-2'),
+        PlayNextButtonStatus.disabledAlreadyNext);
+    expect(repository.playNextStatusForTrack(tracks.first, queueSurface: false),
+        PlayNextButtonStatus.enabled);
+
+    await repository.moveQueueEntryNext('entry-0');
+
+    expect(repository.queue.entries.map((entry) => entry.track.title),
+        ['b', 'a', 'c']);
+    expect(repository.queue.current?.track.title, 'b');
+    expect(repository.queue.next?.track.title, 'a');
+  });
+
   test(
       'DemoRepository falls back when preferred playback source cannot resolve',
       () async {

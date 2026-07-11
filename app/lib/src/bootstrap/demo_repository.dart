@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:just_audio/just_audio.dart';
@@ -423,7 +422,6 @@ class DemoRepository extends ChangeNotifier {
   QqMusicCredentials? _qqMusicCredentials;
   String? _selectedPlaylistId;
   final AudioPlayer _audioPlayer = AudioPlayer();
-  final Random _random = Random();
   final Map<ProviderTrackRef, SourceTrack> _trackCache = {};
   String? _playingTrackId;
   PlaybackIssue? _playbackIssue;
@@ -1526,7 +1524,7 @@ class DemoRepository extends ChangeNotifier {
     if (queue.current?.track.ref == track.ref) {
       return PlayNextButtonStatus.disabledCurrent;
     }
-    if (queue.next?.track.ref == track.ref) {
+    if (_actualNextEntry(queue)?.track.ref == track.ref) {
       return PlayNextButtonStatus.disabledAlreadyNext;
     }
     return PlayNextButtonStatus.enabled;
@@ -1543,7 +1541,7 @@ class DemoRepository extends ChangeNotifier {
     if (items.any((item) => item.ref == queue.current?.track.ref)) {
       return PlayNextButtonStatus.disabledCurrent;
     }
-    if (items.any((item) => item.ref == queue.next?.track.ref)) {
+    if (items.any((item) => item.ref == _actualNextEntry(queue)?.track.ref)) {
       return PlayNextButtonStatus.disabledAlreadyNext;
     }
     if (!items.any((item) => item.isPlayable)) {
@@ -1561,7 +1559,7 @@ class DemoRepository extends ChangeNotifier {
     if (queue.isCurrentEntry(entryId)) {
       return PlayNextButtonStatus.disabledCurrent;
     }
-    if (queue.isNextEntry(entryId)) {
+    if (_actualNextEntry(queue)?.entryId == entryId) {
       return PlayNextButtonStatus.disabledAlreadyNext;
     }
     return PlayNextButtonStatus.enabled;
@@ -2509,26 +2507,34 @@ class DemoRepository extends ChangeNotifier {
   }
 
   ProviderTrackRef? _nextTrackRef(PlaybackQueueState queueState) {
-    if (queueState.entries.isEmpty || queueState.currentIndex < 0) {
-      return null;
-    }
-    if (_shuffleEnabled && queueState.entries.length > 1) {
-      var nextIndex = queueState.currentIndex;
-      while (nextIndex == queueState.currentIndex) {
-        nextIndex = _random.nextInt(queueState.entries.length);
-      }
-      return queueState.entries[nextIndex].track.ref;
-    }
+    return _actualNextEntry(queueState)?.track.ref;
+  }
 
-    final nextIndex = queueState.currentIndex + 1;
-    if (nextIndex < queueState.entries.length) {
-      return queueState.entries[nextIndex].track.ref;
+  PlaybackQueueEntry? _actualNextEntry(PlaybackQueueState state) {
+    if (state.entries.isEmpty || state.currentIndex < 0) return null;
+    if (_shuffleEnabled && state.entries.length > 1) {
+      final candidates = [
+        for (final entry in state.entries)
+          if (entry.entryId != state.current?.entryId) entry,
+      ]..sort((left, right) => _stableEntryHash(left.entryId)
+          .compareTo(_stableEntryHash(right.entryId)));
+      return candidates.first;
     }
-    if (_repeatMode == PlaybackRepeatMode.all &&
-        queueState.entries.length > 1) {
-      return queueState.entries.first.track.ref;
+    if (state.currentIndex + 1 < state.entries.length) {
+      return state.entries[state.currentIndex + 1];
+    }
+    if (_repeatMode == PlaybackRepeatMode.all && state.entries.length > 1) {
+      return state.entries.first;
     }
     return null;
+  }
+
+  int _stableEntryHash(String value) {
+    var hash = 0x811C9DC5;
+    for (final unit in value.codeUnits) {
+      hash = ((hash ^ unit) * 0x01000193) & 0x7FFFFFFF;
+    }
+    return hash;
   }
 
   Future<void> _restartCurrentTrack() async {

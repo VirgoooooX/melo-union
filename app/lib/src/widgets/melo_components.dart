@@ -998,7 +998,7 @@ class MeloTrackMoreMenu extends ConsumerWidget {
         reverseCurve: Curves.linear,
       ),
       onSelected: (action) async {
-        if (action == _TrackMenuAction.playNext) {
+        if (action == _TrackMenuAction.appendToQueue) {
           if (!track.isPlayable) return;
           repository.enqueueTrack(track);
           MeloSnackbar.show(
@@ -1023,10 +1023,10 @@ class MeloTrackMoreMenu extends ConsumerWidget {
       itemBuilder: (context) => [
         if (track.isPlayable)
           const PopupMenuItem(
-            value: _TrackMenuAction.playNext,
+            value: _TrackMenuAction.appendToQueue,
             child: _MeloTrackMenuItem(
               icon: Icons.queue_music_rounded,
-              label: '加入播放队列',
+              label: '添加到队列末尾',
             ),
           ),
         if (repository.canDownloadTrack(track))
@@ -1049,7 +1049,38 @@ class MeloTrackMoreMenu extends ConsumerWidget {
   }
 }
 
-enum _TrackMenuAction { playNext, download, addToPlaylist }
+enum _TrackMenuAction { appendToQueue, download, addToPlaylist }
+
+class MeloPlayNextButton extends StatelessWidget {
+  const MeloPlayNextButton({
+    required this.status,
+    required this.onPressed,
+    this.size = 20,
+    super.key,
+  });
+
+  final PlayNextButtonStatus status;
+  final VoidCallback? onPressed;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    if (status == PlayNextButtonStatus.hidden) {
+      return const SizedBox.shrink();
+    }
+    return IconButton(
+      tooltip: switch (status) {
+        PlayNextButtonStatus.disabledCurrent => '当前正在播放',
+        PlayNextButtonStatus.disabledAlreadyNext => '已经是下一首',
+        PlayNextButtonStatus.disabledUnplayable => '当前歌曲不可播放',
+        _ => '下一首播放',
+      },
+      visualDensity: VisualDensity.compact,
+      onPressed: status == PlayNextButtonStatus.enabled ? onPressed : null,
+      icon: Icon(Icons.playlist_play_rounded, size: size),
+    );
+  }
+}
 
 class MeloTrackDownloadButton extends ConsumerWidget {
   const MeloTrackDownloadButton({
