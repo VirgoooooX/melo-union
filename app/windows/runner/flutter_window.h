@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "win32_window.h"
+#include "desktop_lyrics_window.h"
 
 // A window that does nothing but host a Flutter view.
 class FlutterWindow : public Win32Window {
@@ -32,6 +33,8 @@ class FlutterWindow : public Win32Window {
 
   // The credentials channel.
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> credentials_channel_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> desktop_lyrics_channel_;
+  std::unique_ptr<DesktopLyricsWindow> desktop_lyrics_window_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

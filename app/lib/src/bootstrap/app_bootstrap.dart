@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:music_domain/music_domain.dart';
+import 'package:music_data/music_data.dart';
 import 'package:provider_kugou/provider_kugou.dart';
 import 'audio_cache_manager.dart';
 import 'demo_repository.dart';
@@ -53,7 +54,18 @@ Future<AppBootstrap> createAppBootstrap({
                 : 2 * 1024 * 1024 * 1024,
           ),
         );
-  final snapshot = await managedStore.store?.read();
+  MeloDataSnapshot? snapshot;
+  try {
+    snapshot = await managedStore.store?.read();
+  } catch (e, stackTrace) {
+    print('Failed to read snapshot from store: $e\n$stackTrace');
+    try {
+      await managedStore.store?.clear();
+    } catch (clearError) {
+      print('Failed to clear store after read failure: $clearError');
+    }
+    snapshot = MeloDataSnapshot();
+  }
   final neteaseCredentials = await neteaseSessionStore.read();
   final qqMusicCredentials = await qqMusicSessionStore.read();
   final KugouSession? kugouSession = await kugouSessionStore.read();

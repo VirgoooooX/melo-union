@@ -33,9 +33,17 @@ class DownloadCoordinator {
       ..addEntries(localItems.map((item) => MapEntry(item.sourceRef, item)));
   }
 
-  bool isAvailableLocally(ProviderTrackRef ref) =>
-      _localLibrary.containsKey(ref);
+  bool isAvailableLocally(ProviderTrackRef ref) => _localLibrary.values.any(
+        (item) => _sameTrackIdentity(item.sourceRef, ref),
+      );
   LocalMediaItem? getLocalItem(ProviderTrackRef ref) => _localLibrary[ref];
+
+  DownloadTask? findTask(ProviderTrackRef ref) {
+    for (final task in _tasks.values) {
+      if (_sameTrackIdentity(task.track.ref, ref)) return task;
+    }
+    return null;
+  }
 
   /// Resolves by the stable provider and track identifier so transient metadata
   /// in [ProviderTrackRef.extraIds] does not prevent reuse of a downloaded file.
@@ -63,7 +71,7 @@ class DownloadCoordinator {
 
   void addTask(SourceTrack track,
       {AudioQuality quality = AudioQuality.standard}) {
-    if (_localLibrary.containsKey(track.ref)) return;
+    if (isAvailableLocally(track.ref)) return;
     _tasks[track.ref] = DownloadTask(
       track: track,
       quality: quality,
@@ -269,4 +277,7 @@ class DownloadCoordinator {
     }
     return await provider.createDownloadTicket(track: ref, quality: quality);
   }
+
+  bool _sameTrackIdentity(ProviderTrackRef left, ProviderTrackRef right) =>
+      left.providerId == right.providerId && left.trackId == right.trackId;
 }

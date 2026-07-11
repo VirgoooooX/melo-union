@@ -81,6 +81,56 @@ bool FlutterWindow::OnCreate() {
 
   // Initialize and register method channel for credentials
   flutter::BinaryMessenger* messenger = flutter_controller_->engine()->messenger();
+  desktop_lyrics_channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      messenger, "melo_union/desktop_lyrics",
+      &flutter::StandardMethodCodec::GetInstance());
+  desktop_lyrics_window_ = std::make_unique<DesktopLyricsWindow>(
+      [this](bool locked) {
+        if (desktop_lyrics_channel_) {
+          desktop_lyrics_channel_->InvokeMethod(
+              "lockChanged",
+              std::make_unique<flutter::EncodableValue>(locked));
+        }
+      });
+  desktop_lyrics_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() == "show") {
+          result->Success(flutter::EncodableValue(desktop_lyrics_window_->Show()));
+        } else if (call.method_name() == "hide") {
+          desktop_lyrics_window_->Hide();
+          result->Success();
+        } else if (call.method_name() == "update") {
+          const auto* arguments = std::get_if<flutter::EncodableMap>(call.arguments());
+          if (!arguments) {
+            result->Error("invalid_arguments", "Arguments must be a map.");
+            return;
+          }
+          auto string_arg = [&](const char* key) -> std::string {
+            auto it = arguments->find(flutter::EncodableValue(key));
+            if (it == arguments->end()) return "";
+            if (auto value = std::get_if<std::string>(&it->second)) return *value;
+            return "";
+          };
+          desktop_lyrics_window_->Update(Utf8ToUtf16(string_arg("current")),
+                                         Utf8ToUtf16(string_arg("next")));
+          result->Success();
+        } else if (call.method_name() == "setLocked") {
+          const auto* arguments = std::get_if<flutter::EncodableMap>(call.arguments());
+          bool locked = false;
+          if (arguments) {
+            auto it = arguments->find(flutter::EncodableValue("locked"));
+            if (it != arguments->end()) {
+              if (auto value = std::get_if<bool>(&it->second)) locked = *value;
+            }
+          }
+          desktop_lyrics_window_->SetLocked(locked);
+          result->Success();
+        } else {
+          result->NotImplemented();
+        }
+      });
+
   credentials_channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       messenger, "melo_union/provider_credentials",
       &flutter::StandardMethodCodec::GetInstance());
@@ -322,6 +372,8 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  desktop_lyrics_window_ = nullptr;
+  desktop_lyrics_channel_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

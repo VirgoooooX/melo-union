@@ -25,6 +25,7 @@ import 'qq_music_session_store.dart';
 import 'kugou_session_store.dart';
 import 'audio_cache_manager.dart';
 import 'audio_cache_proxy_server.dart';
+import 'download_file_naming.dart';
 
 class _CacheEntry<T> {
   _CacheEntry(this.data, {DateTime? fetchedAt})
@@ -1859,10 +1860,22 @@ class DemoRepository extends ChangeNotifier {
     _rememberTrack(track);
     final requestedQuality = quality ?? _downloadQuality;
 
-    final existing = downloadCoordinator.getTask(track.ref);
-    if (downloadCoordinator.isAvailableLocally(track.ref)) {
-      return DownloadStatus.completed;
+    final downloaded = downloadCoordinator.findLocalItem(
+      track.ref,
+      requestedQuality: requestedQuality,
+      allowLowerQuality: true,
+    );
+    if (downloaded != null) {
+      if (downloaded.filePath.startsWith('local://')) {
+        return DownloadStatus.completed;
+      }
+      final file = File(downloaded.filePath);
+      if (await file.exists() && await file.length() > 0) {
+        return DownloadStatus.completed;
+      }
+      downloadCoordinator.removeLocalItem(downloaded.sourceRef);
     }
+    final existing = downloadCoordinator.findTask(track.ref);
     if (existing != null &&
         (existing.status == DownloadStatus.resolving ||
             existing.status == DownloadStatus.downloading)) {
@@ -1878,8 +1891,11 @@ class DemoRepository extends ChangeNotifier {
       notifyListeners();
     }
 
-    await startDownload(track.ref);
-    return downloadCoordinator.getTask(track.ref)?.status;
+    final startRef = downloadCoordinator.getTask(track.ref) != null
+        ? track.ref
+        : existing?.track.ref ?? track.ref;
+    await startDownload(startRef);
+    return downloadCoordinator.getTask(startRef)?.status;
   }
 
   Future<void> startDownload(ProviderTrackRef ref) async {
@@ -1951,19 +1967,16 @@ class DemoRepository extends ChangeNotifier {
         changed = true;
         continue;
       }
-      if (Platform.isWindows && !_isAscii(path.basename(file.path))) {
+      final extension = path.extension(file.path);
+      final desiredName =
+          '${buildDownloadFileBaseName(_sourceTrackForLocalItem(item))}$extension';
+      if (path.basename(file.path) != desiredName) {
         try {
-          final migrated = File(path.join(
-            file.parent.path,
-            '${_asciiDownloadStem(item.sourceRef)}${path.extension(file.path)}',
-          ));
+          final migrated = File(path.join(file.parent.path, desiredName));
           if (!await migrated.exists()) {
             file = await file.rename(migrated.path);
-          } else if (await migrated.length() == await file.length()) {
-            await file.delete();
-            file = migrated;
+            changed = true;
           }
-          changed = true;
         } on FileSystemException catch (error) {
           debugPrint('Deferred local media path migration: $error');
         }
@@ -1987,6 +2000,15 @@ class DemoRepository extends ChangeNotifier {
       _persistSoon();
     }
   }
+
+  SourceTrack _sourceTrackForLocalItem(LocalMediaItem item) => SourceTrack(
+        ref: item.sourceRef,
+        title: item.title,
+        artists: item.artists,
+        duration: item.duration,
+        isFavorited: false,
+        isDownloadable: true,
+      );
 
   void removeLocalMedia(ProviderTrackRef ref) {
     final localItem = downloadCoordinator.getLocalItem(ref);
@@ -2887,6 +2909,17 @@ class DemoRepository extends ChangeNotifier {
     try {
       final target = await _downloadFileFor(task.track, ticket);
       await target.parent.create(recursive: true);
+      // The snapshot may have been cleared or may not have been persisted yet.
+      // Reuse the deterministic artist-title file instead of downloading a
+      // second copy merely because the library record is missing.
+      if (await target.exists() && await target.length() > 0) {
+        downloadCoordinator.completeTask(
+          ref: ref,
+          filePath: target.path,
+          fileSize: await target.length(),
+        );
+        return;
+      }
       tempFile = File('${target.path}.part');
       _activeDownloadParts[ref] = tempFile;
       final existingBytes =
@@ -3016,7 +3049,7 @@ class DemoRepository extends ChangeNotifier {
         Directory(path.join(root.path, track.ref.providerId.value));
     final extension = _downloadExtension(ticket);
     final fileName = '${_downloadFileBaseName(track)}.$extension';
-    return _uniqueDownloadFile(File(path.join(providerDir.path, fileName)));
+    return File(path.join(providerDir.path, fileName));
   }
 
   Future<Directory> _downloadRootDirectory() async {
@@ -3091,36 +3124,13 @@ class DemoRepository extends ChangeNotifier {
   }
 
   String _downloadFileBaseName(SourceTrack track) {
-    return _asciiDownloadStem(track.ref);
+    return buildDownloadFileBaseName(track);
   }
-
-  String _asciiDownloadStem(ProviderTrackRef ref) {
-    final provider =
-        ref.providerId.value.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-    final hash =
-        _stableEntryHash(_refKey(ref)).toRadixString(16).padLeft(8, '0');
-    return '${provider}_$hash';
-  }
-
-  bool _isAscii(String value) => value.codeUnits.every((unit) => unit < 128);
 
   static String? _normalizeConfiguredDirectory(String? directory) {
     final trimmed = directory?.trim();
     if (trimmed == null || trimmed.isEmpty) return null;
     return path.normalize(path.absolute(trimmed));
-  }
-
-  Future<File> _uniqueDownloadFile(File desired) async {
-    if (!await desired.exists()) return desired;
-    final directory = desired.parent.path;
-    final extension = path.extension(desired.path);
-    final baseName = path.basenameWithoutExtension(desired.path);
-    for (var i = 2; i < 1000; i++) {
-      final candidate = File(path.join(directory, '$baseName ($i)$extension'));
-      if (!await candidate.exists()) return candidate;
-    }
-    final timestamp = DateTime.now().microsecondsSinceEpoch;
-    return File(path.join(directory, '$baseName ($timestamp)$extension'));
   }
 
   Future<void> _embedDownloadedMetadata(

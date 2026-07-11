@@ -8,6 +8,7 @@ import '../design/melo_tokens.dart';
 import '../presentation/app_destination.dart';
 import '../presentation/shell_accent.dart';
 import '../widgets/desktop_player_bar.dart';
+import '../widgets/desktop_lyrics_controller.dart';
 import '../widgets/full_screen_player.dart';
 import '../widgets/melo_logo_mark.dart';
 import '../widgets/right_sidebar.dart';

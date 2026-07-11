@@ -850,6 +850,32 @@ void main() {
   });
 
   group('DownloadCoordinator', () {
+    test('uses provider and track id as stable download identity', () {
+      final registry = StaticProviderRegistry(const []);
+      final coordinator = DownloadCoordinator(registry: registry);
+      final original = SourceTrack(
+        ref: ProviderTrackRef(
+          providerId: ProviderId('test'),
+          trackId: 'song-1',
+          extraIds: const {'album': 'old'},
+        ),
+        title: 'Song',
+        artists: const ['Artist'],
+        duration: Duration.zero,
+        isFavorited: false,
+        isDownloadable: true,
+      );
+      final refreshedRef = ProviderTrackRef(
+        providerId: ProviderId('test'),
+        trackId: 'song-1',
+        extraIds: const {'album': 'new'},
+      );
+
+      coordinator.addTask(original);
+
+      expect(coordinator.findTask(refreshedRef)?.track.ref, original.ref);
+    });
+
     final track = SourceTrack(
       ref: ProviderTrackRef(
         providerId: ProviderId('alpha_music'),

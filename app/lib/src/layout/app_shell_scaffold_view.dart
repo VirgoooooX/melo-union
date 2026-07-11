@@ -110,6 +110,7 @@ class AppShellScaffold extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  const DesktopLyricsBridge(),
                   const DesktopPlayerBar(),
                 ],
               ),

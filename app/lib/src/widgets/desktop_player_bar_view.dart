@@ -58,6 +58,42 @@ class DesktopPlayerBar extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: MeloSpacing.md),
+              if (Platform.isWindows)
+                (() {
+                  final visible = ref.watch(desktopLyricsVisibleProvider);
+                  return IconButton(
+                    key: const ValueKey('desktop-lyrics-toggle'),
+                    tooltip: visible ? '关闭桌面歌词' : '开启桌面歌词',
+                    onPressed: current == null && !visible
+                        ? null
+                        : () => ref
+                            .read(desktopLyricsVisibleProvider.notifier)
+                            .state = !visible,
+                    icon: Icon(
+                      visible
+                          ? Icons.subtitles_rounded
+                          : Icons.subtitles_outlined,
+                      color: visible ? MeloColors.primary700 : null,
+                    ),
+                  );
+                })(),
+              if (Platform.isWindows &&
+                  ref.watch(desktopLyricsVisibleProvider)) ...[
+                const SizedBox(width: MeloSpacing.xs),
+                (() {
+                  final locked = ref.watch(desktopLyricsLockedProvider);
+                  return IconButton(
+                    tooltip: locked ? '解锁桌面歌词' : '锁定桌面歌词',
+                    onPressed: () => ref
+                        .read(desktopLyricsLockedProvider.notifier)
+                        .state = !locked,
+                    icon: Icon(
+                      locked ? Icons.lock_open_rounded : Icons.lock_rounded,
+                    ),
+                  );
+                })(),
+              ],
+              const SizedBox(width: MeloSpacing.xs),
               _QualityMenuButton(repository: repository),
               const SizedBox(width: MeloSpacing.sm),
               _VolumeControl(
