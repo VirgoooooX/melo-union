@@ -454,6 +454,8 @@ class DemoRepository extends ChangeNotifier {
   final Set<StreamSubscription<double>> _cacheProgressSubscriptions = {};
   final List<StreamSubscription<dynamic>> _platformSubscriptions = [];
   bool _closed = false;
+  int _playbackLoadRevision = 0;
+  Future<void> _playbackLoadChain = Future.value();
   String? _activeAudioCachePath;
   final Map<ProviderTrackRef, HttpClient> _activeDownloadClients = {};
   final Map<ProviderTrackRef, File> _activeDownloadParts = {};
@@ -1924,12 +1926,53 @@ class DemoRepository extends ChangeNotifier {
         downloadCoordinator.pauseTask(task.track.ref);
       }
     }
+    var changed = false;
+    final reconciledItems = <LocalMediaItem>[];
     for (final item in [...downloadCoordinator.localItems]) {
-      if (item.filePath.startsWith('local://')) continue;
-      final file = File(item.filePath);
+      if (item.filePath.startsWith('local://')) {
+        reconciledItems.add(item);
+        continue;
+      }
+      var file = File(item.filePath);
       if (!await file.exists() || await file.length() == 0) {
         downloadCoordinator.removeLocalItem(item.sourceRef);
+        changed = true;
+        continue;
       }
+      if (Platform.isWindows && !_isAscii(path.basename(file.path))) {
+        try {
+          final migrated = File(path.join(
+            file.parent.path,
+            '${_asciiDownloadStem(item.sourceRef)}${path.extension(file.path)}',
+          ));
+          if (!await migrated.exists()) {
+            file = await file.rename(migrated.path);
+          } else if (await migrated.length() == await file.length()) {
+            await file.delete();
+            file = migrated;
+          }
+          changed = true;
+        } on FileSystemException catch (error) {
+          debugPrint('Deferred local media path migration: $error');
+        }
+      }
+      reconciledItems.add(LocalMediaItem(
+        sourceRef: item.sourceRef,
+        title: item.title,
+        artists: item.artists,
+        duration: item.duration,
+        filePath: file.path,
+        fileSize: await file.length(),
+        downloadedAt: item.downloadedAt,
+        quality: item.quality,
+      ));
+    }
+    if (changed) {
+      downloadCoordinator.replaceState(
+        tasks: downloadCoordinator.allTasks,
+        localItems: reconciledItems,
+      );
+      _persistSoon();
     }
   }
 
@@ -2153,7 +2196,36 @@ class DemoRepository extends ChangeNotifier {
     required bool playWhenReady,
     bool forceReload = false,
     Duration? initialPosition,
+  }) {
+    final revision = ++_playbackLoadRevision;
+    // Interrupt an in-flight native load immediately. The actual replacement is
+    // serialized below so two setAudioSource calls can never overlap.
+    unawaited(_audioPlayer.stop().catchError((Object _) {}));
+    final completer = Completer<void>();
+    _playbackLoadChain = _playbackLoadChain.catchError((Object error) {
+      debugPrint('Previous playback load failed: $error');
+    }).then((_) async {
+      try {
+        await _performNativePlaybackSync(
+          revision: revision,
+          playWhenReady: playWhenReady,
+          forceReload: forceReload,
+          initialPosition: initialPosition,
+        );
+      } finally {
+        if (!completer.isCompleted) completer.complete();
+      }
+    });
+    return completer.future;
+  }
+
+  Future<void> _performNativePlaybackSync({
+    required int revision,
+    required bool playWhenReady,
+    required bool forceReload,
+    required Duration? initialPosition,
   }) async {
+    if (revision != _playbackLoadRevision) return;
     final queue = playbackCoordinator.queueState;
     final current = queue.current?.track;
     final currentTicket = playbackCoordinator.currentTicket;
@@ -2196,6 +2268,7 @@ class DemoRepository extends ChangeNotifier {
         await _syncAudioLoopMode();
         final nativeWindow =
             await _buildNativePlaybackWindow(queue, current, currentTicket);
+        if (revision != _playbackLoadRevision) return;
         _nativeAudioSourceRefs = [
           for (final source in nativeWindow.sources) source.ref,
         ];
@@ -2216,6 +2289,10 @@ class DemoRepository extends ChangeNotifier {
           initialIndex: nativeWindow.currentIndex,
           initialPosition: startPosition,
         );
+        if (revision != _playbackLoadRevision) {
+          _updatingNativeAudioSource = false;
+          return;
+        }
         if (startPosition != null && startPosition > Duration.zero) {
           _lastKnownPlaybackPosition = startPosition;
         }
@@ -2223,12 +2300,21 @@ class DemoRepository extends ChangeNotifier {
         _updatingNativeAudioSource = false;
         _playbackIssue = null;
         await notificationPermissionBridge.requestPostNotifications();
+        if (revision != _playbackLoadRevision) return;
         _startAudioPlayer();
       } catch (e) {
         _updatingNativeAudioSource = false;
+        if (revision != _playbackLoadRevision) {
+          debugPrint('Ignored stale playback load: $e');
+          return;
+        }
         debugPrint('Audio Error: $e');
         if (await _tryRecoverPlayback(
-            current, currentTicket, initialPosition)) {
+          current,
+          currentTicket,
+          initialPosition,
+          revision: revision,
+        )) {
           return;
         }
         _playingTrackId = null;
@@ -2245,13 +2331,20 @@ class DemoRepository extends ChangeNotifier {
   Future<bool> _tryRecoverPlayback(
     SourceTrack track,
     PlaybackTicket failedTicket,
-    Duration? initialPosition,
-  ) async {
+    Duration? initialPosition, {
+    required int revision,
+  }) async {
+    if (revision != _playbackLoadRevision) return false;
     if (failedTicket.mediaUri.isScheme('file')) {
       final remote =
           await _resolvePlaybackTicketForTrack(track, ignoreLocal: true);
       if (remote != null && !remote.mediaUri.isScheme('file')) {
-        return _startSinglePlayback(track, remote, initialPosition);
+        return _startSinglePlayback(
+          track,
+          remote,
+          initialPosition,
+          revision: revision,
+        );
       }
       final fallback = await _resolveLocalPlaybackTicket(
         track,
@@ -2261,11 +2354,21 @@ class DemoRepository extends ChangeNotifier {
       if (fallback == null || fallback.mediaUri == failedTicket.mediaUri) {
         return false;
       }
-      return _startSinglePlayback(track, fallback, initialPosition);
+      return _startSinglePlayback(
+        track,
+        fallback,
+        initialPosition,
+        revision: revision,
+      );
     }
 
     // A failed caching proxy must never prevent ordinary remote playback.
-    if (await _startSinglePlayback(track, failedTicket, initialPosition)) {
+    if (await _startSinglePlayback(
+      track,
+      failedTicket,
+      initialPosition,
+      revision: revision,
+    )) {
       return true;
     }
 
@@ -2277,20 +2380,28 @@ class DemoRepository extends ChangeNotifier {
     if (fallback == null || fallback.mediaUri == failedTicket.mediaUri) {
       return false;
     }
-    return _startSinglePlayback(track, fallback, initialPosition);
+    return _startSinglePlayback(
+      track,
+      fallback,
+      initialPosition,
+      revision: revision,
+    );
   }
 
   Future<bool> _startSinglePlayback(
     SourceTrack track,
     PlaybackTicket ticket,
-    Duration? initialPosition,
-  ) async {
+    Duration? initialPosition, {
+    required int revision,
+  }) async {
+    if (revision != _playbackLoadRevision) return false;
     if (!_isSupportedPlaybackUri(ticket.mediaUri)) return false;
     try {
       await _audioPlayer.stop();
       await audioCacheManager?.releaseInUse(_activeAudioCachePath);
       _activeAudioCachePath = null;
       final source = await _nativeSourceFor(track, ticket);
+      if (revision != _playbackLoadRevision) return false;
       _nativeAudioSourceRefs = [track.ref];
       _nativeEntryIds = [source.entryId];
       _nativePlaylist = null;
@@ -2300,6 +2411,7 @@ class DemoRepository extends ChangeNotifier {
         source.toAudioSource(),
         initialPosition: startPosition,
       );
+      if (revision != _playbackLoadRevision) return false;
       _updatingNativeAudioSource = false;
       _pendingRestorePosition = null;
       _setEffectivePlaybackSource(track, ticket);
@@ -2407,6 +2519,7 @@ class DemoRepository extends ChangeNotifier {
     );
     final cacheManager = audioCacheManager;
     if (cacheWhilePlaying &&
+        !Platform.isWindows &&
         cacheManager != null &&
         (ticket.mediaUri.isScheme('http') ||
             ticket.mediaUri.isScheme('https')) &&
@@ -2916,20 +3029,19 @@ class DemoRepository extends ChangeNotifier {
     return 'mp3';
   }
 
-  String _safeFileSegment(String value) {
-    final cleaned = value
-        .trim()
-        .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]+'), '_')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll(RegExp(r'^[. ]+|[. ]+$'), '');
-    if (cleaned.isEmpty) return 'track';
-    return cleaned.length <= 140 ? cleaned : cleaned.substring(0, 140).trim();
+  String _downloadFileBaseName(SourceTrack track) {
+    return _asciiDownloadStem(track.ref);
   }
 
-  String _downloadFileBaseName(SourceTrack track) {
-    final artists = track.artists.isEmpty ? '未知歌手' : track.artists.join('／');
-    return _safeFileSegment('$artists - ${track.title}');
+  String _asciiDownloadStem(ProviderTrackRef ref) {
+    final provider =
+        ref.providerId.value.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final hash =
+        _stableEntryHash(_refKey(ref)).toRadixString(16).padLeft(8, '0');
+    return '${provider}_$hash';
   }
+
+  bool _isAscii(String value) => value.codeUnits.every((unit) => unit < 128);
 
   static String? _normalizeConfiguredDirectory(String? directory) {
     final trimmed = directory?.trim();

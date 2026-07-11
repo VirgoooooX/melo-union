@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:melo_union_app/src/bootstrap/demo_repository.dart';
@@ -335,6 +337,74 @@ void main() {
         PlayNextButtonStatus.hidden);
     expect(oneTrack.playNextStatusForEntry('only'),
         PlayNextButtonStatus.disabledCurrent);
+  });
+
+  test('a stale playback load cannot overwrite the latest track request',
+      () async {
+    final providerId = ProviderId('rapid_source');
+    SourceTrack track(String id) => SourceTrack(
+          ref: ProviderTrackRef(providerId: providerId, trackId: id),
+          title: id,
+          artists: const ['Rapid Artist'],
+          duration: const Duration(minutes: 3),
+          isFavorited: false,
+        );
+    final first = track('first');
+    final second = track('second');
+    final repository = DemoRepository.seeded(
+      additionalProviders: [
+        FakeMusicProvider(
+          descriptor: ProviderDescriptor(
+            id: providerId,
+            displayName: 'Rapid Source',
+            capabilities: const {ProviderCapability.resolvePlayback},
+          ),
+          profile: null,
+          seedTracks: [first, second],
+        ),
+      ],
+    );
+
+    await Future.wait([
+      repository.playTrack(first),
+      repository.playTrack(second),
+    ]);
+
+    expect(repository.queue.current?.track.ref, second.ref);
+    expect(repository.playbackIssue?.trackRef, isNot(first.ref));
+  });
+
+  test('Windows startup migrates downloaded media to an ASCII path', () async {
+    if (!Platform.isWindows) return;
+    final directory = await Directory.systemTemp.createTemp('melo-download-');
+    addTearDown(() => directory.delete(recursive: true));
+    final original = File('${directory.path}\\歌手 - 中文歌曲.flac');
+    await original.writeAsBytes([0x66, 0x4c, 0x61, 0x43]);
+    final ref = ProviderTrackRef(
+      providerId: ProviderId('local_source'),
+      trackId: 'track-1',
+    );
+    final repository = DemoRepository.seeded(
+      snapshot: MeloDataSnapshot(
+        localMediaItems: [
+          LocalMediaItem(
+            sourceRef: ref,
+            title: '中文歌曲',
+            artists: const ['歌手'],
+            duration: const Duration(minutes: 3),
+            filePath: original.path,
+            fileSize: await original.length(),
+            downloadedAt: DateTime.utc(2026, 7, 11),
+          ),
+        ],
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    final migrated = repository.downloadCoordinator.localItems.single;
+    expect(migrated.filePath.codeUnits.every((unit) => unit < 128), isTrue);
+    expect(await File(migrated.filePath).exists(), isTrue);
+    expect(await original.exists(), isFalse);
   });
 
   test(
