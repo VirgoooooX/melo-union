@@ -266,6 +266,77 @@ void main() {
     expect(repository.queue.next?.track.title, 'a');
   });
 
+  test('play-next visibility and rapid mutations follow the shared policy',
+      () async {
+    final providerId = ProviderId('aurora_stream');
+    SourceTrack track(String id, {bool playable = true}) => SourceTrack(
+          ref: ProviderTrackRef(providerId: providerId, trackId: id),
+          title: id,
+          artists: const ['Melo Artist'],
+          duration: const Duration(minutes: 3),
+          isFavorited: false,
+          isPlayable: playable,
+        );
+    final a = track('a');
+    final b = track('b');
+    final c = track('c');
+    final d = track('d');
+    final unavailable = track('x', playable: false);
+    final repository = DemoRepository.seeded(
+      snapshot: MeloDataSnapshot(
+        playbackPreferences:
+            const PlaybackPreferencesSnapshot(rememberQueue: true),
+        playbackQueue: PlaybackQueueSnapshot(
+          entries: [
+            for (final item in [a, b, c, d])
+              PlaybackQueueEntrySnapshot(
+                entryId: 'entry-${item.title}',
+                track: item,
+                queuedAt: DateTime.utc(2026, 7, 11),
+              ),
+          ],
+          currentIndex: 0,
+        ),
+      ),
+    );
+
+    expect(repository.playNextStatusForTrack(a, queueSurface: false),
+        PlayNextButtonStatus.disabledCurrent);
+    expect(repository.playNextStatusForTrack(b, queueSurface: false),
+        PlayNextButtonStatus.disabledAlreadyNext);
+    expect(repository.playNextStatusForTrack(unavailable, queueSurface: false),
+        PlayNextButtonStatus.disabledUnplayable);
+
+    await Future.wait([
+      repository.moveQueueEntryNext('entry-c'),
+      repository.moveQueueEntryNext('entry-d'),
+    ]);
+
+    expect(repository.queue.current?.track.title, 'a');
+    expect(repository.queue.next?.track.title, 'd');
+
+    final oneTrack = DemoRepository.seeded(
+      snapshot: MeloDataSnapshot(
+        playbackPreferences:
+            const PlaybackPreferencesSnapshot(rememberQueue: true),
+        playbackQueue: PlaybackQueueSnapshot(
+          entries: [
+            PlaybackQueueEntrySnapshot(
+              entryId: 'only',
+              track: a,
+              queuedAt: DateTime.utc(2026, 7, 11),
+            ),
+          ],
+          currentIndex: 0,
+        ),
+      ),
+    );
+    expect(oneTrack.playNextStatusForTrack(c, queueSurface: false),
+        PlayNextButtonStatus.hidden);
+    expect(oneTrack.playNextStatusForEntry('only'),
+        PlayNextButtonStatus.disabledCurrent);
+  });
+
   test(
       'DemoRepository falls back when preferred playback source cannot resolve',
       () async {
