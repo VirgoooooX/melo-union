@@ -85,11 +85,17 @@ bool FlutterWindow::OnCreate() {
       messenger, "melo_union/desktop_lyrics",
       &flutter::StandardMethodCodec::GetInstance());
   desktop_lyrics_window_ = std::make_unique<DesktopLyricsWindow>(
-      [this](bool locked) {
+      [this](bool locked, double opacity, bool double_line, bool show_card, double font_scale) {
         if (desktop_lyrics_channel_) {
+          flutter::EncodableMap map;
+          map[flutter::EncodableValue("locked")] = flutter::EncodableValue(locked);
+          map[flutter::EncodableValue("opacity")] = flutter::EncodableValue(opacity);
+          map[flutter::EncodableValue("doubleLine")] = flutter::EncodableValue(double_line);
+          map[flutter::EncodableValue("showCard")] = flutter::EncodableValue(show_card);
+          map[flutter::EncodableValue("fontScale")] = flutter::EncodableValue(font_scale);
           desktop_lyrics_channel_->InvokeMethod(
-              "lockChanged",
-              std::make_unique<flutter::EncodableValue>(locked));
+              "settingChanged",
+              std::make_unique<flutter::EncodableValue>(map));
         }
       });
   desktop_lyrics_channel_->SetMethodCallHandler(
@@ -125,6 +131,43 @@ bool FlutterWindow::OnCreate() {
             }
           }
           desktop_lyrics_window_->SetLocked(locked);
+          result->Success();
+        } else if (call.method_name() == "setSettings") {
+          const auto* arguments = std::get_if<flutter::EncodableMap>(call.arguments());
+          if (arguments) {
+            bool locked = false;
+            double opacity = 1.0;
+            bool double_line = true;
+            bool show_card = true;
+            double font_scale = 1.0;
+            
+            auto it_locked = arguments->find(flutter::EncodableValue("locked"));
+            if (it_locked != arguments->end()) {
+              if (auto value = std::get_if<bool>(&it_locked->second)) locked = *value;
+            }
+            
+            auto it_opacity = arguments->find(flutter::EncodableValue("opacity"));
+            if (it_opacity != arguments->end()) {
+              if (auto value = std::get_if<double>(&it_opacity->second)) opacity = *value;
+            }
+            
+            auto it_dl = arguments->find(flutter::EncodableValue("doubleLine"));
+            if (it_dl != arguments->end()) {
+              if (auto value = std::get_if<bool>(&it_dl->second)) double_line = *value;
+            }
+            
+            auto it_sc = arguments->find(flutter::EncodableValue("showCard"));
+            if (it_sc != arguments->end()) {
+              if (auto value = std::get_if<bool>(&it_sc->second)) show_card = *value;
+            }
+            
+            auto it_fs = arguments->find(flutter::EncodableValue("fontScale"));
+            if (it_fs != arguments->end()) {
+              if (auto value = std::get_if<double>(&it_fs->second)) font_scale = *value;
+            }
+            
+            desktop_lyrics_window_->SetSettings(locked, opacity, double_line, show_card, font_scale);
+          }
           result->Success();
         } else {
           result->NotImplemented();

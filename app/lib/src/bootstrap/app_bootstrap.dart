@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:music_domain/music_domain.dart';
 import 'package:music_data/music_data.dart';
 import 'package:provider_kugou/provider_kugou.dart';
@@ -58,11 +60,11 @@ Future<AppBootstrap> createAppBootstrap({
   try {
     snapshot = await managedStore.store?.read();
   } catch (e, stackTrace) {
-    print('Failed to read snapshot from store: $e\n$stackTrace');
+    debugPrint('Failed to read snapshot from store: $e\n$stackTrace');
     try {
       await managedStore.store?.clear();
     } catch (clearError) {
-      print('Failed to clear store after read failure: $clearError');
+      debugPrint('Failed to clear store after read failure: $clearError');
     }
     snapshot = MeloDataSnapshot();
   }
