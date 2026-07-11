@@ -174,6 +174,7 @@ class DemoRepository extends ChangeNotifier {
       localPlaybackResolver: _resolveLocalPlaybackTicket,
     );
     _restorePlaybackQueue(playbackQueue);
+    unawaited(_reconcileDownloadState());
     unawaited(_audioPlayer.setVolume(_volume));
     unawaited(_syncAudioLoopMode());
     _audioPlayer.positionStream.listen((position) {
@@ -448,6 +449,11 @@ class DemoRepository extends ChangeNotifier {
   PlaybackRepeatMode _repeatMode = PlaybackRepeatMode.off;
   final Set<StreamSubscription<double>> _cacheProgressSubscriptions = {};
   String? _activeAudioCachePath;
+  final Map<ProviderTrackRef, HttpClient> _activeDownloadClients = {};
+  final Map<ProviderTrackRef, File> _activeDownloadParts = {};
+  final List<Completer<void>> _downloadWaiters = [];
+  int _activeDownloadCount = 0;
+  static const int _maxConcurrentDownloads = 3;
   Future<void> _persistenceChain = Future.value();
 
   /// Incremented on login/logout/toggle to trigger [allFavoritesProvider] refresh.
@@ -1848,28 +1854,65 @@ class DemoRepository extends ChangeNotifier {
     await downloadCoordinator.startTask(ref);
     _persistSoon();
     notifyListeners();
-    await _materializeDownload(ref);
+    await _withDownloadSlot(() => _materializeDownload(ref));
     _persistSoon();
     notifyListeners();
   }
 
   void pauseDownload(ProviderTrackRef ref) {
     downloadCoordinator.pauseTask(ref);
+    _activeDownloadClients.remove(ref)?.close(force: true);
     _persistSoon();
     notifyListeners();
   }
 
   Future<void> resumeDownload(ProviderTrackRef ref) async {
-    await downloadCoordinator.resumeTask(ref);
-    _persistSoon();
-    notifyListeners();
+    await startDownload(ref);
   }
 
   void cancelDownload(ProviderTrackRef ref) {
     downloadCoordinator.cancelTask(ref);
+    _activeDownloadClients.remove(ref)?.close(force: true);
+    final part = _activeDownloadParts.remove(ref);
+    if (part != null) {
+      unawaited(part.delete().catchError((Object _) => part));
+    }
     downloadCoordinator.removeTask(ref);
     _persistSoon();
     notifyListeners();
+  }
+
+  Future<void> _withDownloadSlot(Future<void> Function() operation) async {
+    if (_activeDownloadCount >= _maxConcurrentDownloads) {
+      final waiter = Completer<void>();
+      _downloadWaiters.add(waiter);
+      await waiter.future;
+    }
+    _activeDownloadCount++;
+    try {
+      await operation();
+    } finally {
+      _activeDownloadCount--;
+      if (_downloadWaiters.isNotEmpty) {
+        _downloadWaiters.removeAt(0).complete();
+      }
+    }
+  }
+
+  Future<void> _reconcileDownloadState() async {
+    for (final task in downloadCoordinator.allTasks) {
+      if (task.status == DownloadStatus.downloading ||
+          task.status == DownloadStatus.resolving) {
+        downloadCoordinator.pauseTask(task.track.ref);
+      }
+    }
+    for (final item in [...downloadCoordinator.localItems]) {
+      if (item.filePath.startsWith('local://')) continue;
+      final file = File(item.filePath);
+      if (!await file.exists() || await file.length() == 0) {
+        downloadCoordinator.removeLocalItem(item.sourceRef);
+      }
+    }
   }
 
   void removeLocalMedia(ProviderTrackRef ref) {
@@ -2615,13 +2658,20 @@ class DemoRepository extends ChangeNotifier {
     File? tempFile;
     IOSink? sink;
     final client = HttpClient();
+    _activeDownloadClients[ref] = client;
     try {
       final target = await _downloadFileFor(task.track, ticket);
       await target.parent.create(recursive: true);
       tempFile = File('${target.path}.part');
-      final request = await client.getUrl(uri);
-      ticket.headers.forEach(request.headers.add);
-      final response = await request.close();
+      _activeDownloadParts[ref] = tempFile;
+      final existingBytes =
+          await tempFile.exists() ? await tempFile.length() : 0;
+      final response = await _openDownloadResponse(
+        client: client,
+        uri: uri,
+        headers: ticket.headers,
+        offset: existingBytes,
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await response.drain<List<int>>(<int>[]);
         throw HttpException(
@@ -2630,19 +2680,39 @@ class DemoRepository extends ChangeNotifier {
         );
       }
 
-      sink = tempFile.openWrite();
-      var received = 0;
-      final total = response.contentLength;
+      final resumed =
+          existingBytes > 0 && response.statusCode == HttpStatus.partialContent;
+      sink =
+          tempFile.openWrite(mode: resumed ? FileMode.append : FileMode.write);
+      var received = resumed ? existingBytes : 0;
+      final total = response.contentLength > 0
+          ? received + response.contentLength
+          : ticket.bytes ?? -1;
+      var lastProgressAt = DateTime.fromMillisecondsSinceEpoch(0);
       await for (final chunk in response) {
+        final status = downloadCoordinator.getTask(ref)?.status;
+        if (status == DownloadStatus.paused ||
+            status == DownloadStatus.cancelled) {
+          break;
+        }
         sink.add(chunk);
         received += chunk.length.toInt();
-        if (total > 0) {
+        final now = DateTime.now();
+        if (total > 0 &&
+            now.difference(lastProgressAt) >=
+                const Duration(milliseconds: 150)) {
+          lastProgressAt = now;
           downloadCoordinator.updateProgress(ref, received / total);
           notifyListeners();
         }
       }
       await sink.close();
       sink = null;
+      final finalStatus = downloadCoordinator.getTask(ref)?.status;
+      if (finalStatus == DownloadStatus.paused ||
+          finalStatus == DownloadStatus.cancelled) {
+        return;
+      }
       if (await target.exists()) {
         await target.delete();
       }
@@ -2654,19 +2724,62 @@ class DemoRepository extends ChangeNotifier {
         filePath: target.path,
         fileSize: fileSize,
       );
+      _activeDownloadParts.remove(ref);
     } catch (error) {
-      downloadCoordinator.failTask(ref, error);
+      final status = downloadCoordinator.getTask(ref)?.status;
+      if (status != DownloadStatus.paused &&
+          status != DownloadStatus.cancelled) {
+        downloadCoordinator.failTask(ref, _classifyDownloadError(error));
+      }
       try {
         await sink?.close();
-        if (tempFile != null && await tempFile.exists()) {
-          await tempFile.delete();
-        }
       } on FileSystemException {
         // Best-effort cleanup only.
       }
     } finally {
+      _activeDownloadClients.remove(ref);
       client.close(force: true);
     }
+  }
+
+  Future<HttpClientResponse> _openDownloadResponse({
+    required HttpClient client,
+    required Uri uri,
+    required Map<String, String> headers,
+    required int offset,
+  }) async {
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final request = await client.getUrl(uri);
+        headers.forEach(request.headers.add);
+        if (offset > 0) {
+          request.headers.set(HttpHeaders.rangeHeader, 'bytes=$offset-');
+        }
+        final response = await request.close();
+        if (response.statusCode >= 500 && attempt < 2) {
+          await response.drain<void>();
+          await Future<void>.delayed(
+              Duration(milliseconds: 250 * (attempt + 1)));
+          continue;
+        }
+        return response;
+      } on SocketException catch (error) {
+        lastError = error;
+        if (attempt < 2) {
+          await Future<void>.delayed(
+              Duration(milliseconds: 250 * (attempt + 1)));
+        }
+      }
+    }
+    throw lastError ?? HttpException('Download connection failed.', uri: uri);
+  }
+
+  String _classifyDownloadError(Object error) {
+    if (error is SocketException) return '网络连接失败，可稍后重试。';
+    if (error is HttpException) return '服务器拒绝下载：${error.message}';
+    if (error is FileSystemException) return '无法写入下载目录：${error.message}';
+    return error.toString();
   }
 
   Future<File> _downloadFileFor(
