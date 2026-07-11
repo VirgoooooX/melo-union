@@ -13,9 +13,13 @@ class _QueuePreview extends ConsumerWidget {
       itemBuilder: (context, index) {
         final entry = queue.entries[index];
         final selected = index == queue.currentIndex;
+        final isDownloaded = repository.downloadCoordinator.localItems
+            .any((item) => item.sourceRef == entry.track.ref);
         return _QueuePreviewRow(
           entry: entry,
           selected: selected,
+          isDownloaded: isDownloaded,
+          isCached: repository.isTrackEffectivelyCached(entry.track.ref),
           playNextStatus: repository.playNextStatusForEntry(entry.entryId),
           onPlay: () => repository.playOrToggleQueueTrack(entry.track.ref),
           onPlayNext: () async {
@@ -38,6 +42,8 @@ class _QueuePreviewRow extends StatefulWidget {
   const _QueuePreviewRow({
     required this.entry,
     required this.selected,
+    required this.isDownloaded,
+    required this.isCached,
     required this.playNextStatus,
     required this.onPlay,
     required this.onPlayNext,
@@ -46,6 +52,8 @@ class _QueuePreviewRow extends StatefulWidget {
 
   final PlaybackQueueEntry entry;
   final bool selected;
+  final bool isDownloaded;
+  final bool isCached;
   final PlayNextButtonStatus playNextStatus;
   final VoidCallback onPlay;
   final VoidCallback onPlayNext;
@@ -87,17 +95,44 @@ class _QueuePreviewRowState extends State<_QueuePreviewRow> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          widget.entry.track.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: widget.selected
-                                        ? MeloColors.primary700
-                                        : MeloColors.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                widget.entry.track.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: widget.selected
+                                          ? MeloColors.primary700
+                                          : MeloColors.textPrimary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ),
+                            if (widget.isDownloaded) ...[
+                              const SizedBox(width: 5),
+                              const Icon(
+                                Icons.arrow_circle_down_rounded,
+                                color: MeloColors.success,
+                                size: 13,
+                              ),
+                            ] else if (widget.isCached) ...[
+                              const SizedBox(width: 5),
+                              const Tooltip(
+                                message: '已缓存，可离线播放；缓存可能被自动清理。',
+                                child: Icon(
+                                  Icons.cached_rounded,
+                                  color: MeloColors.textTertiary,
+                                  size: 13,
+                                  semanticLabel: '已缓存，可离线播放；缓存可能被自动清理',
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 2),
                         Text(

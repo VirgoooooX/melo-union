@@ -321,6 +321,11 @@ class _MobileSearchTrackRow extends ConsumerWidget {
             .any((localItem) => localItem.sourceRef == track.ref),
       ),
     );
+    final isCached = ref.watch(
+      demoRepositoryProvider.select(
+        (r) => r.isTrackEffectivelyCached(track.ref),
+      ),
+    );
     final playable = track.isPlayable;
     return MeloMobileTrackRow(
       index: index,
@@ -330,6 +335,7 @@ class _MobileSearchTrackRow extends ConsumerWidget {
       duration: track.duration,
       isActive: selected,
       isDownloaded: isDownloaded,
+      isCached: isCached,
       onTap: playable ? () => repository.playOrToggleTrack(track) : null,
       trailing: MeloMobileTrackTrailing(
         duration: playable ? null : const _CatalogTag(),
@@ -368,6 +374,11 @@ class _DesktopSearchTrackRow extends ConsumerWidget {
             .any((localItem) => localItem.sourceRef == track.ref),
       ),
     );
+    final isCached = ref.watch(
+      demoRepositoryProvider.select(
+        (r) => r.isTrackEffectivelyCached(track.ref),
+      ),
+    );
     final playable = track.isPlayable;
     final play = playable ? () => repository.playOrToggleTrack(track) : null;
     return MeloDesktopTrackRow(
@@ -378,6 +389,7 @@ class _DesktopSearchTrackRow extends ConsumerWidget {
       album: track.album ?? provider.displayName,
       isActive: selected,
       isDownloaded: isDownloaded,
+      isCached: isCached,
       onDoubleTap: play,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

@@ -50,6 +50,8 @@ void main() {
     expect(await manager.findEligible(alpha, AudioQuality.low), isNull);
     expect(await manager.findEligible(beta, AudioQuality.high), isNotNull);
     expect(await first.exists(), isFalse);
+    expect(manager.containsEligible(beta, AudioQuality.standard), isTrue);
+    expect(manager.containsEligible(beta, AudioQuality.lossless), isFalse);
   });
 
   test('provider clear removes only cache entries for that provider', () async {

@@ -39,6 +39,11 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
             .any((item) => item.sourceRef == v.ref)),
       ),
     );
+    final isCached = ref.watch(
+      demoRepositoryProvider.select(
+        (r) => variants.any((v) => r.isTrackEffectivelyCached(v.ref)),
+      ),
+    );
     return MeloInteractiveRow(
       selected: isPlaying,
       height: MeloListMetrics.rowHeight,
@@ -82,6 +87,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                       artists: widget.track.artists,
                       active: isPlaying,
                       isDownloaded: isDownloaded,
+                      isCached: isCached,
                     ),
                   ),
                 ],
@@ -167,6 +173,11 @@ class _MobileFavoriteRow extends ConsumerWidget {
             .any((item) => item.sourceRef == v.ref)),
       ),
     );
+    final isCached = ref.watch(
+      demoRepositoryProvider.select(
+        (r) => variants.any((v) => r.isTrackEffectivelyCached(v.ref)),
+      ),
+    );
     final artwork = track.variants
         .firstWhere((variant) => variant.artwork != null, orElse: () => primary)
         .artwork;
@@ -179,6 +190,7 @@ class _MobileFavoriteRow extends ConsumerWidget {
       duration: track.duration,
       isActive: selected,
       isDownloaded: isDownloaded,
+      isCached: isCached,
       onTap: () {
         if (selected) {
           unawaited(repository.playOrToggleUnifiedTrack(track));
@@ -208,20 +220,20 @@ String _formatMobileDuration(Duration duration) {
   return '$minutes:$seconds';
 }
 
-
-
 class _TrackTitleBlock extends StatelessWidget {
   const _TrackTitleBlock({
     required this.title,
     required this.artists,
     required this.active,
     this.isDownloaded = false,
+    this.isCached = false,
   });
 
   final String title;
   final List<String> artists;
   final bool active;
   final bool isDownloaded;
+  final bool isCached;
 
   @override
   Widget build(BuildContext context) {
@@ -238,7 +250,9 @@ class _TrackTitleBlock extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: active ? MeloColors.primary700 : MeloColors.textPrimary,
+                      color: active
+                          ? MeloColors.primary700
+                          : MeloColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
               ),
@@ -249,6 +263,17 @@ class _TrackTitleBlock extends StatelessWidget {
                 Icons.arrow_circle_down_rounded,
                 color: MeloColors.success,
                 size: 14,
+              ),
+            ] else if (isCached) ...[
+              const SizedBox(width: 6),
+              const Tooltip(
+                message: '已缓存，可离线播放；缓存可能被自动清理。',
+                child: Icon(
+                  Icons.cached_rounded,
+                  color: MeloColors.textTertiary,
+                  size: 14,
+                  semanticLabel: '已缓存，可离线播放；缓存可能被自动清理',
+                ),
               ),
             ],
           ],
@@ -501,5 +526,3 @@ class _PlaylistChoice extends StatelessWidget {
     );
   }
 }
-
-

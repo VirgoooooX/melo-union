@@ -12,6 +12,7 @@ class MeloMobileTrackRow extends StatelessWidget {
     required this.duration,
     this.isActive = false,
     this.isDownloaded = false,
+    this.isCached = false,
     this.onTap,
     this.trailing,
     super.key,
@@ -24,6 +25,7 @@ class MeloMobileTrackRow extends StatelessWidget {
   final Duration duration;
   final bool isActive;
   final bool isDownloaded;
+  final bool isCached;
   final VoidCallback? onTap;
   final Widget? trailing;
 
@@ -90,13 +92,14 @@ class MeloMobileTrackRow extends StatelessWidget {
                           title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: isActive
-                                    ? MeloColors.primary700
-                                    : MeloColors.textPrimary,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: isActive
+                                        ? MeloColors.primary700
+                                        : MeloColors.textPrimary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                         ),
                       ),
                       if (isDownloaded) ...[
@@ -106,6 +109,9 @@ class MeloMobileTrackRow extends StatelessWidget {
                           color: MeloColors.success,
                           size: 13,
                         ),
+                      ] else if (isCached) ...[
+                        const SizedBox(width: 5),
+                        const _TrackCacheIndicator(size: 13),
                       ],
                     ],
                   ),
@@ -212,6 +218,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
     this.subtitle,
     this.isActive = false,
     this.isDownloaded = false,
+    this.isCached = false,
     this.onDoubleTap,
     this.trailing,
     super.key,
@@ -225,6 +232,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
   final String? subtitle;
   final bool isActive;
   final bool isDownloaded;
+  final bool isCached;
   final VoidCallback? onDoubleTap;
   final Widget? trailing;
 
@@ -278,6 +286,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
                       artists: artists,
                       active: isActive,
                       isDownloaded: isDownloaded,
+                      isCached: isCached,
                     ),
                   ),
                 ],
@@ -309,8 +318,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
                       ),
                 ),
               ),
-            if (trailing != null)
-              trailing!,
+            if (trailing != null) trailing!,
           ],
         ),
       ),
@@ -324,12 +332,14 @@ class _TrackTitleBlock extends StatelessWidget {
     required this.artists,
     required this.active,
     this.isDownloaded = false,
+    this.isCached = false,
   });
 
   final String title;
   final List<String> artists;
   final bool active;
   final bool isDownloaded;
+  final bool isCached;
 
   @override
   Widget build(BuildContext context) {
@@ -346,7 +356,9 @@ class _TrackTitleBlock extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: active ? MeloColors.primary700 : MeloColors.textPrimary,
+                      color: active
+                          ? MeloColors.primary700
+                          : MeloColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
               ),
@@ -358,6 +370,9 @@ class _TrackTitleBlock extends StatelessWidget {
                 color: MeloColors.success,
                 size: 14,
               ),
+            ] else if (isCached) ...[
+              const SizedBox(width: 6),
+              const _TrackCacheIndicator(size: 14),
             ],
           ],
         ),
@@ -372,6 +387,27 @@ class _TrackTitleBlock extends StatelessWidget {
               ),
         ),
       ],
+    );
+  }
+}
+
+class _TrackCacheIndicator extends StatelessWidget {
+  const _TrackCacheIndicator({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '已缓存，可离线播放；缓存可能被自动清理。',
+      child: Semantics(
+        label: '已缓存，可离线播放；缓存可能被自动清理',
+        child: Icon(
+          Icons.cached_rounded,
+          size: size,
+          color: MeloColors.textTertiary,
+        ),
+      ),
     );
   }
 }

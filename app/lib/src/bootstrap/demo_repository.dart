@@ -24,6 +24,7 @@ import 'netease_session_store.dart';
 import 'qq_music_session_store.dart';
 import 'kugou_session_store.dart';
 import 'audio_cache_manager.dart';
+import 'audio_cache_proxy_server.dart';
 
 class _CacheEntry<T> {
   _CacheEntry(this.data, {DateTime? fetchedAt})
@@ -194,8 +195,7 @@ class DemoRepository extends ChangeNotifier {
     _platformSubscriptions.add(_audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
         _playbackRequested = false;
-        unawaited(audioCacheManager?.releaseInUse(_activeAudioCachePath));
-        _activeAudioCachePath = null;
+        unawaited(_releaseActiveAudioCache());
         notifyListeners();
         unawaited(_handlePlaybackCompleted());
         return;
@@ -457,6 +457,7 @@ class DemoRepository extends ChangeNotifier {
   int _playbackLoadRevision = 0;
   Future<void> _playbackLoadChain = Future.value();
   String? _activeAudioCachePath;
+  AudioCacheProxyServer? _activeAudioCacheProxy;
   final Map<ProviderTrackRef, HttpClient> _activeDownloadClients = {};
   final Map<ProviderTrackRef, File> _activeDownloadParts = {};
   final List<Completer<void>> _downloadWaiters = [];
@@ -493,6 +494,17 @@ class DemoRepository extends ChangeNotifier {
   int get audioCacheBytes => audioCacheManager?.totalBytes ?? 0;
 
   int get audioCacheTrackCount => audioCacheManager?.entries.length ?? 0;
+
+  bool isTrackEffectivelyCached(
+    ProviderTrackRef ref, [
+    AudioQuality? requestedQuality,
+  ]) {
+    return audioCacheManager?.containsEligible(
+          ref,
+          requestedQuality ?? playbackQuality,
+        ) ??
+        false;
+  }
 
   Map<ProviderId, int> get audioCacheBytesByProvider {
     final result = <ProviderId, int>{};
@@ -2263,8 +2275,7 @@ class DemoRepository extends ChangeNotifier {
         }
         debugPrint('AUDIO: playing "${current.title}"');
         await _audioPlayer.stop();
-        await audioCacheManager?.releaseInUse(_activeAudioCachePath);
-        _activeAudioCachePath = null;
+        await _releaseActiveAudioCache();
         await _syncAudioLoopMode();
         final nativeWindow =
             await _buildNativePlaybackWindow(queue, current, currentTicket);
@@ -2398,8 +2409,7 @@ class DemoRepository extends ChangeNotifier {
     if (!_isSupportedPlaybackUri(ticket.mediaUri)) return false;
     try {
       await _audioPlayer.stop();
-      await audioCacheManager?.releaseInUse(_activeAudioCachePath);
-      _activeAudioCachePath = null;
+      await _releaseActiveAudioCache();
       final source = await _nativeSourceFor(track, ticket);
       if (revision != _playbackLoadRevision) return false;
       _nativeAudioSourceRefs = [track.ref];
@@ -2519,7 +2529,6 @@ class DemoRepository extends ChangeNotifier {
     );
     final cacheManager = audioCacheManager;
     if (cacheWhilePlaying &&
-        !Platform.isWindows &&
         cacheManager != null &&
         (ticket.mediaUri.isScheme('http') ||
             ticket.mediaUri.isScheme('https')) &&
@@ -2529,6 +2538,45 @@ class DemoRepository extends ChangeNotifier {
         ticket.quality,
         ticket.mediaUri,
       );
+      if (Platform.isWindows) {
+        try {
+          final proxy = await AudioCacheProxyServer.start(
+            remoteUri: ticket.mediaUri,
+            headers: ticket.headers,
+            cacheFile: file,
+            onComplete: (completedFile) async {
+              await cacheManager.complete(
+                ref: track.ref,
+                quality: ticket.quality,
+                file: completedFile,
+              );
+              if (!_closed) notifyListeners();
+            },
+          );
+          _activeAudioCacheProxy = proxy;
+          cacheManager.markInUse(file.path);
+          _activeAudioCachePath = file.path;
+          return _NativePlaybackSource(
+            entryId: entryId ?? _entryIdForTrack(track),
+            track: track,
+            ticket: ticket,
+            audioSource: AudioSource.uri(proxy.playbackUri, tag: tag),
+            usesAutoCache: true,
+          );
+        } catch (error) {
+          debugPrint('Windows audio cache proxy unavailable: $error');
+        }
+        return _NativePlaybackSource(
+          entryId: entryId ?? _entryIdForTrack(track),
+          track: track,
+          ticket: ticket,
+          audioSource: AudioSource.uri(
+            ticket.mediaUri,
+            headers: ticket.headers.isEmpty ? null : ticket.headers,
+            tag: tag,
+          ),
+        );
+      }
       // ignore: experimental_member_use
       final source = LockCachingAudioSource(
         ticket.mediaUri,
@@ -2542,11 +2590,15 @@ class DemoRepository extends ChangeNotifier {
           if (progress < 1.0) return;
           _cacheProgressSubscriptions.remove(subscription);
           unawaited(subscription.cancel());
-          unawaited(cacheManager.complete(
+          unawaited(cacheManager
+              .complete(
             ref: track.ref,
             quality: ticket.quality,
             file: file,
-          ));
+          )
+              .then((_) {
+            if (!_closed) notifyListeners();
+          }));
         },
         onError: (_, __) {
           _cacheProgressSubscriptions.remove(subscription);
@@ -2614,6 +2666,15 @@ class DemoRepository extends ChangeNotifier {
     } catch (_) {
       return false;
     }
+  }
+
+  Future<void> _releaseActiveAudioCache() async {
+    final proxy = _activeAudioCacheProxy;
+    final cachePath = _activeAudioCachePath;
+    _activeAudioCacheProxy = null;
+    _activeAudioCachePath = null;
+    if (proxy != null) await proxy.close();
+    await audioCacheManager?.releaseInUse(cachePath);
   }
 
   Future<PlaybackTicket?> _resolvePlaybackTicketForTrack(
@@ -3521,9 +3582,8 @@ class DemoRepository extends ChangeNotifier {
     await _persistenceChain.catchError((Object error) {
       debugPrint('Final persistence write failed: $error');
     });
-    await audioCacheManager?.releaseInUse(_activeAudioCachePath);
-    _activeAudioCachePath = null;
     await _audioPlayer.stop();
+    await _releaseActiveAudioCache();
     await _audioPlayer.dispose();
   }
 

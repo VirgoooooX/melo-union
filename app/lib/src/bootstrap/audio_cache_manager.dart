@@ -26,6 +26,11 @@ final class AudioCacheManager {
   int get totalBytes =>
       _entries.values.fold(0, (sum, entry) => sum + entry.fileSize);
 
+  bool containsEligible(ProviderTrackRef ref, AudioQuality requested) {
+    final entry = _entries[_identityKey(ref)];
+    return entry != null && entry.quality.meetsOrExceeds(requested);
+  }
+
   static Future<AudioCacheManager> open({
     required AudioCacheStore store,
     required Directory directory,
@@ -54,7 +59,11 @@ final class AudioCacheManager {
     final stale = <AudioCacheEntry>[];
     for (final entry in _entries.values) {
       final file = File(entry.filePath);
-      if (!await file.exists() || await file.length() <= 0) stale.add(entry);
+      if (!await file.exists() ||
+          await file.length() <= 0 ||
+          await file.length() != entry.fileSize) {
+        stale.add(entry);
+      }
     }
     await _removeEntries(stale, deleteFiles: false);
     final indexedPaths = <String>{
@@ -85,7 +94,7 @@ final class AudioCacheManager {
     final entry = _entries[_identityKey(ref)];
     if (entry == null || !entry.quality.meetsOrExceeds(requested)) return null;
     final file = File(entry.filePath);
-    if (!await file.exists() || await file.length() <= 0) {
+    if (!await file.exists() || await file.length() != entry.fileSize) {
       await _removeEntries([entry], deleteFiles: false);
       return null;
     }
@@ -97,7 +106,7 @@ final class AudioCacheManager {
     final entry = _entries[_identityKey(ref)];
     if (entry == null) return null;
     final file = File(entry.filePath);
-    if (!await file.exists() || await file.length() <= 0) {
+    if (!await file.exists() || await file.length() != entry.fileSize) {
       await _removeEntries([entry], deleteFiles: false);
       return null;
     }
@@ -168,6 +177,7 @@ final class AudioCacheManager {
       await _deleteFile(filePath);
       await _deleteFile('$filePath.mime');
     }
+    await prune();
   }
 
   Future<void> prune() async {

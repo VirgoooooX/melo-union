@@ -320,6 +320,11 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                       .any((localItem) => localItem.sourceRef == track.ref),
                 ),
               );
+              final isCached = ref.watch(
+                demoRepositoryProvider.select(
+                  (r) => r.isTrackEffectivelyCached(track.ref),
+                ),
+              );
               return MeloMobileTrackRow(
                 index: index + 1,
                 title: track.title,
@@ -328,6 +333,7 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                 duration: track.duration,
                 isActive: selected,
                 isDownloaded: isDownloaded,
+                isCached: isCached,
                 onTap: track.isPlayable
                     ? () => repository.playOrToggleTrack(track)
                     : null,
@@ -368,6 +374,11 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                       .any((localItem) => localItem.sourceRef == track.ref),
                 ),
               );
+              final isCached = ref.watch(
+                demoRepositoryProvider.select(
+                  (r) => r.isTrackEffectivelyCached(track.ref),
+                ),
+              );
               return MeloDesktopTrackRow(
                 index: index + 1,
                 title: track.title,
@@ -379,6 +390,7 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                     ).shortName,
                 isActive: selected,
                 isDownloaded: isDownloaded,
+                isCached: isCached,
                 onDoubleTap: track.isPlayable
                     ? () => repository.playOrToggleTrack(track)
                     : null,
@@ -517,8 +529,14 @@ class _LocalPlaylistTracks extends ConsumerWidget {
                         final selected = currentRef == item.trackRef;
                         final isDownloaded = ref.watch(
                           demoRepositoryProvider.select(
-                            (r) => r.downloadCoordinator.localItems
-                                .any((localItem) => localItem.sourceRef == item.trackRef),
+                            (r) => r.downloadCoordinator.localItems.any(
+                                (localItem) =>
+                                    localItem.sourceRef == item.trackRef),
+                          ),
+                        );
+                        final isCached = ref.watch(
+                          demoRepositoryProvider.select(
+                            (r) => r.isTrackEffectivelyCached(item.trackRef),
                           ),
                         );
                         final title = track?.title ?? item.cachedTitle;
@@ -533,6 +551,7 @@ class _LocalPlaylistTracks extends ConsumerWidget {
                           duration: track?.duration ?? Duration.zero,
                           isActive: selected,
                           isDownloaded: isDownloaded,
+                          isCached: isCached,
                           onTap: trackPlayable
                               ? () => repository.playOrToggleTrack(track!)
                               : null,
@@ -560,7 +579,8 @@ class _LocalPlaylistTracks extends ConsumerWidget {
                                 )
                               else
                                 IconButton(
-                                  icon: const Icon(Icons.close_rounded, size: 20),
+                                  icon:
+                                      const Icon(Icons.close_rounded, size: 20),
                                   color: MeloColors.textTertiary,
                                   visualDensity: VisualDensity.compact,
                                   onPressed: () =>
@@ -591,8 +611,14 @@ class _LocalPlaylistTracks extends ConsumerWidget {
                         final selected = currentRef == item.trackRef;
                         final isDownloaded = ref.watch(
                           demoRepositoryProvider.select(
-                            (r) => r.downloadCoordinator.localItems
-                                .any((localItem) => localItem.sourceRef == item.trackRef),
+                            (r) => r.downloadCoordinator.localItems.any(
+                                (localItem) =>
+                                    localItem.sourceRef == item.trackRef),
+                          ),
+                        );
+                        final isCached = ref.watch(
+                          demoRepositoryProvider.select(
+                            (r) => r.isTrackEffectivelyCached(item.trackRef),
                           ),
                         );
                         final title = track?.title ?? item.cachedTitle;
@@ -609,6 +635,7 @@ class _LocalPlaylistTracks extends ConsumerWidget {
                           subtitle: providerName,
                           isActive: selected,
                           isDownloaded: isDownloaded,
+                          isCached: isCached,
                           onDoubleTap: track?.isPlayable == true
                               ? () => repository.playOrToggleTrack(track!)
                               : null,
