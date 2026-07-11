@@ -189,13 +189,7 @@ class _RecommendationsTracksGrid extends ConsumerWidget {
                         .read(demoRepositoryProvider)
                         .playOrToggleTrack(track)
                     : null,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    MeloTrackDownloadButton(track: track),
-                    MeloFavoriteButton(track: track),
-                  ],
-                ),
+                trailing: MeloTrackMoreMenu(track: track),
               );
             },
           ),
@@ -647,8 +641,7 @@ class _MobileRecommendationsTracksGrid extends ConsumerWidget {
                 trailing: MeloMobileTrackTrailing(
                   durationLabel: _formatRecommendationDuration(track.duration),
                   actions: [
-                    MeloTrackDownloadButton(track: track, lightweight: true),
-                    MeloFavoriteButton(track: track, lightweight: true),
+                    MeloTrackMoreMenu(track: track),
                   ],
                 ),
               );
@@ -691,11 +684,7 @@ class _ShelfTabSelector extends ConsumerWidget {
       foreground,
       0.10,
     )!;
-    final selectedFill = Color.lerp(
-      meloShellTint(accentProviderId, 0.40),
-      foreground,
-      0.34,
-    )!;
+    final selectedFill = Colors.white.withValues(alpha: 0.65);
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.hasBoundedWidth && constraints.maxWidth < 960
@@ -935,15 +924,7 @@ void _showPlaylistSheet(
                                   track.duration,
                                 ),
                                 actions: [
-                                  _RecommendationPlayNextButton(track: track),
-                                  MeloTrackDownloadButton(
-                                    track: track,
-                                    lightweight: true,
-                                  ),
-                                  MeloFavoriteButton(
-                                    track: track,
-                                    lightweight: true,
-                                  ),
+                                  MeloTrackMoreMenu(track: track),
                                 ],
                               ),
                             );
@@ -960,36 +941,6 @@ void _showPlaylistSheet(
       );
     },
   );
-}
-
-class _RecommendationPlayNextButton extends ConsumerWidget {
-  const _RecommendationPlayNextButton({required this.track});
-
-  final SourceTrack track;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.read(demoRepositoryProvider);
-    final status = ref.watch(demoRepositoryProvider.select(
-      (repository) => repository.playNextStatusForTrack(
-        track,
-        queueSurface: false,
-      ),
-    ));
-    return MeloPlayNextButton(
-      status: status,
-      onPressed: () async {
-        await repository.playTrackNext(track);
-        if (context.mounted) {
-          MeloSnackbar.show(
-            context: context,
-            message: '已设为下一首：${track.title}',
-          );
-        }
-      },
-      size: 19,
-    );
-  }
 }
 
 String _playlistMeta(ProviderPlaylist playlist) {

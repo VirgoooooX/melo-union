@@ -335,8 +335,7 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                     return '$m:$s';
                   }(),
                   actions: [
-                    MeloTrackDownloadButton(track: track),
-                    MeloFavoriteButton(track: track),
+                    MeloTrackMoreMenu(track: track),
                   ],
                 ),
               );
@@ -369,22 +368,11 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                 onDoubleTap: track.isPlayable
                     ? () => repository.playOrToggleTrack(track)
                     : null,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    MeloTrackDownloadButton(track: track),
-                    SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: Center(
-                        child: MeloFavoriteButton(
-                          track: track,
-                          showSnackbar: false,
-                        ),
-                      ),
-                    ),
-                    MeloTrackMoreMenu(track: track),
-                  ],
+                trailing: SizedBox(
+                  width: 128,
+                  child: Center(
+                    child: MeloTrackMoreMenu(track: track),
+                  ),
                 ),
               );
             },
@@ -545,19 +533,21 @@ class _LocalPlaylistTracks extends StatelessWidget {
                                 : '--:--',
                             actions: [
                               if (track != null)
-                                MeloTrackDownloadButton(track: track)
-                              else
-                                const SizedBox.shrink(),
-                              IconButton(
-                                icon: const Icon(Icons.close_rounded, size: 20),
-                                color: MeloColors.textTertiary,
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () =>
-                                    repository.removeTrackFromPlaylist(
+                                MeloTrackMoreMenu(
+                                  track: track,
                                   playlistId: playlist.id,
-                                  trackRef: item.trackRef,
+                                )
+                              else
+                                IconButton(
+                                  icon: const Icon(Icons.close_rounded, size: 20),
+                                  color: MeloColors.textTertiary,
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () =>
+                                      repository.removeTrackFromPlaylist(
+                                    playlistId: playlist.id,
+                                    trackRef: item.trackRef,
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         );
@@ -594,43 +584,25 @@ class _LocalPlaylistTracks extends StatelessWidget {
                           onDoubleTap: track?.isPlayable == true
                               ? () => repository.playOrToggleTrack(track!)
                               : null,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (track != null) ...[
-                                MeloTrackDownloadButton(track: track),
-                                SizedBox(
-                                  width: 40,
-                                  height: 40,
-                                  child: Center(
-                                    child: MeloFavoriteButton(
+                          trailing: SizedBox(
+                            width: 128,
+                            child: Center(
+                              child: track != null
+                                  ? MeloTrackMoreMenu(
                                       track: track,
-                                      showSnackbar: false,
+                                      playlistId: playlist.id,
+                                    )
+                                  : IconButton(
+                                      tooltip: '从歌单移除',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: () =>
+                                          repository.removeTrackFromPlaylist(
+                                        playlistId: playlist.id,
+                                        trackRef: item.trackRef,
+                                      ),
+                                      icon: const Icon(Icons.close_rounded),
                                     ),
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip:
-                                      track.isPlayable ? '播放' : '当前会话缺少播放信息',
-                                  visualDensity: VisualDensity.compact,
-                                  onPressed: track.isPlayable
-                                      ? () =>
-                                          repository.playOrToggleTrack(track)
-                                      : null,
-                                  icon: const Icon(Icons.play_arrow_rounded),
-                                ),
-                              ],
-                              IconButton(
-                                tooltip: '从歌单移除',
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () =>
-                                    repository.removeTrackFromPlaylist(
-                                  playlistId: playlist.id,
-                                  trackRef: item.trackRef,
-                                ),
-                                icon: const Icon(Icons.close_rounded),
-                              ),
-                            ],
+                            ),
                           ),
                         );
                       },

@@ -975,19 +975,60 @@ class _MeloToastWidgetState extends State<_MeloToastWidget>
 /// When omitted, the shared local-playlist picker is used.
 class MeloTrackMoreMenu extends ConsumerWidget {
   const MeloTrackMoreMenu({
-    required this.track,
+    this.track,
+    this.unifiedTrack,
+    this.providerId,
+    this.playlistId,
+    this.onDelete,
     this.addToPlaylistDialog,
     super.key,
-  });
+  }) : assert(track != null || unifiedTrack != null);
 
-  final SourceTrack track;
+  final SourceTrack? track;
+  final UnifiedFavoriteTrack? unifiedTrack;
+  final String? providerId;
+  final String? playlistId;
+  final VoidCallback? onDelete;
   final Widget? addToPlaylistDialog;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repository = ref.read(demoRepositoryProvider);
+    final isMobile = MediaQuery.sizeOf(context).width < 960;
+
+    final variants = unifiedTrack != null
+        ? (providerId == null
+            ? unifiedTrack!.variants
+            : unifiedTrack!.variants
+                .where((item) => item.ref.providerId.value == providerId)
+                .toList(growable: false))
+        : (track != null ? [track!] : <SourceTrack>[]);
+
+    if (variants.isEmpty) return const SizedBox.shrink();
+    final primaryTrack = variants.first;
+    final repository = ref.watch(demoRepositoryProvider);
+
+    final hasFavorite = variants.any((v) => v.isFavorited);
+    final isFavorited = variants.length > 1 ? hasFavorite : primaryTrack.isFavorited;
+    final showPlayNext = repository.queue.entries.length >= 2;
+
+    if (isMobile) {
+      return IconButton(
+        tooltip: '操作',
+        icon: const Icon(Icons.more_horiz_rounded, size: 22),
+        onPressed: () => _showMobileBottomSheet(
+          context: context,
+          ref: ref,
+          repository: repository,
+          variants: variants,
+          primaryTrack: primaryTrack,
+          isFavorited: isFavorited,
+          showPlayNext: showPlayNext,
+        ),
+      );
+    }
+
     return PopupMenuButton<_TrackMenuAction>(
-      tooltip: '更多操作',
+      tooltip: '操作',
       icon: const Icon(Icons.more_horiz_rounded, size: 20),
       offset: const Offset(0, 42),
       shape: const RoundedRectangleBorder(borderRadius: MeloRadii.md),
@@ -998,30 +1039,36 @@ class MeloTrackMoreMenu extends ConsumerWidget {
         reverseCurve: Curves.linear,
       ),
       onSelected: (action) async {
-        if (action == _TrackMenuAction.appendToQueue) {
-          if (!track.isPlayable) return;
-          repository.enqueueTrack(track);
-          MeloSnackbar.show(
-            context: context,
-            message: '已添加到播放队列末尾。',
-          );
-          return;
-        }
-        if (action == _TrackMenuAction.download) {
-          await _downloadTrackFromMenu(context, repository, track);
-          return;
-        }
-        if (action == _TrackMenuAction.addToPlaylist) {
-          await showDialog<void>(
-            context: context,
-            builder: (_) =>
-                addToPlaylistDialog ?? MeloAddToPlaylistDialog(track: track),
-          );
-          return;
-        }
+        await _handleMenuAction(
+          context: context,
+          ref: ref,
+          repository: repository,
+          action: action,
+          variants: variants,
+          primaryTrack: primaryTrack,
+          isFavorited: isFavorited,
+        );
       },
       itemBuilder: (context) => [
-        if (track.isPlayable)
+        if (variants.length > 1)
+          PopupMenuItem(
+            value: _TrackMenuAction.manageFavorites,
+            child: const _MeloTrackMenuItem(
+              icon: Icons.favorite_rounded,
+              iconColor: MeloColors.favorite,
+              label: '管理收藏来源',
+            ),
+          )
+        else
+          PopupMenuItem(
+            value: _TrackMenuAction.favoriteToggle,
+            child: _MeloTrackMenuItem(
+              icon: isFavorited ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              iconColor: isFavorited ? MeloColors.favorite : null,
+              label: isFavorited ? '取消收藏' : '收藏',
+            ),
+          ),
+        if (primaryTrack.isPlayable)
           const PopupMenuItem(
             value: _TrackMenuAction.appendToQueue,
             child: _MeloTrackMenuItem(
@@ -1029,7 +1076,15 @@ class MeloTrackMoreMenu extends ConsumerWidget {
               label: '添加到队列末尾',
             ),
           ),
-        if (repository.canDownloadTrack(track))
+        if (showPlayNext)
+          const PopupMenuItem(
+            value: _TrackMenuAction.playNext,
+            child: _MeloTrackMenuItem(
+              icon: Icons.playlist_play_rounded,
+              label: '添加到下一首播放',
+            ),
+          ),
+        if (repository.canDownloadTrack(primaryTrack))
           const PopupMenuItem(
             value: _TrackMenuAction.download,
             child: _MeloTrackMenuItem(
@@ -1044,12 +1099,475 @@ class MeloTrackMoreMenu extends ConsumerWidget {
             label: '加入本地歌单',
           ),
         ),
+        if (playlistId != null || onDelete != null)
+          PopupMenuItem(
+            value: _TrackMenuAction.delete,
+            child: const _MeloTrackMenuItem(
+              icon: Icons.delete_outline_rounded,
+              iconColor: MeloColors.warning,
+              label: '从歌单中删除',
+            ),
+          ),
       ],
+    );
+  }
+
+  void _showMobileBottomSheet({
+    required BuildContext context,
+    required WidgetRef ref,
+    required DemoRepository repository,
+    required List<SourceTrack> variants,
+    required SourceTrack primaryTrack,
+    required bool isFavorited,
+    required bool showPlayNext,
+  }) {
+    final title = unifiedTrack?.title ?? primaryTrack.title;
+    final artists = unifiedTrack?.artists.join(' / ') ?? primaryTrack.artists.join(' / ');
+    final artwork = unifiedTrack?.variants
+            .firstWhere((v) => v.artwork != null, orElse: () => primaryTrack)
+            .artwork ??
+        primaryTrack.artwork;
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: MeloColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Row(
+                  children: [
+                    MeloTrackCover(
+                      seed: title,
+                      artwork: artwork,
+                      size: 48,
+                      borderRadius: MeloRadii.sm,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: MeloColors.textPrimary,
+                                ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            artists,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: MeloColors.textSecondary,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: MeloColors.border),
+              if (variants.length > 1)
+                _MeloBottomSheetItem(
+                  icon: Icons.favorite_rounded,
+                  color: MeloColors.favorite,
+                  label: '管理收藏来源',
+                  onTap: () {
+                    Navigator.pop(context);
+                    unawaited(_handleMenuAction(
+                      context: context,
+                      ref: ref,
+                      repository: repository,
+                      action: _TrackMenuAction.manageFavorites,
+                      variants: variants,
+                      primaryTrack: primaryTrack,
+                      isFavorited: isFavorited,
+                    ));
+                  },
+                )
+              else
+                _MeloBottomSheetItem(
+                  icon: isFavorited ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  color: isFavorited ? MeloColors.favorite : null,
+                  label: isFavorited ? '取消收藏' : '收藏',
+                  onTap: () {
+                    Navigator.pop(context);
+                    unawaited(_handleMenuAction(
+                      context: context,
+                      ref: ref,
+                      repository: repository,
+                      action: _TrackMenuAction.favoriteToggle,
+                      variants: variants,
+                      primaryTrack: primaryTrack,
+                      isFavorited: isFavorited,
+                    ));
+                  },
+                ),
+              if (primaryTrack.isPlayable)
+                _MeloBottomSheetItem(
+                  icon: Icons.queue_music_rounded,
+                  label: '添加到队列末尾',
+                  onTap: () {
+                    Navigator.pop(context);
+                    unawaited(_handleMenuAction(
+                      context: context,
+                      ref: ref,
+                      repository: repository,
+                      action: _TrackMenuAction.appendToQueue,
+                      variants: variants,
+                      primaryTrack: primaryTrack,
+                      isFavorited: isFavorited,
+                    ));
+                  },
+                ),
+              if (showPlayNext)
+                _MeloBottomSheetItem(
+                  icon: Icons.playlist_play_rounded,
+                  label: '添加到下一首播放',
+                  onTap: () {
+                    Navigator.pop(context);
+                    unawaited(_handleMenuAction(
+                      context: context,
+                      ref: ref,
+                      repository: repository,
+                      action: _TrackMenuAction.playNext,
+                      variants: variants,
+                      primaryTrack: primaryTrack,
+                      isFavorited: isFavorited,
+                    ));
+                  },
+                ),
+              if (repository.canDownloadTrack(primaryTrack))
+                _MeloBottomSheetItem(
+                  icon: Icons.download_rounded,
+                  label: '下载',
+                  onTap: () {
+                    Navigator.pop(context);
+                    unawaited(_handleMenuAction(
+                      context: context,
+                      ref: ref,
+                      repository: repository,
+                      action: _TrackMenuAction.download,
+                      variants: variants,
+                      primaryTrack: primaryTrack,
+                      isFavorited: isFavorited,
+                    ));
+                  },
+                ),
+              _MeloBottomSheetItem(
+                icon: Icons.playlist_add_rounded,
+                label: '加入本地歌单',
+                onTap: () {
+                  Navigator.pop(context);
+                  unawaited(_handleMenuAction(
+                    context: context,
+                    ref: ref,
+                    repository: repository,
+                    action: _TrackMenuAction.addToPlaylist,
+                    variants: variants,
+                    primaryTrack: primaryTrack,
+                    isFavorited: isFavorited,
+                  ));
+                },
+              ),
+              if (playlistId != null || onDelete != null)
+                _MeloBottomSheetItem(
+                  icon: Icons.delete_outline_rounded,
+                  color: MeloColors.warning,
+                  label: '从歌单中删除',
+                  onTap: () {
+                    Navigator.pop(context);
+                    unawaited(_handleMenuAction(
+                      context: context,
+                      ref: ref,
+                      repository: repository,
+                      action: _TrackMenuAction.delete,
+                      variants: variants,
+                      primaryTrack: primaryTrack,
+                      isFavorited: isFavorited,
+                    ));
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleMenuAction({
+    required BuildContext context,
+    required WidgetRef ref,
+    required DemoRepository repository,
+    required _TrackMenuAction action,
+    required List<SourceTrack> variants,
+    required SourceTrack primaryTrack,
+    required bool isFavorited,
+  }) async {
+    switch (action) {
+      case _TrackMenuAction.favoriteToggle:
+        final newLiked = !isFavorited;
+        try {
+          await repository.toggleFavorite(
+            track: primaryTrack,
+            liked: newLiked,
+          );
+          if (context.mounted) {
+            MeloSnackbar.show(
+              context: context,
+              message: newLiked ? '已收藏' : '已取消收藏',
+              duration: const Duration(seconds: 1),
+            );
+          }
+        } catch (error) {
+          if (context.mounted) {
+            final message = error is ProviderException ? error.message : '操作失败，请重试。';
+            MeloSnackbar.show(context: context, message: message);
+          }
+        }
+        break;
+      case _TrackMenuAction.manageFavorites:
+        if (unifiedTrack != null && context.mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (context) => _FavoriteSourceDialog(
+              track: unifiedTrack!,
+              variants: variants,
+            ),
+          );
+        }
+        break;
+      case _TrackMenuAction.appendToQueue:
+        if (!primaryTrack.isPlayable) return;
+        repository.enqueueTrack(primaryTrack);
+        if (context.mounted) {
+          MeloSnackbar.show(
+            context: context,
+            message: '已添加到播放队列末尾。',
+          );
+        }
+        break;
+      case _TrackMenuAction.playNext:
+        if (unifiedTrack != null) {
+          await repository.playUnifiedTrackNext(unifiedTrack!);
+        } else {
+          await repository.playTrackNext(primaryTrack);
+        }
+        if (context.mounted) {
+          MeloSnackbar.show(
+            context: context,
+            message: '已设为下一首：${unifiedTrack?.title ?? primaryTrack.title}',
+          );
+        }
+        break;
+      case _TrackMenuAction.download:
+        if (context.mounted) {
+          await _downloadTrackFromMenu(context, repository, primaryTrack);
+        }
+        break;
+      case _TrackMenuAction.addToPlaylist:
+        if (context.mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (_) =>
+                addToPlaylistDialog ?? MeloAddToPlaylistDialog(track: primaryTrack),
+          );
+        }
+        break;
+      case _TrackMenuAction.delete:
+        if (onDelete != null) {
+          onDelete!();
+        } else if (playlistId != null) {
+          repository.removeTrackFromPlaylist(
+            playlistId: playlistId!,
+            trackRef: primaryTrack.ref,
+          );
+          if (context.mounted) {
+            MeloSnackbar.show(
+              context: context,
+              message: '已从歌单中删除：${unifiedTrack?.title ?? primaryTrack.title}',
+            );
+          }
+        }
+        break;
+    }
+  }
+}
+
+class _MeloBottomSheetItem extends StatelessWidget {
+  const _MeloBottomSheetItem({
+    required this.icon,
+    required this.label,
+    this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color? color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: color),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: color ?? MeloColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-enum _TrackMenuAction { appendToQueue, download, addToPlaylist }
+class _FavoriteSourceDialog extends ConsumerWidget {
+  const _FavoriteSourceDialog({
+    required this.track,
+    required this.variants,
+  });
+
+  final UnifiedFavoriteTrack track;
+  final List<SourceTrack> variants;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Dialog(
+      shape: const RoundedRectangleBorder(borderRadius: MeloRadii.xl),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 470),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '管理收藏来源',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: MeloColors.textSecondary,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '同一首歌在多个来源中存在。每个来源的喜欢状态独立维护。',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: MeloColors.textSecondary,
+                      height: 1.5,
+                    ),
+              ),
+              const SizedBox(height: 14),
+              for (final variant in variants) ...[
+                _FavoriteSourceItem(variant: variant),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FavoriteSourceItem extends ConsumerWidget {
+  const _FavoriteSourceItem({required this.variant});
+
+  final SourceTrack variant;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.watch(demoRepositoryProvider);
+    final liveVariant = repository.sourceTrackByRef(variant.ref) ?? variant;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: MeloColors.surfaceMuted,
+        borderRadius: MeloRadii.md,
+        border: Border.all(color: MeloColors.border),
+      ),
+      child: Row(
+        children: [
+          MeloSourceBadge(providerId: liveVariant.ref.providerId),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              liveVariant.isFavorited ? '已收藏到这个来源' : '尚未收藏到这个来源',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: MeloColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+          MeloFavoriteButton(
+            track: liveVariant,
+            showSnackbar: false,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _TrackMenuAction {
+  favoriteToggle,
+  manageFavorites,
+  appendToQueue,
+  playNext,
+  download,
+  addToPlaylist,
+  delete,
+}
 
 class MeloPlayNextButton extends StatelessWidget {
   const MeloPlayNextButton({
@@ -1412,27 +1930,26 @@ class _MeloPlaylistChoice extends StatelessWidget {
 }
 
 class _MeloTrackMenuItem extends StatelessWidget {
-  const _MeloTrackMenuItem({required this.icon, required this.label});
+  const _MeloTrackMenuItem({required this.icon, required this.label, this.iconColor});
 
   final IconData icon;
   final String label;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18),
+          Icon(icon, size: 18, color: iconColor),
           const SizedBox(width: 10),
-          SizedBox(
-            width: 96,
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+          Text(
+            label,
+            style: const TextStyle(overflow: TextOverflow.visible),
           ),
         ],
       );
 }
+
 
 /// Standardized favorite/unfavorite heart button.
 ///

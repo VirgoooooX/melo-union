@@ -13,6 +13,7 @@ class _DesktopSidebar extends StatelessWidget {
     AppDestination.favorites,
     AppDestination.playlists,
     AppDestination.recommendations,
+    AppDestination.search,
   ];
   static const _utility = [
     AppDestination.downloads,

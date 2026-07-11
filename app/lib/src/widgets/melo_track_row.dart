@@ -290,14 +290,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
                 ),
               ),
             if (trailing != null)
-              AnimatedOpacity(
-                duration: Duration.zero,
-                opacity: hovered || isActive ? 1 : 0,
-                child: IgnorePointer(
-                  ignoring: !hovered && !isActive,
-                  child: trailing!,
-                ),
-              ),
+              trailing!,
           ],
         ),
       ),

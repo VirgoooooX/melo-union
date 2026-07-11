@@ -2315,7 +2315,7 @@ class _QueueRowFavoriteButtonState extends ConsumerState<_QueueRowFavoriteButton
             liked: newLiked,
           );
         } catch (error) {
-          if (!mounted) return;
+          if (!context.mounted) return;
           setState(() => _liked = !newLiked);
           MeloSnackbar.show(
             context: context,

@@ -407,13 +407,7 @@ class _SearchTrackActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        MeloFavoriteButton(track: track),
-        MeloTrackMoreMenu(track: track),
-      ],
-    );
+    return MeloTrackMoreMenu(track: track);
   }
 }
 

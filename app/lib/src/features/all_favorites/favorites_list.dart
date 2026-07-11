@@ -431,14 +431,6 @@ class _FavoritesTableHeader extends StatelessWidget {
             ),
           ),
           SizedBox(
-            width: 64,
-            child: Text(
-              '收藏',
-              style: labelStyle,
-              textAlign: TextAlign.center,
-            ),
-          ),
-          SizedBox(
             width: 56,
             child: Text(
               '操作',
