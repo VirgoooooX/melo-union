@@ -179,7 +179,7 @@ class DemoRepository extends ChangeNotifier {
     unawaited(_audioPlayer.setVolume(_volume));
     unawaited(_syncAudioLoopMode());
     unawaited(_configureAudioSession());
-    _audioPlayer.positionStream.listen((position) {
+    _platformSubscriptions.add(_audioPlayer.positionStream.listen((position) {
       _lastKnownPlaybackPosition = position;
       if (!_rememberQueue || !_restorePlaybackState) return;
       final now = DateTime.now();
@@ -189,9 +189,9 @@ class DemoRepository extends ChangeNotifier {
       }
       _lastPlaybackPositionPersistAt = now;
       _persistSoon();
-    });
+    }));
     // Notify UI when audio player state changes (play/pause/complete)
-    _audioPlayer.playerStateStream.listen((state) {
+    _platformSubscriptions.add(_audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
         _playbackRequested = false;
         unawaited(audioCacheManager?.releaseInUse(_activeAudioCachePath));
@@ -210,8 +210,8 @@ class DemoRepository extends ChangeNotifier {
       }
       _persistPlaybackStateSoon();
       notifyListeners();
-    });
-    _audioPlayer.currentIndexStream.listen((index) {
+    }));
+    _platformSubscriptions.add(_audioPlayer.currentIndexStream.listen((index) {
       if (_updatingNativeAudioSource || _handlingNativeAudioIndexChange) {
         return;
       }
@@ -225,7 +225,7 @@ class DemoRepository extends ChangeNotifier {
         return;
       }
       unawaited(_handleNativeAudioIndexChange(ref));
-    });
+    }));
   }
 
   factory DemoRepository.seeded({
@@ -453,6 +453,7 @@ class DemoRepository extends ChangeNotifier {
   PlaybackRepeatMode _repeatMode = PlaybackRepeatMode.off;
   final Set<StreamSubscription<double>> _cacheProgressSubscriptions = {};
   final List<StreamSubscription<dynamic>> _platformSubscriptions = [];
+  bool _closed = false;
   String? _activeAudioCachePath;
   final Map<ProviderTrackRef, HttpClient> _activeDownloadClients = {};
   final Map<ProviderTrackRef, File> _activeDownloadParts = {};
@@ -3386,8 +3387,32 @@ class DemoRepository extends ChangeNotifier {
 
   @override
   void dispose() {
-    _audioPlayer.dispose();
+    unawaited(close());
     super.dispose();
+  }
+
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    for (final client in _activeDownloadClients.values) {
+      client.close(force: true);
+    }
+    _activeDownloadClients.clear();
+    for (final subscription in [..._platformSubscriptions]) {
+      await subscription.cancel();
+    }
+    _platformSubscriptions.clear();
+    for (final subscription in [..._cacheProgressSubscriptions]) {
+      await subscription.cancel();
+    }
+    _cacheProgressSubscriptions.clear();
+    await _persistenceChain.catchError((Object error) {
+      debugPrint('Final persistence write failed: $error');
+    });
+    await audioCacheManager?.releaseInUse(_activeAudioCachePath);
+    _activeAudioCachePath = null;
+    await _audioPlayer.stop();
+    await _audioPlayer.dispose();
   }
 
   void _persistSoon() {
