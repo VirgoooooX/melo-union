@@ -48,6 +48,14 @@ const _dataDirOverrideEnv = 'MELO_UNION_DATA_DIR';
 
 enum PlaybackRepeatMode { off, all, one }
 
+enum PlayNextButtonStatus {
+  hidden,
+  disabledCurrent,
+  disabledAlreadyNext,
+  disabledUnplayable,
+  enabled,
+}
+
 enum ProviderSessionActionKind { cookieImport, qrLogin }
 
 final class PlaybackIssue {
@@ -66,12 +74,14 @@ final class PlaybackIssue {
 
 final class _NativePlaybackSource {
   const _NativePlaybackSource({
+    required this.entryId,
     required this.track,
     required this.ticket,
     required this.audioSource,
     this.usesAutoCache = false,
   });
 
+  final String entryId;
   final SourceTrack track;
   final PlaybackTicket ticket;
   final AudioSource audioSource;
@@ -428,6 +438,10 @@ class DemoRepository extends ChangeNotifier {
   String? _downloadDirectory;
   AudioQuality _downloadQuality;
   List<ProviderTrackRef> _nativeAudioSourceRefs = const [];
+  List<String> _nativeEntryIds = const [];
+  ConcatenatingAudioSource? _nativePlaylist;
+  int _queueRevision = 0;
+  Future<void> _queueMutationChain = Future.value();
   bool _updatingNativeAudioSource = false;
   bool _handlingNativeAudioIndexChange = false;
   bool _playbackRequested = false;
@@ -442,6 +456,8 @@ class DemoRepository extends ChangeNotifier {
   int _favoritesVersion = 0;
 
   int get favoritesVersion => _favoritesVersion;
+
+  int get queueRevision => _queueRevision;
 
   PlaybackQueueState get queue => playbackCoordinator.queueState;
 
@@ -1493,9 +1509,165 @@ class DemoRepository extends ChangeNotifier {
 
   void enqueueTrack(SourceTrack track) {
     _rememberTrack(track);
-    playbackCoordinator.enqueue(track);
+    playbackCoordinator.append(track);
+    _queueRevision++;
     _persistPlaybackStateSoon();
     notifyListeners();
+  }
+
+  PlayNextButtonStatus playNextStatusForTrack(
+    SourceTrack track, {
+    required bool queueSurface,
+  }) {
+    if (!queueSurface && (queue.entries.length < 2 || queue.current == null)) {
+      return PlayNextButtonStatus.hidden;
+    }
+    if (!track.isPlayable) return PlayNextButtonStatus.disabledUnplayable;
+    if (queue.current?.track.ref == track.ref) {
+      return PlayNextButtonStatus.disabledCurrent;
+    }
+    if (queue.next?.track.ref == track.ref) {
+      return PlayNextButtonStatus.disabledAlreadyNext;
+    }
+    return PlayNextButtonStatus.enabled;
+  }
+
+  PlayNextButtonStatus playNextStatusForVariants(
+    Iterable<SourceTrack> variants, {
+    required bool queueSurface,
+  }) {
+    final items = variants.toList(growable: false);
+    if (!queueSurface && (queue.entries.length < 2 || queue.current == null)) {
+      return PlayNextButtonStatus.hidden;
+    }
+    if (items.any((item) => item.ref == queue.current?.track.ref)) {
+      return PlayNextButtonStatus.disabledCurrent;
+    }
+    if (items.any((item) => item.ref == queue.next?.track.ref)) {
+      return PlayNextButtonStatus.disabledAlreadyNext;
+    }
+    if (!items.any((item) => item.isPlayable)) {
+      return PlayNextButtonStatus.disabledUnplayable;
+    }
+    return PlayNextButtonStatus.enabled;
+  }
+
+  PlayNextButtonStatus playNextStatusForEntry(String entryId) {
+    final entry =
+        queue.entries.where((item) => item.entryId == entryId).firstOrNull;
+    if (entry == null || !entry.track.isPlayable) {
+      return PlayNextButtonStatus.disabledUnplayable;
+    }
+    if (queue.isCurrentEntry(entryId)) {
+      return PlayNextButtonStatus.disabledCurrent;
+    }
+    if (queue.isNextEntry(entryId)) {
+      return PlayNextButtonStatus.disabledAlreadyNext;
+    }
+    return PlayNextButtonStatus.enabled;
+  }
+
+  Future<void> playTrackNext(SourceTrack track) =>
+      _serializePlayNext(track: track);
+
+  Future<void> playUnifiedTrackNext(UnifiedFavoriteTrack track) async {
+    final currentProvider = queue.current?.track.ref.providerId;
+    SourceTrack? selected;
+    for (final variant in track.variants) {
+      if (variant.isPlayable && variant.ref.providerId == currentProvider) {
+        selected = variant;
+        break;
+      }
+    }
+    selected ??= track.variants.where((variant) {
+      final entry = registry.entryOf(variant.ref.providerId);
+      return variant.isPlayable &&
+          entry != null &&
+          entry.isEnabled &&
+          entry.provider.isAuthenticated;
+    }).firstOrNull;
+    selected ??=
+        track.variants.where((variant) => variant.isPlayable).firstOrNull;
+    if (selected != null) await _serializePlayNext(track: selected);
+  }
+
+  Future<void> moveQueueEntryNext(String entryId) =>
+      _serializePlayNext(entryId: entryId);
+
+  Future<void> _serializePlayNext({SourceTrack? track, String? entryId}) {
+    final completer = Completer<void>();
+    _queueMutationChain = _queueMutationChain.catchError((Object error) {
+      debugPrint('Queue mutation failed: $error');
+    }).then((_) async {
+      try {
+        final before = queue;
+        final existingId = entryId ??
+            before.entries
+                .where((entry) => entry.track.ref == track?.ref)
+                .map((entry) => entry.entryId)
+                .firstOrNull;
+        if (existingId != null) {
+          if (playNextStatusForEntry(existingId) !=
+              PlayNextButtonStatus.enabled) {
+            return;
+          }
+          playbackCoordinator.moveEntryNext(existingId);
+          await _moveNativeEntryNext(existingId);
+        } else if (track != null &&
+            playNextStatusForTrack(track, queueSurface: true) ==
+                PlayNextButtonStatus.enabled) {
+          _rememberTrack(track);
+          playbackCoordinator.insertNext(track);
+          final inserted = queue.next!;
+          await _insertNativeNext(inserted);
+        }
+        _queueRevision++;
+        unawaited(playbackCoordinator.preResolveNext());
+        _persistPlaybackStateSoon();
+        notifyListeners();
+      } finally {
+        if (!completer.isCompleted) completer.complete();
+      }
+    });
+    return completer.future;
+  }
+
+  Future<void> _moveNativeEntryNext(String entryId) async {
+    final playlist = _nativePlaylist;
+    final sourceIndex = _nativeEntryIds.indexOf(entryId);
+    final currentNativeIndex = _audioPlayer.currentIndex;
+    if (playlist == null || sourceIndex == -1 || currentNativeIndex == null) {
+      return;
+    }
+    var target = currentNativeIndex + 1;
+    if (sourceIndex < target) target--;
+    if (sourceIndex == target) return;
+    await playlist.move(sourceIndex, target);
+    final ids = [..._nativeEntryIds];
+    final refs = [..._nativeAudioSourceRefs];
+    ids.insert(target, ids.removeAt(sourceIndex));
+    refs.insert(target, refs.removeAt(sourceIndex));
+    _nativeEntryIds = List.unmodifiable(ids);
+    _nativeAudioSourceRefs = List.unmodifiable(refs);
+  }
+
+  Future<void> _insertNativeNext(PlaybackQueueEntry entry) async {
+    final playlist = _nativePlaylist;
+    final currentNativeIndex = _audioPlayer.currentIndex;
+    if (playlist == null || currentNativeIndex == null) return;
+    final ticket = await _resolvePlaybackTicketForTrack(entry.track);
+    if (ticket == null) return;
+    final source = await _nativeSourceFor(
+      entry.track,
+      ticket,
+      entryId: entry.entryId,
+    );
+    final target = currentNativeIndex + 1;
+    await playlist.insert(target, source.toAudioSource());
+    final ids = [..._nativeEntryIds]..insert(target, entry.entryId);
+    final refs = [..._nativeAudioSourceRefs]..insert(target, entry.track.ref);
+    _nativeEntryIds = List.unmodifiable(ids);
+    _nativeAudioSourceRefs = List.unmodifiable(refs);
   }
 
   Future<void> removeQueueEntry(int index) async {
@@ -1504,9 +1676,12 @@ class DemoRepository extends ChangeNotifier {
 
     final wasCurrent = index == queueState.currentIndex;
     final wasPlaying = _audioPlayer.playing || _playbackRequested;
+    final removedEntryId = queueState.entries[index].entryId;
     playbackCoordinator.removeAt(index);
+    _queueRevision++;
 
     if (!wasCurrent) {
+      await _removeNativeEntry(removedEntryId);
       _persistPlaybackStateSoon();
       notifyListeners();
       return;
@@ -1931,15 +2106,16 @@ class DemoRepository extends ChangeNotifier {
         _nativeAudioSourceRefs = [
           for (final source in nativeWindow.sources) source.ref,
         ];
-        final audioSource = nativeWindow.sources.length == 1
-            ? nativeWindow.sources.single.toAudioSource()
-            : ConcatenatingAudioSource(
-                useLazyPreparation: true,
-                children: [
-                  for (final source in nativeWindow.sources)
-                    source.toAudioSource(),
-                ],
-              );
+        _nativeEntryIds = [
+          for (final source in nativeWindow.sources) source.entryId,
+        ];
+        final audioSource = ConcatenatingAudioSource(
+          useLazyPreparation: true,
+          children: [
+            for (final source in nativeWindow.sources) source.toAudioSource(),
+          ],
+        );
+        _nativePlaylist = audioSource;
         _updatingNativeAudioSource = true;
         final startPosition = initialPosition ?? _pendingRestorePosition;
         await _audioPlayer.setAudioSource(
@@ -2023,6 +2199,8 @@ class DemoRepository extends ChangeNotifier {
       _activeAudioCachePath = null;
       final source = await _nativeSourceFor(track, ticket);
       _nativeAudioSourceRefs = [track.ref];
+      _nativeEntryIds = [source.entryId];
+      _nativePlaylist = null;
       _updatingNativeAudioSource = true;
       final startPosition = initialPosition ?? _pendingRestorePosition;
       await _audioPlayer.setAudioSource(
@@ -2124,6 +2302,7 @@ class DemoRepository extends ChangeNotifier {
   Future<_NativePlaybackSource> _nativeSourceFor(
     SourceTrack track,
     PlaybackTicket ticket, {
+    String? entryId,
     bool cacheWhilePlaying = false,
   }) async {
     final tag = MediaItem(
@@ -2173,6 +2352,7 @@ class DemoRepository extends ChangeNotifier {
       cacheManager.markInUse(file.path);
       _activeAudioCachePath = file.path;
       return _NativePlaybackSource(
+        entryId: entryId ?? _entryIdForTrack(track),
         track: track,
         ticket: ticket,
         audioSource: source,
@@ -2190,6 +2370,7 @@ class DemoRepository extends ChangeNotifier {
       }
     }
     return _NativePlaybackSource(
+      entryId: entryId ?? _entryIdForTrack(track),
       track: track,
       ticket: ticket,
       audioSource: AudioSource.uri(
@@ -2199,6 +2380,24 @@ class DemoRepository extends ChangeNotifier {
       ),
     );
   }
+
+  Future<void> _removeNativeEntry(String entryId) async {
+    final playlist = _nativePlaylist;
+    final nativeIndex = _nativeEntryIds.indexOf(entryId);
+    if (playlist == null || nativeIndex == -1) return;
+    await playlist.removeAt(nativeIndex);
+    final ids = [..._nativeEntryIds]..removeAt(nativeIndex);
+    final refs = [..._nativeAudioSourceRefs]..removeAt(nativeIndex);
+    _nativeEntryIds = List.unmodifiable(ids);
+    _nativeAudioSourceRefs = List.unmodifiable(refs);
+  }
+
+  String _entryIdForTrack(SourceTrack track) =>
+      queue.entries
+          .where((entry) => entry.track.ref == track.ref)
+          .map((entry) => entry.entryId)
+          .firstOrNull ??
+      'native:${_refKey(track.ref)}';
 
   Future<bool> _shouldAutoCache() async {
     final policy = audioCacheManager?.policy;
