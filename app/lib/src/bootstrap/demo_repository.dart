@@ -2293,10 +2293,9 @@ class DemoRepository extends ChangeNotifier {
   Future<void> _handleNativeAudioIndexChange(ProviderTrackRef ref) async {
     _handlingNativeAudioIndexChange = true;
     try {
-      await playbackCoordinator.selectTrack(ref);
+      playbackCoordinator.selectNativeTrack(ref);
       _clearPendingRestorePosition();
-      _playingTrackId = null;
-      await _syncNativePlayback(playWhenReady: true);
+      _playingTrackId = ref.trackId;
       _persistPlaybackStateSoon();
       notifyListeners();
     } finally {

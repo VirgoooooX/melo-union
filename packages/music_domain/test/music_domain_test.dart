@@ -333,6 +333,7 @@ void main() {
 
       coordinator.setQueue([track, nextTrack]);
       await coordinator.selectTrack(track.ref);
+      await Future<void>.delayed(Duration.zero);
 
       expect(coordinator.currentTicket, isNotNull);
       expect(coordinator.currentTicket!.trackRef, track.ref);

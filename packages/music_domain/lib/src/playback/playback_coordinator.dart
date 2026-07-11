@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:provider_contract/provider_contract.dart';
 
 import 'playback_queue.dart';
@@ -136,6 +138,25 @@ class PlaybackCoordinator {
     await _resolveCurrentAndPreResolveNext();
   }
 
+  void selectNativeTrack(ProviderTrackRef trackRef) {
+    final index =
+        _queueState.entries.indexWhere((entry) => entry.track.ref == trackRef);
+    if (index == -1) return;
+    _queueState = PlaybackQueueState(
+      entries: _queueState.entries,
+      currentIndex: index,
+    );
+    final prefetched = _nextTicket;
+    _currentTicket = prefetched != null &&
+            prefetched.trackRef == trackRef &&
+            !prefetched.isExpired
+        ? prefetched
+        : null;
+    _nextTicket = null;
+    _currentError = null;
+    unawaited(preResolveNext());
+  }
+
   Future<void> refreshCurrentTicketIfNeeded({bool force = false}) async {
     final currentEntry = _queueState.current;
     if (currentEntry == null) return;
@@ -206,7 +227,7 @@ class PlaybackCoordinator {
     }
 
     // Pre-resolve next track if available
-    await preResolveNext();
+    unawaited(preResolveNext());
   }
 
   Future<void> preResolveNext() async {
