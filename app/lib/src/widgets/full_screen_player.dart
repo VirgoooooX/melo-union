@@ -1069,8 +1069,8 @@ Widget _fullscreenArtwork(
         url,
         targetPixels: decodedPixels,
         highResolution: true,
-        cacheWidth: decodedPixels,
-        cacheHeight: decodedPixels,
+        cacheWidth: null,
+        cacheHeight: null,
       ),
       fit: BoxFit.cover,
       filterQuality: FilterQuality.high,
@@ -1104,8 +1104,8 @@ Widget _fullscreenArtworkFallback(
       url,
       targetPixels: decodedPixels,
       highResolution: false,
-      cacheWidth: decodedPixels,
-      cacheHeight: decodedPixels,
+      cacheWidth: null,
+      cacheHeight: null,
     ),
     fit: BoxFit.cover,
     filterQuality: FilterQuality.high,
@@ -2263,6 +2263,133 @@ class _MobileQueueSheet extends ConsumerWidget {
   }
 }
 
+class _QueueRowFavoriteButton extends ConsumerStatefulWidget {
+  const _QueueRowFavoriteButton({
+    required this.track,
+  });
+
+  final SourceTrack track;
+
+  @override
+  ConsumerState<_QueueRowFavoriteButton> createState() =>
+      _QueueRowFavoriteButtonState();
+}
+
+class _QueueRowFavoriteButtonState extends ConsumerState<_QueueRowFavoriteButton> {
+  late bool _liked = widget.track.isFavorited;
+  late ProviderTrackRef _lastRef = widget.track.ref;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_lastRef != widget.track.ref) {
+      _liked = widget.track.isFavorited;
+      _lastRef = widget.track.ref;
+    }
+
+    final repository = ref.read(demoRepositoryProvider);
+
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      iconSize: 20,
+      icon: Icon(
+        _liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+        color: _liked ? MeloColors.favorite : null,
+      ),
+      onPressed: () async {
+        final availability = repository.favoriteWriteAvailability(
+          widget.track.ref.providerId,
+        );
+        if (!availability.isEnabled) {
+          MeloSnackbar.show(
+            context: context,
+            message: availability.reason ?? '此来源无法写回收藏。',
+          );
+          return;
+        }
+
+        final newLiked = !_liked;
+        setState(() => _liked = newLiked);
+        try {
+          await repository.toggleFavorite(
+            track: widget.track,
+            liked: newLiked,
+          );
+        } catch (error) {
+          if (!mounted) return;
+          setState(() => _liked = !newLiked);
+          MeloSnackbar.show(
+            context: context,
+            message: error is ProviderException ? error.message : error.toString(),
+          );
+        }
+      },
+    );
+  }
+}
+
+class _QueueRowActionButtons extends StatelessWidget {
+  const _QueueRowActionButtons({
+    required this.track,
+    required this.selected,
+    required this.playNextStatus,
+    required this.onPlayNext,
+    required this.alwaysShowActions,
+    required this.onPlay,
+    required this.onRemove,
+    required this.hovered,
+  });
+
+  final SourceTrack track;
+  final bool selected;
+  final PlayNextButtonStatus playNextStatus;
+  final VoidCallback onPlayNext;
+  final bool alwaysShowActions;
+  final VoidCallback onPlay;
+  final VoidCallback onRemove;
+  final bool hovered;
+
+  @override
+  Widget build(BuildContext context) {
+    final showHoverActions = alwaysShowActions || hovered || selected;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _QueueRowFavoriteButton(track: track),
+        MeloPlayNextButton(
+          status: playNextStatus,
+          onPressed: onPlayNext,
+          showTooltip: false,
+        ),
+        Visibility(
+          visible: showHoverActions,
+          maintainSize: true,
+          maintainAnimation: true,
+          maintainState: true,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                onPressed: onPlay,
+                icon: Icon(
+                  selected ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                onPressed: onRemove,
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _QueueDrawerRow extends StatefulWidget {
   const _QueueDrawerRow({
     required this.track,
@@ -2290,6 +2417,14 @@ class _QueueDrawerRowState extends State<_QueueDrawerRow> {
   bool _hovered = false;
 
   @override
+  void didUpdateWidget(covariant _QueueDrawerRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.track.ref != oldWidget.track.ref) {
+      _hovered = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final activeColor = MeloColors.primary600;
     return MouseRegion(
@@ -2300,8 +2435,7 @@ class _QueueDrawerRowState extends State<_QueueDrawerRow> {
         behavior: HitTestBehavior.opaque,
         onDoubleTap: widget.onPlay,
         onSecondaryTap: widget.onRemove,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
+        child: Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
@@ -2325,32 +2459,20 @@ class _QueueDrawerRowState extends State<_QueueDrawerRow> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.track.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: widget.selected
-                                      ? activeColor
-                                      : MeloColors.textPrimary,
-                                  fontSize: 15.5,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                    Text(
+                      widget.track.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(
+                            color: widget.selected
+                                ? activeColor
+                                : MeloColors.textPrimary,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w800,
                           ),
-                        ),
-                        if (widget.track.isFavorited)
-                          const Icon(
-                            Icons.favorite_rounded,
-                            color: MeloColors.favorite,
-                            size: 18,
-                          ),
-                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -2368,39 +2490,15 @@ class _QueueDrawerRowState extends State<_QueueDrawerRow> {
                 ),
               ),
               const SizedBox(width: 8),
-              MeloPlayNextButton(
-                status: widget.playNextStatus,
-                onPressed: widget.onPlayNext,
-              ),
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 120),
-                opacity: widget.alwaysShowActions || _hovered || widget.selected
-                    ? 1
-                    : 0,
-                child: IgnorePointer(
-                  ignoring: !(widget.alwaysShowActions ||
-                      _hovered ||
-                      widget.selected),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: widget.selected ? '暂停/播放' : '播放这首',
-                        onPressed: widget.onPlay,
-                        icon: Icon(
-                          widget.selected
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: '移出队列',
-                        onPressed: widget.onRemove,
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                ),
+              _QueueRowActionButtons(
+                track: widget.track,
+                selected: widget.selected,
+                playNextStatus: widget.playNextStatus,
+                onPlayNext: widget.onPlayNext,
+                alwaysShowActions: widget.alwaysShowActions,
+                onPlay: widget.onPlay,
+                onRemove: widget.onRemove,
+                hovered: _hovered,
               ),
             ],
           ),
@@ -2610,6 +2708,93 @@ class _FullscreenTransport extends StatelessWidget {
   }
 }
 
+class _FullscreenActionButtons extends ConsumerWidget {
+  const _FullscreenActionButtons({
+    required this.track,
+    required this.repository,
+    this.compact = false,
+    this.showLyrics = false,
+    this.onLyricsToggle,
+    this.onQueuePressed,
+  });
+
+  final SourceTrack track;
+  final DemoRepository repository;
+  final bool compact;
+  final bool showLyrics;
+  final VoidCallback? onLyricsToggle;
+  final VoidCallback? onQueuePressed;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(rightSidebarModeProvider);
+    final buttonSize = compact ? 44.0 : null;
+    final iconSize = compact ? 24.0 : null;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _FullscreenFavoriteButton(
+          track: track,
+          repository: repository,
+          buttonSize: buttonSize,
+          iconSize: iconSize,
+        ),
+        const SizedBox(width: MeloSpacing.sm),
+        _GlassIconButton(
+          tooltip: '加入本地歌单',
+          icon: Icons.playlist_add_rounded,
+          buttonSize: buttonSize,
+          iconSize: iconSize,
+          onPressed: () {
+            showDialog<void>(
+              context: context,
+              builder: (context) => MeloAddToPlaylistDialog(track: track),
+            );
+          },
+        ),
+        if (onLyricsToggle != null) ...[
+          const SizedBox(width: MeloSpacing.sm),
+          _GlassIconButton(
+            tooltip: showLyrics ? '返回唱片' : '显示歌词',
+            icon: showLyrics ? Icons.album_rounded : Icons.subtitles_rounded,
+            buttonSize: buttonSize,
+            iconSize: iconSize,
+            active: showLyrics,
+            onPressed: onLyricsToggle,
+          ),
+        ],
+        if (onQueuePressed != null) ...[
+          const SizedBox(width: MeloSpacing.sm),
+          _GlassIconButton(
+            tooltip: '当前播放列表',
+            icon: Icons.queue_music_rounded,
+            buttonSize: buttonSize,
+            iconSize: iconSize,
+            onPressed: onQueuePressed,
+          ),
+        ] else if (onLyricsToggle == null) ...[
+          const SizedBox(width: MeloSpacing.sm),
+          _GlassIconButton(
+            tooltip: mode == RightSidebarMode.queue ? '关闭播放队列' : '播放队列',
+            icon: Icons.queue_music_rounded,
+            active: mode == RightSidebarMode.queue,
+            buttonSize: buttonSize,
+            iconSize: iconSize,
+            onPressed: () {
+              ref.read(rightSidebarModeProvider.notifier).state =
+                  mode == RightSidebarMode.queue
+                      ? RightSidebarMode.lyrics
+                      : RightSidebarMode.queue;
+            },
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _SecondaryControls extends ConsumerWidget {
   const _SecondaryControls({
     required this.repository,
@@ -2629,77 +2814,49 @@ class _SecondaryControls extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(rightSidebarModeProvider);
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: MeloSpacing.sm,
-      runSpacing: MeloSpacing.xs,
+    final actionButtons = _FullscreenActionButtons(
+      track: track,
+      repository: repository,
+      compact: compact,
+      showLyrics: showLyrics,
+      onLyricsToggle: onLyricsToggle,
+      onQueuePressed: onQueuePressed,
+    );
+
+    if (compact) {
+      return actionButtons;
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _FullscreenFavoriteButton(track: track, repository: repository),
-        _GlassIconButton(
-          tooltip: '加入本地歌单',
-          icon: Icons.playlist_add_rounded,
-          buttonSize: compact ? 44 : null,
-          iconSize: compact ? 24 : null,
-          onPressed: () {
-            showDialog<void>(
-              context: context,
-              builder: (context) => MeloAddToPlaylistDialog(track: track),
-            );
-          },
-        ),
-        if (onLyricsToggle != null)
-          _GlassIconButton(
-            tooltip: showLyrics ? '返回唱片' : '显示歌词',
-            icon: showLyrics ? Icons.album_rounded : Icons.subtitles_rounded,
-            buttonSize: compact ? 44 : null,
-            iconSize: compact ? 24 : null,
-            active: showLyrics,
-            onPressed: onLyricsToggle,
-          ),
-        if (onQueuePressed != null)
-          _GlassIconButton(
-            tooltip: '当前播放列表',
-            icon: Icons.queue_music_rounded,
-            buttonSize: compact ? 44 : null,
-            iconSize: compact ? 24 : null,
-            onPressed: onQueuePressed,
-          )
-        else if (onLyricsToggle == null)
-          _GlassIconButton(
-            tooltip: mode == RightSidebarMode.queue ? '关闭播放队列' : '播放队列',
-            icon: Icons.queue_music_rounded,
-            active: mode == RightSidebarMode.queue,
-            onPressed: () {
-              ref.read(rightSidebarModeProvider.notifier).state =
-                  mode == RightSidebarMode.queue
-                      ? RightSidebarMode.lyrics
-                      : RightSidebarMode.queue;
-            },
-          ),
-        if (!compact)
-          SizedBox(
-            width: 178,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.volume_up_rounded,
-                  color: Colors.white.withValues(alpha: .62),
-                  size: 20,
-                ),
-                Expanded(
-                  child: SliderTheme(
-                    data: _darkSliderTheme(context),
-                    child: Slider(
-                      value: repository.volume,
-                      onChanged: repository.setVolume,
-                    ),
+        actionButtons,
+        const SizedBox(width: MeloSpacing.lg),
+        SizedBox(
+          width: 178,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.volume_up_rounded,
+                color: Colors.white.withValues(alpha: .62),
+                size: 20,
+              ),
+              Expanded(
+                child: SliderTheme(
+                  data: _darkSliderTheme(context),
+                  child: Slider(
+                    value: repository.volume,
+                    onChanged: repository.setVolume,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
       ],
     );
   }
@@ -2709,10 +2866,14 @@ class _FullscreenFavoriteButton extends ConsumerStatefulWidget {
   const _FullscreenFavoriteButton({
     required this.track,
     required this.repository,
+    this.buttonSize,
+    this.iconSize,
   });
 
   final SourceTrack track;
   final DemoRepository repository;
+  final double? buttonSize;
+  final double? iconSize;
 
   @override
   ConsumerState<_FullscreenFavoriteButton> createState() =>
@@ -2736,6 +2897,8 @@ class _FullscreenFavoriteButtonState
       icon: _liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
       active: _liked,
       activeColor: MeloColors.favorite,
+      buttonSize: widget.buttonSize,
+      iconSize: widget.iconSize,
       onPressed: () async {
         final availability = widget.repository.favoriteWriteAvailability(
           widget.track.ref.providerId,
@@ -2874,7 +3037,7 @@ class _GlassIconButton extends StatelessWidget {
           padding: EdgeInsets.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           backgroundColor: active
-              ? (activeColor ?? Colors.white).withValues(alpha: .18)
+              ? (activeColor ?? Colors.white).withValues(alpha: .32)
               : Colors.white.withValues(alpha: .09),
           foregroundColor: color,
           disabledForegroundColor: Colors.white.withValues(alpha: .24),

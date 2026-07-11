@@ -1056,12 +1056,14 @@ class MeloPlayNextButton extends StatelessWidget {
     required this.status,
     required this.onPressed,
     this.size = 20,
+    this.showTooltip = true,
     super.key,
   });
 
   final PlayNextButtonStatus status;
   final VoidCallback? onPressed;
   final double size;
+  final bool showTooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -1069,12 +1071,14 @@ class MeloPlayNextButton extends StatelessWidget {
       return const SizedBox.shrink();
     }
     return IconButton(
-      tooltip: switch (status) {
-        PlayNextButtonStatus.disabledCurrent => '当前正在播放',
-        PlayNextButtonStatus.disabledAlreadyNext => '已经是下一首',
-        PlayNextButtonStatus.disabledUnplayable => '当前歌曲不可播放',
-        _ => '下一首播放',
-      },
+      tooltip: showTooltip
+          ? switch (status) {
+              PlayNextButtonStatus.disabledCurrent => '当前正在播放',
+              PlayNextButtonStatus.disabledAlreadyNext => '已经是下一首',
+              PlayNextButtonStatus.disabledUnplayable => '当前歌曲不可播放',
+              _ => '下一首播放',
+            }
+          : null,
       visualDensity: VisualDensity.compact,
       onPressed: status == PlayNextButtonStatus.enabled ? onPressed : null,
       icon: Icon(Icons.playlist_play_rounded, size: size),

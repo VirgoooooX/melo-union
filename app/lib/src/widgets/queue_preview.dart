@@ -116,6 +116,7 @@ class _QueuePreviewRowState extends State<_QueuePreviewRow> {
                     status: widget.playNextStatus,
                     onPressed: widget.onPlayNext,
                     size: 18,
+                    showTooltip: false,
                   ),
                   AnimatedOpacity(
                     duration: const Duration(milliseconds: 120),
@@ -123,7 +124,6 @@ class _QueuePreviewRowState extends State<_QueuePreviewRow> {
                     child: IgnorePointer(
                       ignoring: !showRemove,
                       child: IconButton(
-                        tooltip: '移出队列',
                         visualDensity: VisualDensity.compact,
                         onPressed: widget.onRemove,
                         icon: const Icon(Icons.close_rounded, size: 18),
