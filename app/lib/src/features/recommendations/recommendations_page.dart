@@ -935,6 +935,7 @@ void _showPlaylistSheet(
                                   track.duration,
                                 ),
                                 actions: [
+                                  _RecommendationPlayNextButton(track: track),
                                   MeloTrackDownloadButton(
                                     track: track,
                                     lightweight: true,
@@ -959,6 +960,36 @@ void _showPlaylistSheet(
       );
     },
   );
+}
+
+class _RecommendationPlayNextButton extends ConsumerWidget {
+  const _RecommendationPlayNextButton({required this.track});
+
+  final SourceTrack track;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.read(demoRepositoryProvider);
+    final status = ref.watch(demoRepositoryProvider.select(
+      (repository) => repository.playNextStatusForTrack(
+        track,
+        queueSurface: false,
+      ),
+    ));
+    return MeloPlayNextButton(
+      status: status,
+      onPressed: () async {
+        await repository.playTrackNext(track);
+        if (context.mounted) {
+          MeloSnackbar.show(
+            context: context,
+            message: '已设为下一首：${track.title}',
+          );
+        }
+      },
+      size: 19,
+    );
+  }
 }
 
 String _playlistMeta(ProviderPlaylist playlist) {

@@ -31,6 +31,12 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
     if (variants.isEmpty) return const SizedBox.shrink();
 
     final primary = variants.first;
+    final playNextStatus = ref.watch(demoRepositoryProvider.select(
+      (repository) => repository.playNextStatusForVariants(
+        variants,
+        queueSurface: false,
+      ),
+    ));
     final isPlaying = currentRef != null &&
         variants.any((variant) => variant.ref == currentRef);
     final hasFavorite = variants.any((variant) => variant.isFavorited);
@@ -133,6 +139,21 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
               ),
             ),
             SizedBox(
+              width: 40,
+              child: MeloPlayNextButton(
+                status: playNextStatus,
+                onPressed: () async {
+                  await repository.playUnifiedTrackNext(widget.track);
+                  if (context.mounted) {
+                    MeloSnackbar.show(
+                      context: context,
+                      message: '已设为下一首：${widget.track.title}',
+                    );
+                  }
+                },
+              ),
+            ),
+            SizedBox(
               width: 56,
               child: Center(
                 child: MeloTrackMoreMenu(
@@ -189,6 +210,12 @@ class _MobileFavoriteRow extends ConsumerWidget {
     if (variants.isEmpty) return const SizedBox.shrink();
 
     final primary = variants.first;
+    final playNextStatus = ref.watch(demoRepositoryProvider.select(
+      (repository) => repository.playNextStatusForVariants(
+        variants,
+        queueSurface: false,
+      ),
+    ));
     final selected = ref.watch(
       demoRepositoryProvider.select((repository) {
         final currentRef = repository.queue.current?.track.ref;
@@ -221,6 +248,19 @@ class _MobileFavoriteRow extends ConsumerWidget {
             : null,
         durationLabel: _formatMobileDuration(track.duration),
         actions: [
+          MeloPlayNextButton(
+            status: playNextStatus,
+            onPressed: () async {
+              await repository.playUnifiedTrackNext(track);
+              if (context.mounted) {
+                MeloSnackbar.show(
+                  context: context,
+                  message: '已设为下一首：${track.title}',
+                );
+              }
+            },
+            size: 19,
+          ),
           _MobileFavoriteActionsButton(
             track: track,
             primary: primary,
@@ -239,7 +279,7 @@ String _formatMobileDuration(Duration duration) {
   return '$minutes:$seconds';
 }
 
-enum _MobileFavoriteAction { favorite, queue, download, playlist }
+enum _MobileFavoriteAction { favorite, appendToQueue, download, playlist }
 
 class _MobileFavoriteActionsButton extends ConsumerWidget {
   const _MobileFavoriteActionsButton({
@@ -286,7 +326,7 @@ class _MobileFavoriteActionsButton extends ConsumerWidget {
               liked: !primary.isFavorited,
             );
             break;
-          case _MobileFavoriteAction.queue:
+          case _MobileFavoriteAction.appendToQueue:
             repository.enqueueTrack(primary);
             MeloSnackbar.show(
               context: context,
@@ -342,10 +382,10 @@ class _MobileFavoriteActionsButton extends ConsumerWidget {
           ),
         ),
         const PopupMenuItem(
-          value: _MobileFavoriteAction.queue,
+          value: _MobileFavoriteAction.appendToQueue,
           child: _MobileActionItem(
             icon: Icons.queue_music_rounded,
-            label: '加入播放队列',
+            label: '添加到队列末尾',
           ),
         ),
         if (repository.canDownloadTrack(primary))
