@@ -66,10 +66,12 @@ final class PlaybackQueueSnapshot {
 
 final class PlaybackQueueEntrySnapshot {
   const PlaybackQueueEntrySnapshot({
+    required this.entryId,
     required this.track,
     required this.queuedAt,
   });
 
+  final String entryId;
   final SourceTrack track;
   final DateTime queuedAt;
 }

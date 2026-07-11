@@ -167,10 +167,12 @@ void main() {
         playbackQueue: PlaybackQueueSnapshot(
           entries: [
             PlaybackQueueEntrySnapshot(
+              entryId: 'queue-entry-1',
               track: first,
               queuedAt: DateTime.utc(2026, 7, 7, 12),
             ),
             PlaybackQueueEntrySnapshot(
+              entryId: 'queue-entry-2',
               track: second,
               queuedAt: DateTime.utc(2026, 7, 7, 12, 1),
             ),

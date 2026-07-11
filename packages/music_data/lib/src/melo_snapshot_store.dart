@@ -7,3 +7,10 @@ abstract interface class MeloSnapshotStore {
 
   Future<void> clear();
 }
+
+abstract interface class MeloPlaybackStateStore {
+  Future<void> writePlaybackState({
+    required PlaybackPreferencesSnapshot preferences,
+    required PlaybackQueueSnapshot? queue,
+  });
+}

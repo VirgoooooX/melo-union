@@ -6,7 +6,7 @@ import 'melo_data_snapshot.dart';
 final class MeloJsonCodec {
   const MeloJsonCodec();
 
-  static const int schemaVersion = 2;
+  static const int schemaVersion = 3;
 
   Map<String, Object?> encodeSnapshot(MeloDataSnapshot snapshot) {
     return {
@@ -369,6 +369,7 @@ final class MeloJsonCodec {
     PlaybackQueueEntrySnapshot entry,
   ) {
     return {
+      'entryId': entry.entryId,
       'track': _encodeSourceTrack(entry.track),
       'queuedAt': entry.queuedAt.toUtc().toIso8601String(),
     };
@@ -378,6 +379,7 @@ final class MeloJsonCodec {
     Map<String, Object?> json,
   ) {
     return PlaybackQueueEntrySnapshot(
+      entryId: json['entryId'] as String? ?? createPlaybackQueueEntryId(),
       track: _decodeSourceTrack(_requiredMap(json, 'track')),
       queuedAt: DateTime.parse(_requiredString(json, 'queuedAt')).toUtc(),
     );

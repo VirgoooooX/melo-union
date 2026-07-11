@@ -436,6 +436,7 @@ class DemoRepository extends ChangeNotifier {
   PlaybackRepeatMode _repeatMode = PlaybackRepeatMode.off;
   final Set<StreamSubscription<double>> _cacheProgressSubscriptions = {};
   String? _activeAudioCachePath;
+  Future<void> _persistenceChain = Future.value();
 
   /// Incremented on login/logout/toggle to trigger [allFavoritesProvider] refresh.
   int _favoritesVersion = 0;
@@ -853,7 +854,13 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<void> persistNow() async {
-    await snapshotStore?.write(toSnapshot());
+    final store = snapshotStore;
+    if (store == null) return;
+    final snapshot = toSnapshot();
+    _persistenceChain = _persistenceChain.catchError((Object error) {
+      debugPrint('Persistence write failed: $error');
+    }).then((_) => store.write(snapshot));
+    await _persistenceChain;
   }
 
   Future<void> setRememberQueue(bool value) async {
@@ -879,6 +886,7 @@ class DemoRepository extends ChangeNotifier {
       entries: [
         for (final entry in queueState.entries)
           PlaybackQueueEntrySnapshot(
+            entryId: entry.entryId,
             track: entry.track,
             queuedAt: entry.queuedAt,
           ),
@@ -912,7 +920,11 @@ class DemoRepository extends ChangeNotifier {
 
     final entries = [
       for (final entry in snapshot.entries)
-        PlaybackQueueEntry(track: entry.track, queuedAt: entry.queuedAt),
+        PlaybackQueueEntry(
+          entryId: entry.entryId,
+          track: entry.track,
+          queuedAt: entry.queuedAt,
+        ),
     ];
     final currentIndex =
         snapshot.currentIndex >= 0 && snapshot.currentIndex < entries.length
@@ -946,9 +958,25 @@ class DemoRepository extends ChangeNotifier {
   }
 
   void _persistPlaybackStateSoon() {
-    if (_rememberQueue) {
-      _persistSoon();
-    }
+    if (!_rememberQueue) return;
+    final store = snapshotStore;
+    if (store == null) return;
+    final preferences = PlaybackPreferencesSnapshot(
+      rememberQueue: _rememberQueue,
+      restorePlaybackState: _restorePlaybackState,
+    );
+    final queue = _currentPlaybackQueueSnapshot();
+    _persistenceChain = _persistenceChain.catchError((Object error) {
+      debugPrint('Persistence write failed: $error');
+    }).then((_) {
+      if (store case final MeloPlaybackStateStore playbackStore) {
+        return playbackStore.writePlaybackState(
+          preferences: preferences,
+          queue: queue,
+        );
+      }
+      return store.write(toSnapshot());
+    });
   }
 
   Future<List<ProviderSearchResults>> search(String query) {
@@ -2999,7 +3027,10 @@ class DemoRepository extends ChangeNotifier {
     if (store == null) {
       return;
     }
-    Future<void>(() => store.write(toSnapshot()));
+    final snapshot = toSnapshot();
+    _persistenceChain = _persistenceChain.catchError((Object error) {
+      debugPrint('Persistence write failed: $error');
+    }).then((_) => store.write(snapshot));
   }
 
   void _replaceNeteaseProvider(NeteaseCredentials? credentials) {

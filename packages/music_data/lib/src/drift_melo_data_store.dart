@@ -9,7 +9,8 @@ import 'melo_data_snapshot.dart';
 import 'melo_json_codec.dart';
 import 'melo_snapshot_store.dart';
 
-final class DriftMeloDataStore implements MeloSnapshotStore {
+final class DriftMeloDataStore
+    implements MeloSnapshotStore, MeloPlaybackStateStore {
   DriftMeloDataStore({
     required this.database,
     MeloJsonCodec codec = const MeloJsonCodec(),
@@ -72,6 +73,8 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
           .where((row) => row.key == 'downloadDirectory')
           .firstOrNull
           ?.value,
+      'playbackPreferences': _jsonMeta(metaRows, 'playbackPreferences'),
+      'playbackQueue': _jsonMeta(metaRows, 'playbackQueue'),
       'playlists': [
         for (final row in playlistRows) _jsonMap(row.payloadJson),
       ],
@@ -174,6 +177,13 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
               ),
             );
       }
+      await _insertJsonMeta(
+        'playbackPreferences',
+        encoded['playbackPreferences'],
+      );
+      if (encoded['playbackQueue'] != null) {
+        await _insertJsonMeta('playbackQueue', encoded['playbackQueue']);
+      }
 
       for (var i = 0; i < playlists.length; i++) {
         final playlist = playlists[i];
@@ -216,6 +226,42 @@ final class DriftMeloDataStore implements MeloSnapshotStore {
       await _writeUnifiedFavoriteCacheRows(unifiedFavoritesCache);
       await _writeFavoriteProviderStateRows(favoriteProviderStates);
     });
+  }
+
+  @override
+  Future<void> writePlaybackState({
+    required PlaybackPreferencesSnapshot preferences,
+    required PlaybackQueueSnapshot? queue,
+  }) async {
+    final encoded = _codec.encodeSnapshot(MeloDataSnapshot(
+      playbackPreferences: preferences,
+      playbackQueue: queue,
+    ));
+    await database.transaction(() async {
+      await (database.delete(database.meloMetaRows)
+            ..where((row) => row.key.isIn(
+                  const ['playbackPreferences', 'playbackQueue'],
+                )))
+          .go();
+      await _insertJsonMeta(
+        'playbackPreferences',
+        encoded['playbackPreferences'],
+      );
+      if (encoded['playbackQueue'] != null) {
+        await _insertJsonMeta('playbackQueue', encoded['playbackQueue']);
+      }
+    });
+  }
+
+  Future<void> _insertJsonMeta(String key, Object? value) {
+    return database.into(database.meloMetaRows).insert(
+          MeloMetaRowsCompanion.insert(key: key, value: jsonEncode(value)),
+        );
+  }
+
+  Object? _jsonMeta(List<MeloMetaRow> rows, String key) {
+    final value = rows.where((row) => row.key == key).firstOrNull?.value;
+    return value == null ? null : jsonDecode(value);
   }
 
   @override

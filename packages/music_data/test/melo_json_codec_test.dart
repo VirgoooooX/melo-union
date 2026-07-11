@@ -215,7 +215,11 @@ void main() {
       ),
       playbackQueue: PlaybackQueueSnapshot(
         entries: [
-          PlaybackQueueEntrySnapshot(track: track, queuedAt: queuedAt),
+          PlaybackQueueEntrySnapshot(
+            entryId: 'queue-entry-1',
+            track: track,
+            queuedAt: queuedAt,
+          ),
         ],
         currentIndex: 0,
         position: const Duration(minutes: 1, seconds: 23),
@@ -231,6 +235,7 @@ void main() {
     expect(decoded.playbackPreferences.restorePlaybackState, isTrue);
     expect(decoded.playbackQueue?.entries.single.track.ref, sourceRef);
     expect(decoded.playbackQueue?.entries.single.queuedAt, queuedAt);
+    expect(decoded.playbackQueue?.entries.single.entryId, 'queue-entry-1');
     expect(decoded.playbackQueue?.currentIndex, 0);
     expect(decoded.playbackQueue?.position,
         const Duration(minutes: 1, seconds: 23));
