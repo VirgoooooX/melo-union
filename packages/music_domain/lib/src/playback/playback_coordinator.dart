@@ -51,9 +51,30 @@ class PlaybackCoordinator {
   }
 
   void enqueue(SourceTrack track) {
-    _queueState = _queueState.enqueue(track);
+    append(track);
+  }
+
+  void append(SourceTrack track) {
+    _queueState = _queueState.append(track);
     _nextTicket = null;
   }
+
+  void insertNext(SourceTrack track) {
+    _queueState = _queueState.insertNext(track);
+    invalidateNextTicket();
+  }
+
+  void moveEntryNext(String entryId) {
+    _queueState = _queueState.moveEntryNext(entryId);
+    invalidateNextTicket();
+  }
+
+  void moveEntry(int from, int to) {
+    _queueState = _queueState.moveEntry(from: from, to: to);
+    invalidateNextTicket();
+  }
+
+  void invalidateNextTicket() => _nextTicket = null;
 
   void removeAt(int index) {
     if (index < 0 || index >= _queueState.entries.length) return;
@@ -75,6 +96,7 @@ class PlaybackCoordinator {
     final entries = [..._queueState.entries];
     final oldEntry = entries[index];
     entries[index] = PlaybackQueueEntry(
+      entryId: oldEntry.entryId,
       track: oldEntry.track.copyWith(isFavorited: liked),
       queuedAt: oldEntry.queuedAt,
     );

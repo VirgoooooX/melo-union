@@ -265,6 +265,33 @@ void main() {
 
       expect(queue.entries, hasLength(2));
       expect(queue.current?.track.title, 'One');
+      expect(queue.entries.map((entry) => entry.entryId).toSet(), hasLength(2));
+    });
+
+    test('moves an existing entry next without changing the current entry', () {
+      SourceTrack track(String id) => SourceTrack(
+            ref: ProviderTrackRef(
+              providerId: ProviderId('alpha_music'),
+              trackId: id,
+            ),
+            title: id,
+            artists: const ['Alpha'],
+            duration: const Duration(minutes: 3),
+            isFavorited: false,
+          );
+
+      final initial = PlaybackQueueState.empty()
+          .replaceWith(['a', 'b', 'c', 'd'].map(track).toList())
+          .moveNext()
+          .moveNext();
+      final currentId = initial.current!.entryId;
+      final moved = initial.moveEntryNext(initial.entries.first.entryId);
+
+      expect(moved.entries.map((entry) => entry.track.title),
+          ['b', 'c', 'a', 'd']);
+      expect(moved.current?.entryId, currentId);
+      expect(moved.next?.track.title, 'a');
+      expect(moved.moveEntryNext(moved.next!.entryId), same(moved));
     });
   });
 

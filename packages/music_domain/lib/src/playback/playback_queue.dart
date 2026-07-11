@@ -1,11 +1,20 @@
 import 'package:provider_contract/provider_contract.dart';
 
+int _entrySequence = 0;
+
+String createPlaybackQueueEntryId() {
+  final micros = DateTime.now().toUtc().microsecondsSinceEpoch;
+  return 'queue-$micros-${_entrySequence++}';
+}
+
 final class PlaybackQueueEntry {
   const PlaybackQueueEntry({
+    required this.entryId,
     required this.track,
     required this.queuedAt,
   });
 
+  final String entryId;
   final SourceTrack track;
   final DateTime queuedAt;
 }
@@ -27,10 +36,28 @@ final class PlaybackQueueState {
           ? entries[currentIndex]
           : null;
 
+  int? get nextIndex {
+    final candidate = currentIndex + 1;
+    return candidate >= 0 && candidate < entries.length ? candidate : null;
+  }
+
+  PlaybackQueueEntry? get next {
+    final index = nextIndex;
+    return index == null ? null : entries[index];
+  }
+
+  bool isCurrentEntry(String entryId) => current?.entryId == entryId;
+
+  bool isNextEntry(String entryId) => next?.entryId == entryId;
+
   PlaybackQueueState replaceWith(List<SourceTrack> tracks) {
     final nextEntries = [
       for (final track in tracks)
-        PlaybackQueueEntry(track: track, queuedAt: DateTime.now().toUtc()),
+        PlaybackQueueEntry(
+          entryId: createPlaybackQueueEntryId(),
+          track: track,
+          queuedAt: DateTime.now().toUtc(),
+        ),
     ];
     return PlaybackQueueState(
       entries: List.unmodifiable(nextEntries),
@@ -38,14 +65,72 @@ final class PlaybackQueueState {
     );
   }
 
-  PlaybackQueueState enqueue(SourceTrack track) {
+  PlaybackQueueState append(SourceTrack track) {
     final nextEntries = [
       ...entries,
-      PlaybackQueueEntry(track: track, queuedAt: DateTime.now().toUtc()),
+      PlaybackQueueEntry(
+        entryId: createPlaybackQueueEntryId(),
+        track: track,
+        queuedAt: DateTime.now().toUtc(),
+      ),
     ];
     return PlaybackQueueState(
       entries: List.unmodifiable(nextEntries),
       currentIndex: currentIndex == -1 ? 0 : currentIndex,
+    );
+  }
+
+  @Deprecated('Use append to make queue-tail semantics explicit.')
+  PlaybackQueueState enqueue(SourceTrack track) => append(track);
+
+  PlaybackQueueState insertNext(SourceTrack track) {
+    if (current == null) return append(track);
+    final nextEntries = [...entries]..insert(
+        currentIndex + 1,
+        PlaybackQueueEntry(
+          entryId: createPlaybackQueueEntryId(),
+          track: track,
+          queuedAt: DateTime.now().toUtc(),
+        ),
+      );
+    return PlaybackQueueState(
+      entries: List.unmodifiable(nextEntries),
+      currentIndex: currentIndex,
+    );
+  }
+
+  PlaybackQueueState moveEntryNext(String entryId) {
+    final sourceIndex = entries.indexWhere((entry) => entry.entryId == entryId);
+    if (sourceIndex == -1 ||
+        sourceIndex == currentIndex ||
+        sourceIndex == nextIndex) {
+      return this;
+    }
+    final mutable = [...entries];
+    final movingEntry = mutable.removeAt(sourceIndex);
+    var adjustedCurrentIndex = currentIndex;
+    if (sourceIndex < currentIndex) adjustedCurrentIndex--;
+    mutable.insert(adjustedCurrentIndex + 1, movingEntry);
+    return PlaybackQueueState(
+      entries: List.unmodifiable(mutable),
+      currentIndex: adjustedCurrentIndex,
+    );
+  }
+
+  PlaybackQueueState moveEntry({required int from, required int to}) {
+    if (from < 0 || from >= entries.length || to < 0 || to >= entries.length) {
+      return this;
+    }
+    if (from == to) return this;
+    final currentId = current?.entryId;
+    final mutable = [...entries];
+    final moving = mutable.removeAt(from);
+    mutable.insert(to, moving);
+    return PlaybackQueueState(
+      entries: List.unmodifiable(mutable),
+      currentIndex: currentId == null
+          ? -1
+          : mutable.indexWhere((entry) => entry.entryId == currentId),
     );
   }
 
