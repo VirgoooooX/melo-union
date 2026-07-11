@@ -157,18 +157,27 @@ class _DesktopProviderResultSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _ProviderSectionHeader(group: group),
-        for (var i = 0; i < group.tracks.length; i++)
-          RepaintBoundary(
-            child: _DesktopSearchTrackRow(
-              index: i + 1,
-              track: group.tracks[i],
-              provider: group.provider,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: MeloColors.surface,
+        borderRadius: MeloRadii.sm,
+        border: Border.all(color: MeloColors.border),
+      ),
+      child: Column(
+        children: [
+          _ProviderSectionHeader(group: group),
+          const Divider(height: 1, color: MeloColors.border),
+          for (var i = 0; i < group.tracks.length; i++)
+            RepaintBoundary(
+              child: _DesktopSearchTrackRow(
+                index: i + 1,
+                track: group.tracks[i],
+                provider: group.provider,
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -306,6 +315,12 @@ class _MobileSearchTrackRow extends ConsumerWidget {
       demoRepositoryProvider
           .select((r) => r.queue.current?.track.ref == track.ref),
     );
+    final isDownloaded = ref.watch(
+      demoRepositoryProvider.select(
+        (r) => r.downloadCoordinator.localItems
+            .any((localItem) => localItem.sourceRef == track.ref),
+      ),
+    );
     final playable = track.isPlayable;
     return MeloMobileTrackRow(
       index: index,
@@ -314,6 +329,7 @@ class _MobileSearchTrackRow extends ConsumerWidget {
       artwork: track.artwork,
       duration: track.duration,
       isActive: selected,
+      isDownloaded: isDownloaded,
       onTap: playable ? () => repository.playOrToggleTrack(track) : null,
       trailing: MeloMobileTrackTrailing(
         duration: playable ? null : const _CatalogTag(),
@@ -346,6 +362,12 @@ class _DesktopSearchTrackRow extends ConsumerWidget {
       demoRepositoryProvider
           .select((r) => r.queue.current?.track.ref == track.ref),
     );
+    final isDownloaded = ref.watch(
+      demoRepositoryProvider.select(
+        (r) => r.downloadCoordinator.localItems
+            .any((localItem) => localItem.sourceRef == track.ref),
+      ),
+    );
     final playable = track.isPlayable;
     final play = playable ? () => repository.playOrToggleTrack(track) : null;
     return MeloDesktopTrackRow(
@@ -355,6 +377,7 @@ class _DesktopSearchTrackRow extends ConsumerWidget {
       artwork: track.artwork,
       album: track.album ?? provider.displayName,
       isActive: selected,
+      isDownloaded: isDownloaded,
       onDoubleTap: play,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

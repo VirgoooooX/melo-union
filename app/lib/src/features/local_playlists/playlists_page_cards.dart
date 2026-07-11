@@ -314,6 +314,12 @@ class _RemotePlaylistTracks extends ConsumerWidget {
             itemBuilder: (context, index) {
               final track = tracks[index];
               final selected = currentRef == track.ref;
+              final isDownloaded = ref.watch(
+                demoRepositoryProvider.select(
+                  (r) => r.downloadCoordinator.localItems
+                      .any((localItem) => localItem.sourceRef == track.ref),
+                ),
+              );
               return MeloMobileTrackRow(
                 index: index + 1,
                 title: track.title,
@@ -321,6 +327,7 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                 artwork: track.artwork,
                 duration: track.duration,
                 isActive: selected,
+                isDownloaded: isDownloaded,
                 onTap: track.isPlayable
                     ? () => repository.playOrToggleTrack(track)
                     : null,
@@ -355,6 +362,12 @@ class _RemotePlaylistTracks extends ConsumerWidget {
             itemBuilder: (context, index) {
               final track = tracks[index];
               final selected = currentRef == track.ref;
+              final isDownloaded = ref.watch(
+                demoRepositoryProvider.select(
+                  (r) => r.downloadCoordinator.localItems
+                      .any((localItem) => localItem.sourceRef == track.ref),
+                ),
+              );
               return MeloDesktopTrackRow(
                 index: index + 1,
                 title: track.title,
@@ -365,6 +378,7 @@ class _RemotePlaylistTracks extends ConsumerWidget {
                       track.ref.providerId,
                     ).shortName,
                 isActive: selected,
+                isDownloaded: isDownloaded,
                 onDoubleTap: track.isPlayable
                     ? () => repository.playOrToggleTrack(track)
                     : null,
@@ -416,7 +430,7 @@ class _RemotePlaylistTracks extends ConsumerWidget {
   }
 }
 
-class _LocalPlaylistTracks extends StatelessWidget {
+class _LocalPlaylistTracks extends ConsumerWidget {
   const _LocalPlaylistTracks({
     required this.playlist,
     required this.repository,
@@ -428,7 +442,7 @@ class _LocalPlaylistTracks extends StatelessWidget {
   final VoidCallback onBack;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isMobile = MediaQuery.sizeOf(context).width < 960;
     final currentRef = repository.queue.current?.track.ref;
     final playableTracks = [
@@ -501,6 +515,12 @@ class _LocalPlaylistTracks extends StatelessWidget {
                         final track =
                             repository.sourceTrackByRef(item.trackRef);
                         final selected = currentRef == item.trackRef;
+                        final isDownloaded = ref.watch(
+                          demoRepositoryProvider.select(
+                            (r) => r.downloadCoordinator.localItems
+                                .any((localItem) => localItem.sourceRef == item.trackRef),
+                          ),
+                        );
                         final title = track?.title ?? item.cachedTitle;
                         final artists = track?.artists ?? item.cachedArtists;
                         final trackPlayable = track?.isPlayable == true;
@@ -512,6 +532,7 @@ class _LocalPlaylistTracks extends StatelessWidget {
                           artwork: track?.artwork,
                           duration: track?.duration ?? Duration.zero,
                           isActive: selected,
+                          isDownloaded: isDownloaded,
                           onTap: trackPlayable
                               ? () => repository.playOrToggleTrack(track!)
                               : null,
@@ -568,6 +589,12 @@ class _LocalPlaylistTracks extends StatelessWidget {
                         final track =
                             repository.sourceTrackByRef(item.trackRef);
                         final selected = currentRef == item.trackRef;
+                        final isDownloaded = ref.watch(
+                          demoRepositoryProvider.select(
+                            (r) => r.downloadCoordinator.localItems
+                                .any((localItem) => localItem.sourceRef == item.trackRef),
+                          ),
+                        );
                         final title = track?.title ?? item.cachedTitle;
                         final artists = track?.artists ?? item.cachedArtists;
                         final providerName = track == null
@@ -581,6 +608,7 @@ class _LocalPlaylistTracks extends StatelessWidget {
                           artwork: track?.artwork,
                           subtitle: providerName,
                           isActive: selected,
+                          isDownloaded: isDownloaded,
                           onDoubleTap: track?.isPlayable == true
                               ? () => repository.playOrToggleTrack(track!)
                               : null,

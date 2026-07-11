@@ -1643,11 +1643,9 @@ Future<void> _downloadTrackFromMenu(
   DemoRepository repository,
   SourceTrack track,
 ) async {
-  final quality = await _chooseDownloadQuality(context);
-  if (quality == null || !context.mounted) return;
   MeloSnackbar.show(context: context, message: '开始下载：${track.title}');
   unawaited(
-    repository.downloadTrack(track, quality: quality).then((status) {
+    repository.downloadTrack(track).then((status) {
       if (!context.mounted) return;
       final message = switch (status) {
         DownloadStatus.completed => '已下载到本地。',
@@ -1664,39 +1662,6 @@ Future<void> _downloadTrackFromMenu(
     }),
   );
 }
-
-Future<AudioQuality?> _chooseDownloadQuality(BuildContext context) {
-  return showDialog<AudioQuality>(
-    context: context,
-    animationStyle: const AnimationStyle(
-      duration: Duration.zero,
-      reverseDuration: Duration.zero,
-    ),
-    builder: (context) => SimpleDialog(
-      title: const Text('选择下载音质'),
-      children: [
-        for (final quality in AudioQuality.values)
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, quality),
-            child: Row(
-              children: [
-                const Icon(Icons.high_quality_rounded, size: 18),
-                const SizedBox(width: 10),
-                Text(_audioQualityLabel(quality)),
-              ],
-            ),
-          ),
-      ],
-    ),
-  );
-}
-
-String _audioQualityLabel(AudioQuality quality) => switch (quality) {
-      AudioQuality.low => '标准',
-      AudioQuality.standard => '较高',
-      AudioQuality.high => '极高',
-      AudioQuality.lossless => '无损',
-    };
 
 class _MeloLightweightIconButton extends StatelessWidget {
   const _MeloLightweightIconButton({

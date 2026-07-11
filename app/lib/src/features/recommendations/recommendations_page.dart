@@ -177,6 +177,12 @@ class _RecommendationsTracksGrid extends ConsumerWidget {
             itemBuilder: (context, index) {
               final track = tracks[index];
               final selected = currentRef == track.ref;
+              final isDownloaded = ref.watch(
+                demoRepositoryProvider.select(
+                  (r) => r.downloadCoordinator.localItems
+                      .any((localItem) => localItem.sourceRef == track.ref),
+                ),
+              );
               return MeloDesktopTrackRow(
                 index: index + 1,
                 title: track.title,
@@ -184,6 +190,7 @@ class _RecommendationsTracksGrid extends ConsumerWidget {
                 artwork: track.artwork,
                 album: track.album ?? '今日推荐',
                 isActive: selected,
+                isDownloaded: isDownloaded,
                 onDoubleTap: track.isPlayable
                     ? () => ref
                         .read(demoRepositoryProvider)
@@ -626,6 +633,12 @@ class _MobileRecommendationsTracksGrid extends ConsumerWidget {
             itemBuilder: (context, index) {
               final track = tracks[index];
               final selected = currentRef == track.ref;
+              final isDownloaded = ref.watch(
+                demoRepositoryProvider.select(
+                  (r) => r.downloadCoordinator.localItems
+                      .any((localItem) => localItem.sourceRef == track.ref),
+                ),
+              );
               return MeloMobileTrackRow(
                 index: index + 1,
                 title: track.title,
@@ -633,6 +646,7 @@ class _MobileRecommendationsTracksGrid extends ConsumerWidget {
                 artwork: track.artwork,
                 duration: track.duration,
                 isActive: selected,
+                isDownloaded: isDownloaded,
                 onTap: track.isPlayable
                     ? () => ref
                         .read(demoRepositoryProvider)
@@ -907,6 +921,12 @@ void _showPlaylistSheet(
                               const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final track = tracks[index];
+                            final isDownloaded = ref.watch(
+                              demoRepositoryProvider.select(
+                                (r) => r.downloadCoordinator.localItems
+                                    .any((localItem) => localItem.sourceRef == track.ref),
+                              ),
+                            );
                             return MeloMobileTrackRow(
                               index: index + 1,
                               title: track.title,
@@ -914,6 +934,7 @@ void _showPlaylistSheet(
                               artwork: track.artwork,
                               duration: track.duration,
                               isActive: false,
+                              isDownloaded: isDownloaded,
                               onTap: track.isPlayable
                                   ? () => ref
                                       .read(demoRepositoryProvider)

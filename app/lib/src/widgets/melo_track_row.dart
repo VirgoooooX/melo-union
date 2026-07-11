@@ -11,6 +11,7 @@ class MeloMobileTrackRow extends StatelessWidget {
     required this.artwork,
     required this.duration,
     this.isActive = false,
+    this.isDownloaded = false,
     this.onTap,
     this.trailing,
     super.key,
@@ -22,6 +23,7 @@ class MeloMobileTrackRow extends StatelessWidget {
   final Uri? artwork;
   final Duration duration;
   final bool isActive;
+  final bool isDownloaded;
   final VoidCallback? onTap;
   final Widget? trailing;
 
@@ -80,17 +82,32 @@ class MeloMobileTrackRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: isActive
-                              ? MeloColors.primary700
-                              : MeloColors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: isActive
+                                    ? MeloColors.primary700
+                                    : MeloColors.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
+                      ),
+                      if (isDownloaded) ...[
+                        const SizedBox(width: 5),
+                        const Icon(
+                          Icons.arrow_circle_down_rounded,
+                          color: MeloColors.success,
+                          size: 13,
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -194,6 +211,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
     this.album,
     this.subtitle,
     this.isActive = false,
+    this.isDownloaded = false,
     this.onDoubleTap,
     this.trailing,
     super.key,
@@ -206,6 +224,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
   final String? album;
   final String? subtitle;
   final bool isActive;
+  final bool isDownloaded;
   final VoidCallback? onDoubleTap;
   final Widget? trailing;
 
@@ -258,6 +277,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
                       title: title,
                       artists: artists,
                       active: isActive,
+                      isDownloaded: isDownloaded,
                     ),
                   ),
                 ],
@@ -303,11 +323,13 @@ class _TrackTitleBlock extends StatelessWidget {
     required this.title,
     required this.artists,
     required this.active,
+    this.isDownloaded = false,
   });
 
   final String title;
   final List<String> artists;
   final bool active;
+  final bool isDownloaded;
 
   @override
   Widget build(BuildContext context) {
@@ -315,14 +337,29 @@ class _TrackTitleBlock extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: active ? MeloColors.primary700 : MeloColors.textPrimary,
-                fontWeight: FontWeight.w800,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: active ? MeloColors.primary700 : MeloColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
               ),
+            ),
+            if (isDownloaded) ...[
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.arrow_circle_down_rounded,
+                color: MeloColors.success,
+                size: 14,
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 2),
         Text(

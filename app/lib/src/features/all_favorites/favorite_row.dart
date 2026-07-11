@@ -33,6 +33,12 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
     final primary = variants.first;
     final isPlaying = currentRef != null &&
         variants.any((variant) => variant.ref == currentRef);
+    final isDownloaded = ref.watch(
+      demoRepositoryProvider.select(
+        (r) => variants.any((v) => r.downloadCoordinator.localItems
+            .any((item) => item.sourceRef == v.ref)),
+      ),
+    );
     return MeloInteractiveRow(
       selected: isPlaying,
       height: MeloListMetrics.rowHeight,
@@ -75,6 +81,7 @@ class _FavoriteRowState extends ConsumerState<_FavoriteRow> {
                       title: widget.track.title,
                       artists: widget.track.artists,
                       active: isPlaying,
+                      isDownloaded: isDownloaded,
                     ),
                   ),
                 ],
@@ -154,6 +161,12 @@ class _MobileFavoriteRow extends ConsumerWidget {
             variants.any((variant) => variant.ref == currentRef);
       }),
     );
+    final isDownloaded = ref.watch(
+      demoRepositoryProvider.select(
+        (r) => variants.any((v) => r.downloadCoordinator.localItems
+            .any((item) => item.sourceRef == v.ref)),
+      ),
+    );
     final artwork = track.variants
         .firstWhere((variant) => variant.artwork != null, orElse: () => primary)
         .artwork;
@@ -165,6 +178,7 @@ class _MobileFavoriteRow extends ConsumerWidget {
       artwork: artwork,
       duration: track.duration,
       isActive: selected,
+      isDownloaded: isDownloaded,
       onTap: () {
         if (selected) {
           unawaited(repository.playOrToggleUnifiedTrack(track));
@@ -201,11 +215,13 @@ class _TrackTitleBlock extends StatelessWidget {
     required this.title,
     required this.artists,
     required this.active,
+    this.isDownloaded = false,
   });
 
   final String title;
   final List<String> artists;
   final bool active;
+  final bool isDownloaded;
 
   @override
   Widget build(BuildContext context) {
@@ -213,14 +229,29 @@ class _TrackTitleBlock extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: active ? MeloColors.primary700 : MeloColors.textPrimary,
-                fontWeight: FontWeight.w800,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: active ? MeloColors.primary700 : MeloColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
               ),
+            ),
+            if (isDownloaded) ...[
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.arrow_circle_down_rounded,
+                color: MeloColors.success,
+                size: 14,
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 2),
         Text(
