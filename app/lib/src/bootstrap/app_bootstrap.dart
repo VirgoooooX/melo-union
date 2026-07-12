@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -15,6 +16,8 @@ import 'netease_session_store_factory.dart';
 import 'qq_music_session_store.dart';
 import 'qq_music_session_store_factory.dart';
 import 'snapshot_store_factory.dart';
+import '../local_library/local_library_controller.dart';
+import '../local_library/local_library_scanner.dart';
 
 typedef SnapshotStoreFactory = Future<ManagedSnapshotStore> Function();
 typedef NeteaseSessionStoreFactory = NeteaseSessionStore Function();
@@ -71,6 +74,20 @@ Future<AppBootstrap> createAppBootstrap({
   final neteaseCredentials = await neteaseSessionStore.read();
   final qqMusicCredentials = await qqMusicSessionStore.read();
   final KugouSession? kugouSession = await kugouSessionStore.read();
+  final localRepository = managedStore.localLibraryRepository;
+  final localController =
+      !kIsWeb && Platform.isWindows && localRepository != null
+          ? LocalLibraryController(
+              repository: localRepository,
+              scanner: LocalLibraryScanner(
+                repository: localRepository,
+                artworkDirectory: Directory(
+                  '${managedStore.audioCacheDirectory?.parent.path ?? Directory.systemTemp.path}'
+                  '${Platform.pathSeparator}local_artwork',
+                ),
+              ),
+            )
+          : null;
   final repository = DemoRepository.seeded(
     snapshot: snapshot,
     snapshotStore: managedStore.store,
@@ -81,7 +98,12 @@ Future<AppBootstrap> createAppBootstrap({
     kugouSession: kugouSession,
     kugouSessionStore: kugouSessionStore,
     audioCacheManager: audioCacheManager,
+    localLibraryController: localController,
   );
+  if (localController != null) {
+    await localController.initialize(scanOnStartup: false);
+    unawaited(localController.scanAll());
+  }
 
   return AppBootstrap(
     repository: repository,

@@ -215,6 +215,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
     required this.artists,
     required this.artwork,
     this.album,
+    this.year,
     this.subtitle,
     this.isActive = false,
     this.isDownloaded = false,
@@ -229,6 +230,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
   final List<String> artists;
   final Uri? artwork;
   final String? album;
+  final String? year;
   final String? subtitle;
   final bool isActive;
   final bool isDownloaded;
@@ -312,6 +314,18 @@ class MeloDesktopTrackRow extends StatelessWidget {
                   album!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: MeloColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ),
+            if (year != null)
+              SizedBox(
+                width: MeloDimensions.desktopTrackMetadataColumnWidth,
+                child: Text(
+                  year!,
+                  textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: MeloColors.textSecondary,
                         fontWeight: FontWeight.w500,

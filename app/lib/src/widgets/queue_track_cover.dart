@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../design/melo_tokens.dart';
 import 'melo_components.dart';
-import 'melo_file_cached_image_provider.dart';
 
 class QueueTrackCover extends StatefulWidget {
   const QueueTrackCover({
@@ -66,9 +65,12 @@ class _QueueTrackCoverState extends State<QueueTrackCover> {
   Widget _cover() {
     final imageUri = widget.artwork;
     if (imageUri != null && imageUri.toString().isNotEmpty) {
-      final baseProvider = MeloFileCachedNetworkImageProvider(
-        imageUri.toString(),
-        headers: meloArtworkHeaders,
+      final baseProvider = meloCachedArtworkProvider(
+        imageUri,
+        targetPixels: 128,
+        highResolution: false,
+        cacheWidth: 128,
+        cacheHeight: 128,
       );
       final imageProvider = ScrollAwareImageProvider<Object>(
         context: _scrollAwareContext,

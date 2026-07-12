@@ -57,6 +57,7 @@ abstract final class MeloSpacing {
   static const sm = 12.0;
   static const md = 16.0;
   static const lg = 20.0;
+  static const toolbarControlGap = 10.0;
   static const xl = 24.0;
   static const xxl = 32.0;
   static const xxxl = 40.0;
@@ -103,6 +104,11 @@ abstract final class MeloDimensions {
   static const desktopNowPlayingWidth = 280.0;
   static const desktopPlayerBarHeight = 82.0;
   static const desktopProviderTabsHeight = 46.0;
+  static const desktopToolbarControlHeight = 40.0;
+  static const desktopToolbarSearchWidth = 248.0;
+  static const desktopTrackTableHeaderHeight = 42.0;
+  static const desktopTrackMetadataColumnWidth = 132.0;
+  static const desktopTrackActionColumnWidth = 56.0;
 
   static const mobileAppBarHeight = 56.0;
   static const mobileProviderTabsHeight = 48.0;

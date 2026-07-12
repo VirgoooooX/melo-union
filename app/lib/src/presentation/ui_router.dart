@@ -1,10 +1,12 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/all_favorites/all_favorites_page.dart';
 import '../features/downloads/downloads_page.dart';
 import '../features/local_playlists/local_playlists_page.dart';
+import '../features/local_library/local_library_page.dart';
 import '../features/recommendations/recommendations_page.dart';
 import '../features/search/search_page.dart';
 import '../features/settings/settings_page.dart';
@@ -31,6 +33,12 @@ final uiRouterProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) =>
                 _plainPage(state, const LocalPlaylistsPage()),
           ),
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+            GoRoute(
+              path: AppDestination.local.path,
+              pageBuilder: (context, state) =>
+                  _plainPage(state, const LocalLibraryPage()),
+            ),
           GoRoute(
             path: AppDestination.recommendations.path,
             pageBuilder: (context, state) =>

@@ -116,6 +116,51 @@ class AudioCacheSettings extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+class StoredLocalLibraryRoots extends Table {
+  TextColumn get id => text()();
+  TextColumn get path => text().unique()();
+  TextColumn get displayName => text()();
+  TextColumn get scanState => text()();
+  DateTimeColumn get lastScannedAt => dateTime().nullable()();
+  TextColumn get lastError => text().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class StoredLocalLibraryTracks extends Table {
+  TextColumn get id => text()();
+  TextColumn get rootId => text()();
+  TextColumn get filePath => text().unique()();
+  TextColumn get relativePath => text()();
+  IntColumn get fileSize => integer()();
+  DateTimeColumn get modifiedAt => dateTime()();
+  TextColumn get fingerprint => text()();
+  TextColumn get title => text()();
+  TextColumn get artistsJson => text()();
+  IntColumn get durationMs => integer()();
+  TextColumn get format => text()();
+  TextColumn get album => text().nullable()();
+  TextColumn get genre => text().nullable()();
+  IntColumn get year => integer().nullable()();
+  IntColumn get trackNumber => integer().nullable()();
+  IntColumn get discNumber => integer().nullable()();
+  TextColumn get lyrics => text().nullable()();
+  TextColumn get artworkPath => text().nullable()();
+  BoolColumn get isAvailable => boolean().withDefault(const Constant(true))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class StoredLocalLibraryFavorites extends Table {
+  TextColumn get trackId => text()();
+  DateTimeColumn get likedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {trackId};
+}
+
 @DriftDatabase(
   tables: [
     MeloMetaRows,
@@ -129,12 +174,15 @@ class AudioCacheSettings extends Table {
     FavoriteProviderStates,
     StoredAudioCacheEntries,
     AudioCacheSettings,
+    StoredLocalLibraryRoots,
+    StoredLocalLibraryTracks,
+    StoredLocalLibraryFavorites,
   ],
 )
 class MeloDriftDatabase extends _$MeloDriftDatabase {
   MeloDriftDatabase(super.executor);
 
-  static const currentSchemaVersion = 3;
+  static const currentSchemaVersion = 4;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -152,6 +200,150 @@ class MeloDriftDatabase extends _$MeloDriftDatabase {
             await m.createTable(storedAudioCacheEntries);
             await m.createTable(audioCacheSettings);
           }
+          if (from < 4) {
+            await m.createTable(storedLocalLibraryRoots);
+            await m.createTable(storedLocalLibraryTracks);
+            await m.createTable(storedLocalLibraryFavorites);
+          }
+        },
+        beforeOpen: (details) async {
+          await _ensureLocalLibraryColumns();
         },
       );
+
+  Future<void> _ensureLocalLibraryColumns() async {
+    // Create tables if they don't exist (handles cases where the schema
+    // version is already 4 but tables were dropped or never created).
+    await customStatement(
+      'CREATE TABLE IF NOT EXISTS "stored_local_library_roots" ('
+      '"id" TEXT NOT NULL, '
+      '"path" TEXT NOT NULL UNIQUE, '
+      '"display_name" TEXT NOT NULL, '
+      '"scan_state" TEXT NOT NULL, '
+      '"last_scanned_at" INTEGER, '
+      '"last_error" TEXT, '
+      'PRIMARY KEY ("id"))',
+    );
+    await customStatement(
+      'CREATE TABLE IF NOT EXISTS "stored_local_library_tracks" ('
+      '"id" TEXT NOT NULL, '
+      '"root_id" TEXT NOT NULL, '
+      '"file_path" TEXT NOT NULL UNIQUE, '
+      '"relative_path" TEXT NOT NULL, '
+      '"file_size" INTEGER NOT NULL, '
+      '"modified_at" INTEGER NOT NULL, '
+      '"fingerprint" TEXT NOT NULL, '
+      '"title" TEXT NOT NULL, '
+      '"artists_json" TEXT NOT NULL, '
+      '"duration_ms" INTEGER NOT NULL DEFAULT 0, '
+      '"format" TEXT NOT NULL, '
+      '"album" TEXT, '
+      '"genre" TEXT, '
+      '"year" INTEGER, '
+      '"track_number" INTEGER, '
+      '"disc_number" INTEGER, '
+      '"lyrics" TEXT, '
+      '"artwork_path" TEXT, '
+      '"is_available" INTEGER NOT NULL DEFAULT 1, '
+      'PRIMARY KEY ("id"))',
+    );
+    await customStatement(
+      'CREATE TABLE IF NOT EXISTS "stored_local_library_favorites" ('
+      '"track_id" TEXT NOT NULL, '
+      '"liked_at" INTEGER NOT NULL, '
+      'PRIMARY KEY ("track_id"))',
+    );
+
+    final rootColumns = await _columnNames('stored_local_library_roots');
+    if (rootColumns.isNotEmpty) {
+      await _addColumnIfMissing(
+        'stored_local_library_roots',
+        rootColumns,
+        'display_name',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+      await _addColumnIfMissing(
+        'stored_local_library_roots',
+        rootColumns,
+        'scan_state',
+        "TEXT NOT NULL DEFAULT 'idle'",
+      );
+      await _addColumnIfMissing(
+        'stored_local_library_roots',
+        rootColumns,
+        'last_error',
+        'TEXT',
+      );
+      await customStatement(
+        "UPDATE stored_local_library_roots SET display_name = path "
+        "WHERE display_name = ''",
+      );
+    }
+
+    final trackColumns = await _columnNames('stored_local_library_tracks');
+    if (trackColumns.isNotEmpty) {
+      final additions = <String, String>{
+        'relative_path': "TEXT NOT NULL DEFAULT ''",
+        'fingerprint': "TEXT NOT NULL DEFAULT ''",
+        'title': "TEXT NOT NULL DEFAULT ''",
+        'artists_json': "TEXT NOT NULL DEFAULT '[]'",
+        'duration_ms': 'INTEGER NOT NULL DEFAULT 0',
+        'format': "TEXT NOT NULL DEFAULT ''",
+        'album': 'TEXT',
+        'genre': 'TEXT',
+        'year': 'INTEGER',
+        'track_number': 'INTEGER',
+        'disc_number': 'INTEGER',
+        'lyrics': 'TEXT',
+        'artwork_path': 'TEXT',
+        'is_available': 'INTEGER NOT NULL DEFAULT 1',
+      };
+      for (final entry in additions.entries) {
+        await _addColumnIfMissing(
+          'stored_local_library_tracks',
+          trackColumns,
+          entry.key,
+          entry.value,
+        );
+      }
+      if (trackColumns.contains('content_hash')) {
+        await customStatement(
+          "UPDATE stored_local_library_tracks SET fingerprint = content_hash "
+          "WHERE fingerprint = ''",
+        );
+      }
+      if (trackColumns.contains('is_missing')) {
+        await customStatement(
+          'UPDATE stored_local_library_tracks '
+          'SET is_available = CASE WHEN is_missing = 0 THEN 1 ELSE 0 END',
+        );
+      }
+      if (trackColumns.contains('is_favorited')) {
+        await customStatement(
+          'INSERT OR IGNORE INTO stored_local_library_favorites(track_id, liked_at) '
+          "SELECT id, COALESCE(liked_at, strftime('%s','now')) * 1000 "
+          'FROM stored_local_library_tracks WHERE is_favorited = 1',
+        );
+      }
+    }
+  }
+
+  Future<Set<String>> _columnNames(String table) async {
+    final rows = await customSelect('PRAGMA table_info($table)').get();
+    return rows
+        .map((row) => row.data['name']?.toString())
+        .whereType<String>()
+        .toSet();
+  }
+
+  Future<void> _addColumnIfMissing(
+    String table,
+    Set<String> columns,
+    String name,
+    String definition,
+  ) async {
+    if (columns.contains(name)) return;
+    await customStatement('ALTER TABLE $table ADD COLUMN $name $definition');
+    columns.add(name);
+  }
 }

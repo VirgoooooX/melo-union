@@ -118,10 +118,15 @@ class _NowPlayingCard extends ConsumerWidget {
             child: track.artwork != null && track.artwork!.toString().isNotEmpty
                 ? ClipRRect(
                     borderRadius: MeloRadii.md,
-                    child: Image.network(
-                      track.artwork!.toString(),
+                    child: Image(
+                      image: meloCachedArtworkProvider(
+                        track.artwork!,
+                        targetPixels: 192,
+                        highResolution: false,
+                        cacheWidth: 192,
+                        cacheHeight: 192,
+                      ),
                       fit: BoxFit.cover,
-                      headers: meloArtworkHeaders,
                       errorBuilder: (_, __, ___) => MeloArtworkPlaceholder(
                         seed: track.title,
                         size: 96,

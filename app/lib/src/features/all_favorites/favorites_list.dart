@@ -177,6 +177,15 @@ class _FavoritesLibraryPanelState
           );
         }
         break;
+      case _FavoriteSort.album:
+        sorted.sort(
+          (a, b) => _compareFavoritesByAlbum(
+            a,
+            b,
+            widget.selectedProviderId,
+          ),
+        );
+        break;
       case _FavoriteSort.title:
         sorted.sort(
           (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
@@ -356,6 +365,11 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
           );
         }
         break;
+      case _FavoriteSort.album:
+        visible.sort(
+          (a, b) => _compareFavoritesByAlbum(a, b, selectedProviderId),
+        );
+        break;
       case _FavoriteSort.title:
         visible.sort(
           (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
@@ -387,6 +401,63 @@ class _MobileFavoritesLibrary extends ConsumerWidget {
     }
     return best ?? DateTime(1900);
   }
+}
+
+int _compareFavoritesByAlbum(
+  UnifiedFavoriteTrack left,
+  UnifiedFavoriteTrack right,
+  String? providerId,
+) {
+  int compareText(String left, String right) =>
+      left.toLowerCase().compareTo(right.toLowerCase());
+
+  var result = compareText(left.artists.join(' '), right.artists.join(' '));
+  if (result != 0) return result;
+
+  final leftVariant = _albumSortVariant(left, providerId);
+  final rightVariant = _albumSortVariant(right, providerId);
+  result = _compareNullableIntLast(leftVariant?.year, rightVariant?.year);
+  if (result != 0) return result;
+  result = _compareNullableTextLast(leftVariant?.album, rightVariant?.album);
+  if (result != 0) return result;
+  result = _compareNullableIntLast(
+    leftVariant?.discNumber,
+    rightVariant?.discNumber,
+  );
+  if (result != 0) return result;
+  result = _compareNullableIntLast(
+    leftVariant?.trackNumber,
+    rightVariant?.trackNumber,
+  );
+  if (result != 0) return result;
+  return compareText(left.title, right.title);
+}
+
+SourceTrack? _albumSortVariant(
+  UnifiedFavoriteTrack track,
+  String? providerId,
+) {
+  if (providerId != null) {
+    for (final variant in track.variants) {
+      if (variant.ref.providerId.value == providerId) return variant;
+    }
+  }
+  for (final variant in track.variants) {
+    if (variant.album != null) return variant;
+  }
+  return track.variants.firstOrNull;
+}
+
+int _compareNullableTextLast(String? left, String? right) {
+  if (left == null) return right == null ? 0 : 1;
+  if (right == null) return -1;
+  return left.toLowerCase().compareTo(right.toLowerCase());
+}
+
+int _compareNullableIntLast(int? left, int? right) {
+  if (left == null) return right == null ? 0 : 1;
+  if (right == null) return -1;
+  return left.compareTo(right);
 }
 
 class _FavoritesTableHeader extends StatelessWidget {

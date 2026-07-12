@@ -55,6 +55,9 @@ final class SourceTrack {
     required this.duration,
     required this.isFavorited,
     this.album,
+    this.year,
+    this.trackNumber,
+    this.discNumber,
     this.isrc,
     this.artwork,
     this.isPlayable = true,
@@ -70,6 +73,9 @@ final class SourceTrack {
   final Duration duration;
   final bool isFavorited;
   final String? album;
+  final int? year;
+  final int? trackNumber;
+  final int? discNumber;
   final String? isrc;
   final Uri? artwork;
   final bool isPlayable;
@@ -94,6 +100,9 @@ final class SourceTrack {
     Duration? duration,
     bool? isFavorited,
     String? album,
+    int? year,
+    int? trackNumber,
+    int? discNumber,
     String? isrc,
     Uri? artwork,
     bool? isPlayable,
@@ -110,6 +119,9 @@ final class SourceTrack {
       duration: duration ?? this.duration,
       isFavorited: isFavorited ?? this.isFavorited,
       album: album ?? this.album,
+      year: year ?? this.year,
+      trackNumber: trackNumber ?? this.trackNumber,
+      discNumber: discNumber ?? this.discNumber,
       isrc: isrc ?? this.isrc,
       artwork: artwork ?? this.artwork,
       isPlayable: isPlayable ?? this.isPlayable,

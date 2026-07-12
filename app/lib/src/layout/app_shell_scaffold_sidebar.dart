@@ -9,12 +9,14 @@ class _DesktopSidebar extends StatelessWidget {
   final AppDestination current;
   final double width;
 
-  static const _main = [
-    AppDestination.favorites,
-    AppDestination.playlists,
-    AppDestination.recommendations,
-    AppDestination.search,
-  ];
+  List<AppDestination> get _main => [
+        AppDestination.favorites,
+        AppDestination.playlists,
+        if (defaultTargetPlatform == TargetPlatform.windows)
+          AppDestination.local,
+        AppDestination.recommendations,
+        AppDestination.search,
+      ];
   static const _utility = [
     AppDestination.downloads,
     AppDestination.settings,
@@ -115,11 +117,14 @@ class _SidebarItemState extends State<_SidebarItem> {
             ),
             child: Row(
               children: [
-                Icon(
-                  AppShellScaffold.iconFor(widget.destination, selected),
-                  color: foreground,
-                  size: 23,
-                ),
+                if (widget.destination == AppDestination.local)
+                  MeloLocalMark(size: 23, color: foreground)
+                else
+                  Icon(
+                    AppShellScaffold.iconFor(widget.destination, selected),
+                    color: foreground,
+                    size: 23,
+                  ),
                 const SizedBox(width: 16),
                 Text(
                   AppShellScaffold.titleFor(widget.destination),

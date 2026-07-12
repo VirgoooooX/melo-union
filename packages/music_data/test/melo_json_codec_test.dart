@@ -23,6 +23,9 @@ void main() {
     title: 'Midnight Signal',
     artists: const ['Luna Park'],
     album: 'Neon Hours',
+    year: 2024,
+    trackNumber: 7,
+    discNumber: 2,
     duration: const Duration(minutes: 3, seconds: 10),
     isFavorited: true,
     isDownloadable: true,
@@ -102,6 +105,9 @@ void main() {
     expect(decoded.playlists.single.items.single.trackRef, sourceRef);
     expect(decoded.downloadTasks.single.ticket, isNull);
     expect(decoded.downloadTasks.single.status, DownloadStatus.paused);
+    expect(decoded.downloadTasks.single.track.trackNumber, 7);
+    expect(decoded.downloadTasks.single.track.discNumber, 2);
+    expect(decoded.downloadTasks.single.track.year, 2024);
     expect(decoded.playbackQuality, AudioQuality.lossless);
     expect(decoded.downloadQuality, AudioQuality.high);
     expect(decoded.volume, closeTo(0.7, 0.001));

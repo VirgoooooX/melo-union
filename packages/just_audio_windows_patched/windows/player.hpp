@@ -1,4 +1,5 @@
 #pragma comment(lib, "windowsapp")
+#pragma comment(lib, "shcore.lib")
 
 #include <chrono>
 #include <functional>
@@ -8,6 +9,7 @@
 
 // This must be included before many other Windows headers.
 #include <windows.h>
+#include <shcore.h>
 
 #include <flutter/event_channel.h>
 #include <flutter/event_stream_handler_functions.h>
@@ -21,6 +23,7 @@
 #include <winrt/Windows.Media.Audio.h>
 #include <winrt/Windows.Media.Core.h>
 #include <winrt/Windows.Media.Playback.h>
+#include <winrt/Windows.Storage.Streams.h>
 #include <winrt/Windows.System.h>
 #define TO_MILLISECONDS(timespan) timespan.count() / 10000
 #define TO_MICROSECONDS(timespan) TO_MILLISECONDS(timespan) * 1000
@@ -32,6 +35,7 @@ using namespace winrt::Windows::Foundation;
 using namespace winrt::Windows::Media;
 
 using winrt::Windows::Media::Core::MediaSource;
+using winrt::Windows::Storage::Streams::IRandomAccessStream;
 
 class PlatformThreadDispatcher {
 public:
@@ -637,9 +641,22 @@ public:
       const std::string* type = std::get_if<std::string>(ValueOrNull(source, "type"));
       if (type->compare("progressive") == 0 || type->compare("dash") == 0 || type->compare("hls") == 0) {
           const auto* uri = std::get_if<std::string>(ValueOrNull(source, "uri"));
+          auto isFileUri = uri->rfind("file:", 0) == 0;
+          if (isFileUri) {
+            auto filePath = FileUriToUtf8WindowsPath(*uri);
+            if (filePath.empty()) {
+              throw std::invalid_argument("Invalid local file URI: " + *uri);
+            }
+            IRandomAccessStream stream{nullptr};
+            auto widePath = TO_WIDESTRING(filePath);
+            winrt::check_hresult(CreateRandomAccessStreamOnFile(
+                widePath.c_str(), STGM_READ, winrt::guid_of<IRandomAccessStream>(),
+                winrt::put_abi(stream)));
+            return MediaSource::CreateFromStream(
+                stream, TO_WIDESTRING(AudioMimeTypeForPath(filePath)));
+          }
           return MediaSource::CreateFromUri(
-              Uri(TO_WIDESTRING(EncodeSpacesInUri(*uri)))
-          );
+              Uri(TO_WIDESTRING(EncodeSpacesInUri(*uri))));
       }
       else {
           throw std::invalid_argument("Source is unsupported or can not be nested: " + *type);

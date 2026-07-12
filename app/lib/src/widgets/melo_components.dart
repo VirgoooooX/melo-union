@@ -10,6 +10,8 @@ import '../design/melo_tokens.dart';
 import '../presentation/provider_presentation.dart';
 import '../presentation/shell_accent.dart';
 import 'melo_file_cached_image_provider.dart';
+import 'melo_local_mark.dart';
+import 'melo_local_artwork_provider.dart';
 
 abstract final class MeloListMetrics {
   static const rowHeight = 64.0;
@@ -753,6 +755,13 @@ ImageProvider<Object> meloCachedArtworkProvider(
   int? cacheWidth,
   int? cacheHeight,
 }) {
+  if (artwork.isScheme('file')) {
+    return ResizeImage.resizeIfNeeded(
+      cacheWidth,
+      cacheHeight,
+      meloLocalArtworkProvider(artwork),
+    );
+  }
   final provider = MeloFileCachedNetworkImageProvider(
     meloArtworkRequestUri(
       artwork,
@@ -1008,7 +1017,8 @@ class MeloTrackMoreMenu extends ConsumerWidget {
     final repository = ref.watch(demoRepositoryProvider);
 
     final hasFavorite = variants.any((v) => v.isFavorited);
-    final isFavorited = variants.length > 1 ? hasFavorite : primaryTrack.isFavorited;
+    final isFavorited =
+        variants.length > 1 ? hasFavorite : primaryTrack.isFavorited;
     final showPlayNext = repository.queue.entries.length >= 2;
 
     if (isMobile) {
@@ -1063,7 +1073,9 @@ class MeloTrackMoreMenu extends ConsumerWidget {
           PopupMenuItem(
             value: _TrackMenuAction.favoriteToggle,
             child: _MeloTrackMenuItem(
-              icon: isFavorited ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              icon: isFavorited
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
               iconColor: isFavorited ? MeloColors.favorite : null,
               label: isFavorited ? '取消收藏' : '收藏',
             ),
@@ -1122,7 +1134,8 @@ class MeloTrackMoreMenu extends ConsumerWidget {
     required bool showPlayNext,
   }) {
     final title = unifiedTrack?.title ?? primaryTrack.title;
-    final artists = unifiedTrack?.artists.join(' / ') ?? primaryTrack.artists.join(' / ');
+    final artists =
+        unifiedTrack?.artists.join(' / ') ?? primaryTrack.artists.join(' / ');
     final artwork = unifiedTrack?.variants
             .firstWhere((v) => v.artwork != null, orElse: () => primaryTrack)
             .artwork ??
@@ -1160,7 +1173,10 @@ class MeloTrackMoreMenu extends ConsumerWidget {
                             title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   color: MeloColors.textPrimary,
                                 ),
@@ -1170,9 +1186,10 @@ class MeloTrackMoreMenu extends ConsumerWidget {
                             artists,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: MeloColors.textSecondary,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: MeloColors.textSecondary,
+                                    ),
                           ),
                         ],
                       ),
@@ -1201,7 +1218,9 @@ class MeloTrackMoreMenu extends ConsumerWidget {
                 )
               else
                 _MeloBottomSheetItem(
-                  icon: isFavorited ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  icon: isFavorited
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
                   color: isFavorited ? MeloColors.favorite : null,
                   label: isFavorited ? '取消收藏' : '收藏',
                   onTap: () {
@@ -1335,7 +1354,8 @@ class MeloTrackMoreMenu extends ConsumerWidget {
           }
         } catch (error) {
           if (context.mounted) {
-            final message = error is ProviderException ? error.message : '操作失败，请重试。';
+            final message =
+                error is ProviderException ? error.message : '操作失败，请重试。';
             MeloSnackbar.show(context: context, message: message);
           }
         }
@@ -1384,7 +1404,8 @@ class MeloTrackMoreMenu extends ConsumerWidget {
           await showDialog<void>(
             context: context,
             builder: (_) =>
-                addToPlaylistDialog ?? MeloAddToPlaylistDialog(track: primaryTrack),
+                addToPlaylistDialog ??
+                MeloAddToPlaylistDialog(track: primaryTrack),
           );
         }
         break;
@@ -1476,18 +1497,20 @@ class _FavoriteSourceDialog extends ConsumerWidget {
                       children: [
                         Text(
                           '管理收藏来源',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           track.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: MeloColors.textSecondary,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: MeloColors.textSecondary,
+                                  ),
                         ),
                       ],
                     ),
@@ -1895,7 +1918,8 @@ class _MeloPlaylistChoice extends StatelessWidget {
 }
 
 class _MeloTrackMenuItem extends StatelessWidget {
-  const _MeloTrackMenuItem({required this.icon, required this.label, this.iconColor});
+  const _MeloTrackMenuItem(
+      {required this.icon, required this.label, this.iconColor});
 
   final IconData icon;
   final String label;
@@ -1914,7 +1938,6 @@ class _MeloTrackMenuItem extends StatelessWidget {
         ],
       );
 }
-
 
 /// Standardized favorite/unfavorite heart button.
 ///
@@ -2120,8 +2143,10 @@ class MeloPlatformIcon extends StatelessWidget {
     IconData iconData;
 
     if (value.contains('local')) {
-      bgColor = const Color(0xFF2563EB);
-      iconData = Icons.folder_rounded;
+      return const SizedBox.square(
+        dimension: 18,
+        child: MeloLocalMark(size: 18),
+      );
     } else {
       bgColor = presentation.foregroundColor;
       iconData = presentation.icon;

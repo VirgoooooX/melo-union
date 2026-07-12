@@ -24,6 +24,8 @@ Future<ManagedSnapshotStore> createSnapshotStore() async {
     store: DriftMeloDataStore(database: database),
     audioCacheStore: DriftAudioCacheStore(database: database),
     audioCacheDirectory: await _resolveAudioCacheDirectory(),
+    localLibraryRepository:
+        Platform.isWindows ? DriftLocalLibraryRepository(database) : null,
     close: database.close,
   );
 }

@@ -70,5 +70,35 @@ TEST(EncodeSpacesInUri, SpaceInQueryString) {
       "https://example.com/tts?text=hello%20world");
 }
 
+TEST(FileUriToUtf8WindowsPath, DecodesChineseAndSpaces) {
+  const std::string expected =
+      "F:\\"
+      "\xE8\xB5\xB5\xE9\x9B\xB7\\"
+      "2016\xE6\x97\xA0\xE6\xB3\x95\xE9\x95\xBF\xE5\xA4\xA7\\"
+      "\xE8\xB5\xB5\xE9\x9B\xB7 - \xE9\x98\xBF\xE5\x88\x81.flac";
+  EXPECT_EQ(
+      FileUriToUtf8WindowsPath(
+          "file:///F:/%E8%B5%B5%E9%9B%B7/2016%E6%97%A0%E6%B3%95%E9%95%BF%E5%A4%A7/"
+          "%E8%B5%B5%E9%9B%B7%20-%20%E9%98%BF%E5%88%81.flac"),
+      expected);
+}
+
+TEST(FileUriToUtf8WindowsPath, ConvertsUncAuthority) {
+  EXPECT_EQ(
+      FileUriToUtf8WindowsPath("file://server/share/My%20Song.flac"),
+      "\\\\server\\share\\My Song.flac");
+}
+
+TEST(FileUriToUtf8WindowsPath, RejectsNonFileUri) {
+  EXPECT_TRUE(
+      FileUriToUtf8WindowsPath("https://example.com/song.flac").empty());
+}
+
+TEST(AudioMimeTypeForPath, RecognizesLocalFormatsCaseInsensitively) {
+  EXPECT_EQ(AudioMimeTypeForPath("F:\\Music\\song.FLAC"), "audio/flac");
+  EXPECT_EQ(AudioMimeTypeForPath("F:\\Music\\song.ape"), "audio/ape");
+  EXPECT_EQ(AudioMimeTypeForPath("F:\\Music\\song.opus"), "audio/ogg");
+}
+
 }  // namespace test
 }  // namespace just_audio_windows

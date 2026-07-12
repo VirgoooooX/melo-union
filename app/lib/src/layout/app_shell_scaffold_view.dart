@@ -142,6 +142,7 @@ class AppShellScaffold extends ConsumerWidget {
   static String titleFor(AppDestination destination) => switch (destination) {
         AppDestination.favorites => '喜欢',
         AppDestination.playlists => '歌单',
+        AppDestination.local => '本地',
         AppDestination.recommendations => '推荐',
         AppDestination.search => '搜索',
         AppDestination.downloads => '下载',
@@ -154,6 +155,7 @@ class AppShellScaffold extends ConsumerWidget {
           selected ? Icons.favorite : Icons.favorite_outline,
         AppDestination.playlists =>
           selected ? Icons.library_music : Icons.library_music_outlined,
+        AppDestination.local => Icons.album_rounded,
         AppDestination.recommendations =>
           selected ? Icons.auto_awesome : Icons.auto_awesome_outlined,
         AppDestination.search => Icons.search_rounded,
@@ -301,6 +303,7 @@ class _MobileShell extends StatelessWidget {
         AppDestination.favorites => '喜欢',
         AppDestination.search => '搜索',
         AppDestination.playlists => '歌单',
+        AppDestination.local => '本地',
         AppDestination.settings => '我的',
         AppDestination.downloads => '下载',
       };
@@ -314,6 +317,7 @@ class _MobileShell extends StatelessWidget {
         AppDestination.search => Icons.search_rounded,
         AppDestination.playlists =>
           selected ? Icons.library_music_rounded : Icons.library_music_outlined,
+        AppDestination.local => Icons.album_rounded,
         AppDestination.settings =>
           selected ? Icons.person_rounded : Icons.person_outline_rounded,
         AppDestination.downloads =>

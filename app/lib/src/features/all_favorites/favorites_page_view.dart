@@ -1,6 +1,6 @@
 part of 'all_favorites_page.dart';
 
-enum _FavoriteSort { recent, title, artist, duration }
+enum _FavoriteSort { recent, album, title, artist, duration }
 
 class AllFavoritesPage extends ConsumerStatefulWidget {
   const AllFavoritesPage({super.key});
@@ -586,9 +586,9 @@ class _FavoritesToolbar extends StatelessWidget {
         ),
         const Spacer(),
         SizedBox(
-          width: 248,
+          width: MeloDimensions.desktopToolbarSearchWidth,
           child: Container(
-            height: 40,
+            height: MeloDimensions.desktopToolbarControlHeight,
             decoration: BoxDecoration(
               color: MeloColors.surface,
               borderRadius: MeloRadii.sm,
@@ -615,8 +615,8 @@ class _FavoritesToolbar extends StatelessWidget {
                   size: 20,
                 ),
                 prefixIconConstraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
+                  minWidth: MeloDimensions.desktopToolbarControlHeight,
+                  minHeight: MeloDimensions.desktopToolbarControlHeight,
                 ),
                 suffixIconConstraints: const BoxConstraints(
                   minWidth: 36,
@@ -645,9 +645,9 @@ class _FavoritesToolbar extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: MeloSpacing.toolbarControlGap),
         _SortButton(sort: sort, onSelected: onSortSelected),
-        const SizedBox(width: 10),
+        const SizedBox(width: MeloSpacing.toolbarControlGap),
         IconButton(
           tooltip: '刷新同步歌单',
           icon: const Icon(
@@ -657,7 +657,9 @@ class _FavoritesToolbar extends StatelessWidget {
           ),
           onPressed: onRefresh,
           style: IconButton.styleFrom(
-            fixedSize: const Size(40, 40),
+            fixedSize: const Size.square(
+              MeloDimensions.desktopToolbarControlHeight,
+            ),
             backgroundColor: MeloColors.surface,
             shape: const RoundedRectangleBorder(
               borderRadius: MeloRadii.sm,
@@ -665,13 +667,15 @@ class _FavoritesToolbar extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: MeloSpacing.toolbarControlGap),
         FilledButton.icon(
           onPressed: onPlayAll,
           icon: const Icon(Icons.play_arrow_rounded, size: 20),
           label: const Text('播放全部'),
           style: FilledButton.styleFrom(
-            fixedSize: const Size.fromHeight(40),
+            fixedSize: const Size.fromHeight(
+              MeloDimensions.desktopToolbarControlHeight,
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             shape: const RoundedRectangleBorder(borderRadius: MeloRadii.sm),
             elevation: 0,
@@ -742,7 +746,9 @@ class _SortButtonState extends State<_SortButton> {
         ),
         onPressed: () => _menuKey.currentState?.showButtonMenu(),
         style: IconButton.styleFrom(
-          fixedSize: const Size(40, 40),
+          fixedSize: const Size.square(
+            MeloDimensions.desktopToolbarControlHeight,
+          ),
           backgroundColor: MeloColors.surface,
           shape: const RoundedRectangleBorder(
             borderRadius: MeloRadii.sm,
@@ -756,6 +762,7 @@ class _SortButtonState extends State<_SortButton> {
 
 String _sortLabel(_FavoriteSort sort) => switch (sort) {
       _FavoriteSort.recent => '最近添加',
+      _FavoriteSort.album => '按专辑',
       _FavoriteSort.title => '歌曲名称',
       _FavoriteSort.artist => '歌手名称',
       _FavoriteSort.duration => '歌曲时长',

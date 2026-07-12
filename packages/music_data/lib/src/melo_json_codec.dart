@@ -6,7 +6,7 @@ import 'melo_data_snapshot.dart';
 final class MeloJsonCodec {
   const MeloJsonCodec();
 
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 4;
 
   Map<String, Object?> encodeSnapshot(MeloDataSnapshot snapshot) {
     return {
@@ -20,6 +20,13 @@ final class MeloJsonCodec {
       'localMediaItems': [
         for (final item in snapshot.localMediaItems)
           _encodeLocalMediaItem(item),
+      ],
+      'localLibraryRoots': [
+        for (final root in snapshot.localLibraryRoots) _encodeLocalRoot(root),
+      ],
+      'localLibraryTracks': [
+        for (final track in snapshot.localLibraryTracks)
+          _encodeLocalTrack(track),
       ],
       'favoriteProviderSnapshots': [
         for (final snapshot in snapshot.favoriteProviderSnapshots)
@@ -101,6 +108,14 @@ final class MeloJsonCodec {
         for (final item in _listOfMaps(json['localMediaItems']))
           _decodeLocalMediaItem(item),
       ],
+      localLibraryRoots: [
+        for (final item in _listOfMaps(json['localLibraryRoots']))
+          _decodeLocalRoot(item),
+      ],
+      localLibraryTracks: [
+        for (final item in _listOfMaps(json['localLibraryTracks']))
+          _decodeLocalTrack(item),
+      ],
       favoriteProviderSnapshots: [
         for (final item in _listOfMaps(json['favoriteProviderSnapshots']))
           _decodeFavoriteSnapshot(item),
@@ -137,6 +152,79 @@ final class MeloJsonCodec {
       ],
     };
   }
+
+  Map<String, Object?> _encodeLocalRoot(LocalLibraryRoot root) => {
+        'id': root.id,
+        'path': root.path,
+        'displayName': root.displayName,
+        'scanState': root.scanState.name,
+        'lastScannedAt': root.lastScannedAt?.toUtc().toIso8601String(),
+        'lastError': root.lastError,
+      };
+
+  LocalLibraryRoot _decodeLocalRoot(Map<String, Object?> json) =>
+      LocalLibraryRoot(
+        id: _requiredString(json, 'id'),
+        path: _requiredString(json, 'path'),
+        displayName: _requiredString(json, 'displayName'),
+        scanState: LocalLibraryScanState.values.firstWhere(
+          (state) => state.name == json['scanState'],
+          orElse: () => LocalLibraryScanState.idle,
+        ),
+        lastScannedAt: _optionalDateTime(json['lastScannedAt']?.toString()),
+        lastError: json['lastError'] as String?,
+      );
+
+  Map<String, Object?> _encodeLocalTrack(LocalLibraryTrack track) => {
+        'id': track.id,
+        'rootId': track.rootId,
+        'filePath': track.filePath,
+        'relativePath': track.relativePath,
+        'fileSize': track.fileSize,
+        'modifiedAt': track.modifiedAt.toUtc().toIso8601String(),
+        'fingerprint': track.fingerprint,
+        'title': track.title,
+        'artists': track.artists,
+        'durationMs': track.duration.inMilliseconds,
+        'format': track.format,
+        'album': track.album,
+        'genre': track.genre,
+        'year': track.year,
+        'trackNumber': track.trackNumber,
+        'discNumber': track.discNumber,
+        'lyrics': track.lyrics,
+        'artworkPath': track.artworkPath,
+        'isAvailable': track.isAvailable,
+        'isFavorited': track.isFavorited,
+        'likedAt': track.likedAt?.toUtc().toIso8601String(),
+      };
+
+  LocalLibraryTrack _decodeLocalTrack(Map<String, Object?> json) =>
+      LocalLibraryTrack(
+        id: _requiredString(json, 'id'),
+        rootId: _requiredString(json, 'rootId'),
+        filePath: _requiredString(json, 'filePath'),
+        relativePath: _requiredString(json, 'relativePath'),
+        fileSize: (json['fileSize'] as num).toInt(),
+        modifiedAt: DateTime.parse(_requiredString(json, 'modifiedAt')),
+        fingerprint: _requiredString(json, 'fingerprint'),
+        title: _requiredString(json, 'title'),
+        artists: (json['artists'] as List? ?? const [])
+            .map((artist) => artist.toString())
+            .toList(growable: false),
+        duration: Duration(milliseconds: (json['durationMs'] as num).toInt()),
+        format: _requiredString(json, 'format'),
+        album: json['album'] as String?,
+        genre: json['genre'] as String?,
+        year: (json['year'] as num?)?.toInt(),
+        trackNumber: (json['trackNumber'] as num?)?.toInt(),
+        discNumber: (json['discNumber'] as num?)?.toInt(),
+        lyrics: json['lyrics'] as String?,
+        artworkPath: json['artworkPath'] as String?,
+        isAvailable: json['isAvailable'] as bool? ?? true,
+        isFavorited: json['isFavorited'] as bool? ?? false,
+        likedAt: _optionalDateTime(json['likedAt']?.toString()),
+      );
 
   LocalPlaylist _decodePlaylist(Map<String, Object?> json) {
     return LocalPlaylist(
@@ -407,6 +495,9 @@ final class MeloJsonCodec {
       'title': track.title,
       'artists': track.artists,
       'album': track.album,
+      'year': track.year,
+      'trackNumber': track.trackNumber,
+      'discNumber': track.discNumber,
       'isrc': track.isrc,
       'artwork': track.artwork?.toString(),
       'durationMs': track.duration.inMilliseconds,
@@ -429,6 +520,9 @@ final class MeloJsonCodec {
       title: _requiredString(json, 'title'),
       artists: _stringList(json['artists']),
       album: json['album'] as String?,
+      year: (json['year'] as num?)?.toInt(),
+      trackNumber: (json['trackNumber'] as num?)?.toInt(),
+      discNumber: (json['discNumber'] as num?)?.toInt(),
       isrc: json['isrc'] as String?,
       artwork: artwork == null ? null : Uri.parse(artwork),
       duration: Duration(milliseconds: json['durationMs'] as int),

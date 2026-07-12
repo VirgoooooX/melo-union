@@ -5,6 +5,7 @@ import 'package:music_domain/music_domain.dart';
 import 'package:provider_contract/provider_contract.dart';
 
 import 'drift_melo_database.dart';
+import 'drift_local_library_repository.dart';
 import 'melo_data_snapshot.dart';
 import 'melo_json_codec.dart';
 import 'melo_snapshot_store.dart';
@@ -55,6 +56,13 @@ final class DriftMeloDataStore
             .get();
     final providerStateRows =
         await database.select(database.favoriteProviderStates).get();
+    final localRepository = DriftLocalLibraryRepository(database);
+    final localRoots = await localRepository.listRoots();
+    final localTracks = await localRepository.listTracks(limit: 1000000);
+    final localEncoded = _codec.encodeSnapshot(MeloDataSnapshot(
+      localLibraryRoots: localRoots,
+      localLibraryTracks: localTracks,
+    ));
 
     return _codec.decodeSnapshot({
       'schemaVersion': int.parse(version),
@@ -84,6 +92,8 @@ final class DriftMeloDataStore
       'localMediaItems': [
         for (final row in mediaRows) _jsonMap(row.payloadJson),
       ],
+      'localLibraryRoots': localEncoded['localLibraryRoots'],
+      'localLibraryTracks': localEncoded['localLibraryTracks'],
       'favoritesOverrides': _decodeOverrides(overrideRows),
       'favoriteProviderSnapshots': _decodeFavoriteProviderSnapshots(
         favoriteRows,
@@ -226,6 +236,13 @@ final class DriftMeloDataStore
       await _writeUnifiedFavoriteCacheRows(unifiedFavoritesCache);
       await _writeFavoriteProviderStateRows(favoriteProviderStates);
     });
+    if (snapshot.localLibraryRoots.isNotEmpty ||
+        snapshot.localLibraryTracks.isNotEmpty) {
+      await DriftLocalLibraryRepository(database).replaceAll(
+        snapshot.localLibraryRoots,
+        snapshot.localLibraryTracks,
+      );
+    }
   }
 
   @override
@@ -276,6 +293,9 @@ final class DriftMeloDataStore
       await database.delete(database.favoriteLikedAtLedgerRows).go();
       await database.delete(database.unifiedFavoriteCacheRows).go();
       await database.delete(database.favoriteProviderStates).go();
+      await database.delete(database.storedLocalLibraryFavorites).go();
+      await database.delete(database.storedLocalLibraryTracks).go();
+      await database.delete(database.storedLocalLibraryRoots).go();
     });
   }
 

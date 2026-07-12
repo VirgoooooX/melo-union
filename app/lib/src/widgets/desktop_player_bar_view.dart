@@ -465,14 +465,20 @@ class _PlayerArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (artwork != null && artwork!.toString().isNotEmpty) {
+      final imageProvider = meloCachedArtworkProvider(
+        artwork!,
+        targetPixels: 160,
+        highResolution: false,
+        cacheWidth: 160,
+        cacheHeight: 160,
+      );
       return ClipRRect(
         borderRadius: MeloRadii.sm,
-        child: Image.network(
-          artwork!.toString(),
+        child: Image(
+          image: imageProvider,
           width: size,
           height: size,
           fit: BoxFit.cover,
-          headers: meloArtworkHeaders,
           errorBuilder: (_, __, ___) => MeloArtworkPlaceholder(
             seed: seed,
             size: size,

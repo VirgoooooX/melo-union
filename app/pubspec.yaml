@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   archive: ^4.0.7
+  audio_metadata_reader: ^1.6.0
   cryptography: ^2.7.0
   connectivity_plus: ^6.1.4
   drift: ^2.34.0

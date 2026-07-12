@@ -9,5 +9,6 @@ export 'src/playback/audio_cache_store.dart';
 export 'src/playback/playback_queue.dart';
 export 'src/playlists/in_memory_local_playlist_repository.dart';
 export 'src/playlists/local_playlist_models.dart';
+export 'src/local_library/local_library_models.dart';
 export 'src/playlists/playlist_reference_resolver.dart';
 export 'src/search/capability_aware_search_service.dart';

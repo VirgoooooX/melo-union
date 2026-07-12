@@ -26,6 +26,8 @@ import 'kugou_session_store.dart';
 import 'audio_cache_manager.dart';
 import 'audio_cache_proxy_server.dart';
 import 'download_file_naming.dart';
+import '../local_library/local_library_controller.dart';
+import '../local_library/local_music_provider.dart';
 
 class _CacheEntry<T> {
   _CacheEntry(this.data, {DateTime? fetchedAt})
@@ -143,6 +145,7 @@ class DemoRepository extends ChangeNotifier {
     PlaybackQueueSnapshot? playbackQueue,
     String? downloadDirectory,
     AudioQuality downloadQuality = AudioQuality.standard,
+    this.localLibraryController,
   })  : favoritesOverrideRegistry =
             favoritesOverrideRegistry ?? FavoritesOverrideRegistry(),
         favoriteLikedAtLedger = favoriteLikedAtLedger ?? LikedAtLedger(),
@@ -240,6 +243,7 @@ class DemoRepository extends ChangeNotifier {
     KugouSessionStore? kugouSessionStore,
     AudioCacheManager? audioCacheManager,
     List<MusicProvider> additionalProviders = const [],
+    LocalLibraryController? localLibraryController,
   }) {
     final catalogId = ProviderId('compass_catalog');
     final netease = NeteaseMusicProvider(credentials: neteaseCredentials);
@@ -306,8 +310,12 @@ class DemoRepository extends ChangeNotifier {
       ],
     );
 
+    final localProvider = localLibraryController == null
+        ? null
+        : LocalMusicProvider(localLibraryController.repository);
     final registry = StaticProviderRegistry([
       ...additionalProviders,
+      if (localProvider != null) localProvider,
       catalog,
       netease,
       qqMusic,
@@ -381,6 +389,7 @@ class DemoRepository extends ChangeNotifier {
       playbackQueue: snapshot?.playbackQueue,
       downloadDirectory: snapshot?.downloadDirectory,
       downloadQuality: snapshot?.downloadQuality ?? AudioQuality.standard,
+      localLibraryController: localLibraryController,
     );
     final allSeededTracks = [
       for (final provider in additionalProviders.whereType<FakeMusicProvider>())
@@ -408,6 +417,7 @@ class DemoRepository extends ChangeNotifier {
   final QqMusicSessionStore? qqMusicSessionStore;
   final KugouSessionStore? kugouSessionStore;
   final NotificationPermissionBridge notificationPermissionBridge;
+  final LocalLibraryController? localLibraryController;
   final ProviderCapabilityMatrix capabilityMatrix =
       const ProviderCapabilityMatrix();
   final UnifiedFavoritesService favoritesService =
@@ -837,6 +847,13 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<void> restoreFromSnapshot(MeloDataSnapshot snapshot) async {
+    if (snapshot.localLibraryRoots.isNotEmpty ||
+        snapshot.localLibraryTracks.isNotEmpty) {
+      await localLibraryController?.restore(
+        snapshot.localLibraryRoots,
+        snapshot.localLibraryTracks,
+      );
+    }
     playlists.replaceAll(snapshot.playlists);
     _selectedPlaylistId = playlistList.isEmpty ? null : playlistList.first.id;
     downloadCoordinator.replaceState(
@@ -2295,7 +2312,6 @@ class DemoRepository extends ChangeNotifier {
             url,
           );
         }
-        debugPrint('AUDIO: playing "${current.title}"');
         await _audioPlayer.stop();
         await _releaseActiveAudioCache();
         await _syncAudioLoopMode();
@@ -2355,7 +2371,7 @@ class DemoRepository extends ChangeNotifier {
         _setPlaybackIssue(
           track: current,
           title: '播放启动失败',
-          message: _playbackErrorMessage(e),
+          message: _playbackErrorMessage(e, track: current),
         );
       }
     }
@@ -2845,7 +2861,7 @@ class DemoRepository extends ChangeNotifier {
           _setPlaybackIssue(
             track: current,
             title: '播放失败',
-            message: _playbackErrorMessage(error),
+            message: _playbackErrorMessage(error, track: current),
           );
         }
         notifyListeners();
@@ -2873,7 +2889,17 @@ class DemoRepository extends ChangeNotifier {
         uri.isScheme('content');
   }
 
-  String _playbackErrorMessage(Object error) {
+  String _playbackErrorMessage(Object error, {SourceTrack? track}) {
+    // 本地曲库：ticket 解析阶段已对文件做存在性校验，若此处抛出
+    // ProviderTrackNotFoundException，说明文件不在了/磁盘不可用，给出可读文案。
+    if (error is ProviderTrackNotFoundException &&
+        error.providerId == localMusicProviderId) {
+      return error.message;
+    }
+    if (track?.ref.providerId == localMusicProviderId &&
+        track?.ref.extraIds['format'] == 'ape') {
+      return '当前 Windows 系统无法解码这首 APE，请检查本机是否已安装并启用 APE 解码器。';
+    }
     final text = error.toString().trim();
     if (text.isEmpty) {
       return '请检查网络或稍后重试。';
