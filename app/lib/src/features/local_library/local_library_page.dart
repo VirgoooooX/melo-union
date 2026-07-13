@@ -17,6 +17,12 @@ import '../../widgets/melo_local_mark.dart';
 import '../../widgets/provider_tabs.dart';
 import 'local_library_views.dart';
 
+class _LocalLibraryHistoryEntry {
+  final LocalLibraryAlbum? album;
+  final LocalLibraryArtist? artist;
+  _LocalLibraryHistoryEntry({this.album, this.artist});
+}
+
 class LocalLibraryPage extends ConsumerStatefulWidget {
   const LocalLibraryPage({super.key});
 
@@ -28,6 +34,17 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
   final _search = TextEditingController();
   Timer? _debounce;
   ArtistMetadataEnrichmentService? _enrichment;
+
+  LocalLibraryView? _prevView;
+  final List<_LocalLibraryHistoryEntry> _navigationHistory = [];
+
+  void _popHistory() {
+    setState(() {
+      if (_navigationHistory.isNotEmpty) {
+        _navigationHistory.removeLast();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -58,6 +75,13 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
               ? controller.refreshArtist(artistKey)
               : null,
     );
+
+    // Reset history when view changes
+    if (_prevView != controller.view) {
+      _navigationHistory.clear();
+      _prevView = controller.view;
+    }
+
     return MeloShellAccentScope(
       providerId: localMusicProviderIdValue,
       child: ListenableBuilder(
@@ -67,14 +91,32 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
               controller.artists.isNotEmpty) {
             _enrichment!.enqueue(controller.artists);
           }
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(
-              MeloSpacing.xl,
-              MeloSpacing.lg,
-              MeloSpacing.xl,
-              MeloSpacing.md,
-            ),
-            child: Column(
+
+          final showDetail = _navigationHistory.isNotEmpty;
+          Widget content;
+          if (showDetail) {
+            final top = _navigationHistory.last;
+            if (top.album != null) {
+              content = LocalAlbumDetailView(
+                controller: controller,
+                album: top.album!,
+                onBack: _popHistory,
+              );
+            } else {
+              content = LocalArtistDetailView(
+                controller: controller,
+                artist: top.artist!,
+                enrichment: _enrichment,
+                onBack: _popHistory,
+                onAlbumTap: (album) {
+                  setState(() {
+                    _navigationHistory.add(_LocalLibraryHistoryEntry(album: album));
+                  });
+                },
+              );
+            }
+          } else {
+            content = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _ViewTabs(controller: controller),
@@ -96,6 +138,21 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
                 ),
                 const SizedBox(height: MeloSpacing.lg),
                 Expanded(child: _body(appRepository, controller)),
+              ],
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(
+              MeloSpacing.xl,
+              MeloSpacing.lg,
+              MeloSpacing.xl,
+              MeloSpacing.md,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: content),
                 if (controller.progress case final progress?)
                   _ScanBar(progress: progress, onCancel: controller.cancelScan),
               ],
@@ -114,10 +171,22 @@ class _LocalLibraryPageState extends ConsumerState<LocalLibraryPage> {
     if (controller.roots.isEmpty) return const _EmptyLibrary();
     return switch (controller.view) {
       LocalLibraryView.songs => LocalSongsView(controller: controller),
-      LocalLibraryView.albums => LocalAlbumsView(controller: controller),
+      LocalLibraryView.albums => LocalAlbumsView(
+          controller: controller,
+          onAlbumTap: (album) {
+            setState(() {
+              _navigationHistory.add(_LocalLibraryHistoryEntry(album: album));
+            });
+          },
+        ),
       LocalLibraryView.artists => LocalArtistsView(
           controller: controller,
           enrichment: _enrichment,
+          onArtistTap: (artist) {
+            setState(() {
+              _navigationHistory.add(_LocalLibraryHistoryEntry(artist: artist));
+            });
+          },
         ),
     };
   }

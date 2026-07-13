@@ -10,6 +10,82 @@ import 'package:melo_union_app/src/local_library/local_library_scanner.dart';
 import 'package:music_data/music_data_drift.dart';
 import 'package:music_domain/music_domain.dart';
 
+class _LocalLibraryHistoryEntry {
+  final LocalLibraryAlbum? album;
+  final LocalLibraryArtist? artist;
+  _LocalLibraryHistoryEntry({this.album, this.artist});
+}
+
+class LocalLibraryTestWrapper extends StatefulWidget {
+  const LocalLibraryTestWrapper({
+    super.key,
+    required this.controller,
+    required this.view,
+  });
+  final LocalLibraryController controller;
+  final LocalLibraryView view;
+
+  @override
+  State<LocalLibraryTestWrapper> createState() => _LocalLibraryTestWrapperState();
+}
+
+class _LocalLibraryTestWrapperState extends State<LocalLibraryTestWrapper> {
+  final List<_LocalLibraryHistoryEntry> _navigationHistory = [];
+
+  void _popHistory() {
+    setState(() {
+      if (_navigationHistory.isNotEmpty) {
+        _navigationHistory.removeLast();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_navigationHistory.isNotEmpty) {
+      final top = _navigationHistory.last;
+      if (top.album != null) {
+        return LocalAlbumDetailView(
+          controller: widget.controller,
+          album: top.album!,
+          onBack: _popHistory,
+        );
+      } else {
+        return LocalArtistDetailView(
+          controller: widget.controller,
+          artist: top.artist!,
+          onBack: _popHistory,
+          onAlbumTap: (album) {
+            setState(() {
+              _navigationHistory.add(_LocalLibraryHistoryEntry(album: album));
+            });
+          },
+        );
+      }
+    }
+
+    if (widget.view == LocalLibraryView.albums) {
+      return LocalAlbumsView(
+        controller: widget.controller,
+        onAlbumTap: (album) {
+          setState(() {
+            _navigationHistory.add(_LocalLibraryHistoryEntry(album: album));
+          });
+        },
+      );
+    } else {
+      return LocalArtistsView(
+        controller: widget.controller,
+        onArtistTap: (artist) {
+          setState(() {
+            _navigationHistory.add(_LocalLibraryHistoryEntry(artist: artist));
+          });
+        },
+      );
+    }
+  }
+}
+
 void main() {
   late Directory temp;
   late MeloDriftDatabase database;
@@ -53,7 +129,12 @@ void main() {
 
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp(
-        home: Scaffold(body: LocalAlbumsView(controller: controller)),
+        home: Scaffold(
+          body: LocalLibraryTestWrapper(
+            controller: controller,
+            view: LocalLibraryView.albums,
+          ),
+        ),
       ),
     ));
     await tester.pumpAndSettle();
@@ -123,7 +204,10 @@ void main() {
         home: Scaffold(
           body: ListenableBuilder(
             listenable: controller,
-            builder: (_, __) => LocalAlbumsView(controller: controller),
+            builder: (_, __) => LocalAlbumsView(
+              controller: controller,
+              onAlbumTap: (_) {},
+            ),
           ),
         ),
       ),
@@ -167,7 +251,10 @@ void main() {
         home: Scaffold(
           body: ListenableBuilder(
             listenable: controller,
-            builder: (_, __) => LocalArtistsView(controller: controller),
+            builder: (_, __) => LocalArtistsView(
+              controller: controller,
+              onArtistTap: (_) {},
+            ),
           ),
         ),
       ),
@@ -223,7 +310,12 @@ void main() {
 
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp(
-        home: Scaffold(body: LocalArtistsView(controller: controller)),
+        home: Scaffold(
+          body: LocalLibraryTestWrapper(
+            controller: controller,
+            view: LocalLibraryView.artists,
+          ),
+        ),
       ),
     ));
     await tester.pumpAndSettle();
@@ -249,7 +341,12 @@ void main() {
 
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp(
-        home: Scaffold(body: LocalAlbumsView(controller: controller)),
+        home: Scaffold(
+          body: LocalLibraryTestWrapper(
+            controller: controller,
+            view: LocalLibraryView.albums,
+          ),
+        ),
       ),
     ));
     await tester.pumpAndSettle();
@@ -268,7 +365,12 @@ void main() {
     await controller.setView(LocalLibraryView.albums);
 
     await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: LocalAlbumsView(controller: controller)),
+      home: Scaffold(
+        body: LocalAlbumsView(
+          controller: controller,
+          onAlbumTap: (_) {},
+        ),
+      ),
     ));
     await tester.pumpAndSettle();
 

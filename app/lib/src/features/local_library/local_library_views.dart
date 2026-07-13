@@ -78,8 +78,13 @@ class LocalSongsView extends ConsumerWidget {
 }
 
 class LocalAlbumsView extends StatelessWidget {
-  const LocalAlbumsView({super.key, required this.controller});
+  const LocalAlbumsView({
+    super.key,
+    required this.controller,
+    required this.onAlbumTap,
+  });
   final LocalLibraryController controller;
+  final ValueChanged<LocalLibraryAlbum> onAlbumTap;
   @override
   Widget build(BuildContext context) {
     if (controller.albums.isEmpty) {
@@ -98,10 +103,7 @@ class LocalAlbumsView extends StatelessWidget {
           subtitle:
               '${album.albumArtist} · ${album.canonicalYear ?? '未知年份'} · ${album.trackCount} 首',
           hasYearConflict: album.hasYearConflict,
-          onTap: () => showDialog<void>(
-              context: context,
-              builder: (_) =>
-                  _AlbumDialog(controller: controller, album: album)),
+          onTap: () => onAlbumTap(album),
         );
       },
     );
@@ -112,10 +114,12 @@ class LocalArtistsView extends StatelessWidget {
   const LocalArtistsView({
     super.key,
     required this.controller,
+    required this.onArtistTap,
     this.enrichment,
   });
   final LocalLibraryController controller;
   final ArtistMetadataEnrichmentService? enrichment;
+  final ValueChanged<LocalLibraryArtist> onArtistTap;
   @override
   Widget build(BuildContext context) {
     if (controller.artists.isEmpty) {
@@ -136,13 +140,7 @@ class LocalArtistsView extends StatelessWidget {
           title: artist.displayName,
           subtitle: '${artist.albumCount} 张专辑 · ${artist.trackCount} 首歌曲',
           circular: cached != null,
-          onTap: () => showDialog<void>(
-              context: context,
-              builder: (_) => _ArtistDialog(
-                    controller: controller,
-                    artist: artist,
-                    enrichment: enrichment,
-                  )),
+          onTap: () => onArtistTap(artist),
         );
       },
     );
@@ -336,255 +334,316 @@ class _InitialArtwork extends StatelessWidget {
                   fontWeight: FontWeight.w800))));
 }
 
-class _AlbumDialog extends ConsumerWidget {
-  const _AlbumDialog({required this.controller, required this.album});
+class LocalAlbumDetailView extends ConsumerWidget {
+  const LocalAlbumDetailView({
+    super.key,
+    required this.controller,
+    required this.album,
+    required this.onBack,
+  });
   final LocalLibraryController controller;
   final LocalLibraryAlbum album;
+  final VoidCallback onBack;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Dialog(
-      child: SizedBox(
-          width: 900,
-          height: 650,
-          child: Padding(
-              padding: const EdgeInsets.all(MeloSpacing.lg),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              tooltip: '返回',
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_rounded),
+            ),
+            const SizedBox(width: MeloSpacing.xs),
+            Text(
+              '专辑详情',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        const SizedBox(height: MeloSpacing.md),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox.square(
+              dimension: 150,
+              child: ClipRRect(
+                borderRadius: MeloRadii.md,
+                child: _ArtworkCollage(
+                  paths: album.artworkPath == null ? const [] : [album.artworkPath!],
+                  label: album.title,
+                ),
+              ),
+            ),
+            const SizedBox(width: MeloSpacing.lg),
+            Expanded(
               child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      SizedBox.square(
-                          dimension: 150,
-                          child: ClipRRect(
-                              borderRadius: MeloRadii.md,
-                              child: _ArtworkCollage(
-                                  paths: album.artworkPath == null
-                                      ? const []
-                                      : [album.artworkPath!],
-                                  label: album.title))),
-                      const SizedBox(width: MeloSpacing.lg),
-                      Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                            Text(album.title,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall
-                                    ?.copyWith(fontWeight: FontWeight.w800)),
-                            Text(
-                                '${album.albumArtist} · ${album.canonicalYear ?? '未知年份'} · ${album.trackCount} 首'),
-                            FutureBuilder<List<LocalLibraryTrack>>(
-                              future: controller.tracksForAlbum(album.albumKey),
-                              builder: (context, snapshot) =>
-                                  _AlbumYearConflictDetails(
-                                album: album,
-                                tracks: snapshot.data,
-                              ),
-                            ),
-                            const SizedBox(height: MeloSpacing.md),
-                            FutureBuilder<List<LocalLibraryTrack>>(
-                                future:
-                                    controller.tracksForAlbum(album.albumKey),
-                                builder: (_, snapshot) => FilledButton.icon(
-                                    onPressed: snapshot.hasData
-                                        ? () => ref
-                                            .read(demoRepositoryProvider)
-                                            .playTracks(snapshot.data!
-                                                .map((t) => t.toSourceTrack())
-                                                .toList())
-                                        : null,
-                                    icon: const Icon(Icons.play_arrow_rounded),
-                                    label: const Text('播放专辑')))
-                          ])),
-                      IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close_rounded))
-                    ]),
-                    const SizedBox(height: MeloSpacing.lg),
-                    Expanded(
-                        child: FutureBuilder<List<LocalLibraryTrack>>(
-                            future: controller.tracksForAlbum(album.albumKey),
-                            builder: (_, snapshot) => snapshot.hasData
-                                ? LocalSongsView(
-                                    controller: controller,
-                                    tracks: snapshot.data)
-                                : const Center(
-                                    child: CircularProgressIndicator()))),
-                  ]))));
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    album.title,
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${album.albumArtist} · ${album.canonicalYear ?? '未知年份'} · ${album.trackCount} 首',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: MeloColors.textSecondary,
+                        ),
+                  ),
+                  FutureBuilder<List<LocalLibraryTrack>>(
+                    future: controller.tracksForAlbum(album.albumKey),
+                    builder: (context, snapshot) => _AlbumYearConflictDetails(
+                      album: album,
+                      tracks: snapshot.data,
+                    ),
+                  ),
+                  const SizedBox(height: MeloSpacing.md),
+                  FutureBuilder<List<LocalLibraryTrack>>(
+                    future: controller.tracksForAlbum(album.albumKey),
+                    builder: (_, snapshot) => FilledButton.icon(
+                      onPressed: snapshot.hasData
+                          ? () => ref
+                              .read(demoRepositoryProvider)
+                              .playTracks(snapshot.data!
+                                  .map((t) => t.toSourceTrack())
+                                  .toList())
+                          : null,
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: const Text('播放专辑'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: MeloSpacing.lg),
+        Expanded(
+          child: FutureBuilder<List<LocalLibraryTrack>>(
+            future: controller.tracksForAlbum(album.albumKey),
+            builder: (_, snapshot) => snapshot.hasData
+                ? LocalSongsView(
+                    controller: controller,
+                    tracks: snapshot.data,
+                  )
+                : const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _ArtistDialog extends ConsumerWidget {
-  const _ArtistDialog({
+class LocalArtistDetailView extends ConsumerWidget {
+  const LocalArtistDetailView({
+    super.key,
     required this.controller,
     required this.artist,
+    required this.onBack,
+    required this.onAlbumTap,
     this.enrichment,
   });
   final LocalLibraryController controller;
   final LocalLibraryArtist artist;
+  final VoidCallback onBack;
+  final ValueChanged<LocalLibraryAlbum> onAlbumTap;
   final ArtistMetadataEnrichmentService? enrichment;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final metadata = artist.metadata;
     final artwork = metadata?.avatarCachePath == null
         ? artist.sampleArtworkPaths
         : [metadata!.avatarCachePath!];
-    return Dialog(
-        child: SizedBox(
-            width: 940,
-            height: 700,
-            child: Padding(
-                padding: const EdgeInsets.all(MeloSpacing.lg),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox.square(
-                                dimension: 150,
-                                child: ClipOval(
-                                    child: _ArtworkCollage(
-                                        paths: artwork,
-                                        label: artist.displayName))),
-                            const SizedBox(width: MeloSpacing.lg),
-                            Expanded(
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                  Text(artist.displayName,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.w800)),
-                                  Text(
-                                      '${artist.albumCount} 张专辑 · ${artist.trackCount} 首歌曲'),
-                                  if (metadata?.description
-                                      case final description?)
-                                    Padding(
-                                        padding: const EdgeInsets.only(
-                                            top: MeloSpacing.sm),
-                                        child: Text(description,
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis)),
-                                  const SizedBox(height: MeloSpacing.md),
-                                  FutureBuilder<List<LocalLibraryTrack>>(
-                                      future: controller.tracksForArtist(
-                                          artist.artistKey),
-                                      builder: (_, snapshot) =>
-                                          FilledButton.icon(
-                                              onPressed: snapshot.hasData
-                                                  ? () => ref
-                                                      .read(
-                                                          demoRepositoryProvider)
-                                                      .playTracks(snapshot.data!
-                                                          .map((t) =>
-                                                              t.toSourceTrack())
-                                                          .toList())
-                                                  : null,
-                                              icon: const Icon(
-                                                  Icons.play_arrow_rounded),
-                                              label: const Text('播放全部')))
-                                ])),
-                            PopupMenuButton<String>(
-                              tooltip: '歌手资料',
-                              onSelected: (action) async {
-                                if (action == 'refresh') {
-                                  await enrichment?.enrichNow(artist);
-                                } else if (action == 'collage') {
-                                  await enrichment?.forceCollage(artist);
-                                } else if (action == 'clear') {
-                                  await enrichment?.clearMetadata(artist);
-                                }
-                                await controller
-                                    .refreshArtist(artist.artistKey);
-                              },
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(
-                                    value: 'refresh', child: Text('重新获取资料')),
-                                PopupMenuItem(
-                                    value: 'collage', child: Text('使用专辑封面拼贴')),
-                                PopupMenuItem(
-                                    value: 'clear', child: Text('清除网络资料')),
-                              ],
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              tooltip: '返回',
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_rounded),
+            ),
+            const SizedBox(width: MeloSpacing.xs),
+            Text(
+              '歌手详情',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const Spacer(),
+            PopupMenuButton<String>(
+              tooltip: '歌手资料',
+              onSelected: (action) async {
+                if (action == 'refresh') {
+                  await enrichment?.enrichNow(artist);
+                } else if (action == 'collage') {
+                  await enrichment?.forceCollage(artist);
+                } else if (action == 'clear') {
+                  await enrichment?.clearMetadata(artist);
+                }
+                await controller.refreshArtist(artist.artistKey);
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'refresh', child: Text('重新获取资料')),
+                PopupMenuItem(value: 'collage', child: Text('使用专辑封面拼贴')),
+                PopupMenuItem(value: 'clear', child: Text('清除网络资料')),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: MeloSpacing.md),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox.square(
+              dimension: 150,
+              child: ClipOval(
+                child: _ArtworkCollage(
+                  paths: artwork,
+                  label: artist.displayName,
+                ),
+              ),
+            ),
+            const SizedBox(width: MeloSpacing.lg),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    artist.displayName,
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${artist.albumCount} 张专辑 · ${artist.trackCount} 首歌曲',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: MeloColors.textSecondary,
+                        ),
+                  ),
+                  if (metadata?.description case final description?)
+                    Padding(
+                      padding: const EdgeInsets.only(top: MeloSpacing.sm),
+                      child: Text(
+                        description,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: MeloColors.textSecondary,
                             ),
-                            IconButton(
-                                onPressed: () => Navigator.pop(context),
-                                icon: const Icon(Icons.close_rounded))
-                          ]),
-                      const SizedBox(height: MeloSpacing.lg),
-                      FutureBuilder<List<LocalLibraryAlbum>>(
-                        future: controller.albumsForArtist(artist.artistKey),
-                        builder: (context, snapshot) {
-                          final albums = snapshot.data ?? const [];
-                          if (albums.isEmpty) {
-                            return const SizedBox.shrink();
-                          }
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '专辑',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(height: MeloSpacing.sm),
-                              SizedBox(
-                                height: 190,
-                                child: ListView.separated(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: albums.length,
-                                  separatorBuilder: (_, __) => const SizedBox(
-                                    width: MeloSpacing.sm,
-                                  ),
-                                  itemBuilder: (context, index) {
-                                    final album = albums[index];
-                                    return SizedBox(
-                                      width: 150,
-                                      child: _LibraryCard(
-                                        artwork: album.artworkPath == null
-                                            ? const []
-                                            : [album.artworkPath!],
-                                        title: album.title,
-                                        subtitle:
-                                            '${album.canonicalYear ?? '未知年份'} · ${album.trackCount} 首',
-                                        hasYearConflict: album.hasYearConflict,
-                                        onTap: () => showDialog<void>(
-                                          context: context,
-                                          builder: (_) => _AlbumDialog(
-                                            controller: controller,
-                                            album: album,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: MeloSpacing.md),
-                            ],
-                          );
-                        },
                       ),
-                      Text('全部歌曲',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800)),
-                      const SizedBox(height: MeloSpacing.sm),
-                      Expanded(
-                          child: FutureBuilder<List<LocalLibraryTrack>>(
-                              future:
-                                  controller.tracksForArtist(artist.artistKey),
-                              builder: (_, snapshot) => snapshot.hasData
-                                  ? LocalSongsView(
-                                      controller: controller,
-                                      tracks: snapshot.data)
-                                  : const Center(
-                                      child: CircularProgressIndicator()))),
-                    ]))));
+                    ),
+                  const SizedBox(height: MeloSpacing.md),
+                  FutureBuilder<List<LocalLibraryTrack>>(
+                    future: controller.tracksForArtist(artist.artistKey),
+                    builder: (_, snapshot) => FilledButton.icon(
+                      onPressed: snapshot.hasData
+                          ? () => ref
+                              .read(demoRepositoryProvider)
+                              .playTracks(snapshot.data!
+                                  .map((t) => t.toSourceTrack())
+                                  .toList())
+                          : null,
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: const Text('播放全部'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: MeloSpacing.lg),
+        FutureBuilder<List<LocalLibraryAlbum>>(
+          future: controller.albumsForArtist(artist.artistKey),
+          builder: (context, snapshot) {
+            final albums = snapshot.data ?? const [];
+            if (albums.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '专辑',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: MeloSpacing.sm),
+                SizedBox(
+                  height: 200,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: albums.length,
+                    separatorBuilder: (_, __) => const SizedBox(
+                      width: MeloSpacing.sm,
+                    ),
+                    itemBuilder: (context, index) {
+                      final album = albums[index];
+                      return SizedBox(
+                        width: 150,
+                        child: _LibraryCard(
+                          artwork: album.artworkPath == null
+                              ? const []
+                              : [album.artworkPath!],
+                          title: album.title,
+                          subtitle:
+                              '${album.canonicalYear ?? '未知年份'} · ${album.trackCount} 首',
+                          hasYearConflict: album.hasYearConflict,
+                          onTap: () => onAlbumTap(album),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: MeloSpacing.md),
+              ],
+            );
+          },
+        ),
+        Text(
+          '全部歌曲',
+          style: Theme.of(context)
+              .textTheme
+              .titleMedium
+              ?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: MeloSpacing.sm),
+        Expanded(
+          child: FutureBuilder<List<LocalLibraryTrack>>(
+            future: controller.tracksForArtist(artist.artistKey),
+            builder: (_, snapshot) => snapshot.hasData
+                ? LocalSongsView(
+                    controller: controller,
+                    tracks: snapshot.data,
+                  )
+                : const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
