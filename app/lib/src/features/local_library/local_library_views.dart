@@ -631,10 +631,18 @@ class LocalArtistDetailView extends ConsumerWidget {
                       child: FutureBuilder<List<LocalLibraryAlbum>>(
                         future: controller.albumsForArtist(artist.artistKey),
                         builder: (context, snapshot) {
-                          final albums = snapshot.data ?? const [];
+                          final albums = [...(snapshot.data ?? const <LocalLibraryAlbum>[])];
                           if (albums.isEmpty) {
                             return const Center(child: Text('暂无专辑'));
                           }
+                          albums.sort((a, b) {
+                            final yearA = a.canonicalYear;
+                            final yearB = b.canonicalYear;
+                            if (yearA == null && yearB == null) return 0;
+                            if (yearA == null) return 1;
+                            if (yearB == null) return -1;
+                            return yearB.compareTo(yearA);
+                          });
                           return LayoutBuilder(
                             builder: (context, constraints) {
                               final maxWidth = constraints.maxWidth;

@@ -253,7 +253,7 @@ class ApeParser extends TagParser<ApeMetadata> {
 
     switch (itemType) {
       case 0:
-        _parseTextItem(metadata, normalizedKey, value);
+        _parseTextItem(metadata, normalizedKey, key, value);
         break;
       case 1:
         _parseBinaryItem(metadata, normalizedKey, value);
@@ -267,6 +267,7 @@ class ApeParser extends TagParser<ApeMetadata> {
   void _parseTextItem(
     ApeMetadata metadata,
     String normalizedKey,
+    String originalKey,
     Uint8List value,
   ) {
     final text = utf8.decode(value, allowMalformed: true);
@@ -274,8 +275,16 @@ class ApeParser extends TagParser<ApeMetadata> {
     // APEv2 text items can contain multiple values separated by NUL.
     final values = text.split('\u0000').where((entry) => entry.isNotEmpty);
 
+    bool isFirst = true;
     for (final entry in values) {
-      _applyTextEntry(metadata, normalizedKey, entry);
+      _applyTextEntry(
+        metadata,
+        normalizedKey,
+        originalKey,
+        entry,
+        isFirst: isFirst,
+      );
+      isFirst = false;
     }
   }
 
@@ -328,18 +337,31 @@ class ApeParser extends TagParser<ApeMetadata> {
     };
   }
 
-  void _applyTextEntry(ApeMetadata metadata, String key, String value) {
-    switch (key) {
+  void _applyTextEntry(
+    ApeMetadata metadata,
+    String normalizedKey,
+    String originalKey,
+    String value, {
+    required bool isFirst,
+  }) {
+    final isStandardKey = originalKey.toUpperCase() == normalizedKey;
+    switch (normalizedKey) {
       case 'TITLE':
         metadata.title = value;
         break;
       case 'ARTIST':
         final normalized = _normalizedCredit(value);
         if (normalized != null) {
-          if (!metadata.artists.contains(normalized)) {
+          if (isStandardKey && isFirst) {
+            metadata.artists.clear();
             metadata.artists.add(normalized);
+            metadata.artist = normalized;
+          } else {
+            if (!metadata.artists.contains(normalized)) {
+              metadata.artists.add(normalized);
+            }
+            metadata.artist ??= normalized;
           }
-          metadata.artist ??= normalized;
         }
         break;
       case 'ALBUM':
@@ -348,19 +370,26 @@ class ApeParser extends TagParser<ApeMetadata> {
       case 'ALBUMARTIST':
         final normalized = _normalizedCredit(value);
         if (normalized != null) {
-          if (!metadata.albumArtists.contains(normalized)) {
+          if (isStandardKey && isFirst) {
+            metadata.albumArtists.clear();
             metadata.albumArtists.add(normalized);
+            metadata.albumArtist = normalized;
+          } else {
+            if (!metadata.albumArtists.contains(normalized)) {
+              metadata.albumArtists.add(normalized);
+            }
+            metadata.albumArtist ??= normalized;
           }
-          metadata.albumArtist ??= normalized;
         }
         break;
       case 'TRACKNUMBER':
         final (number, total) = _parseNumberPair(value);
-        if (number != null) {
-          metadata.trackNumber = number;
-        }
-        if (total != null) {
-          metadata.trackTotal = total;
+        if (isStandardKey && isFirst) {
+          if (number != null) metadata.trackNumber = number;
+          if (total != null) metadata.trackTotal = total;
+        } else {
+          if (number != null) metadata.trackNumber ??= number;
+          if (total != null) metadata.trackTotal ??= total;
         }
         break;
       case 'TRACKTOTAL' || 'TOTALTRACKS':
@@ -368,11 +397,12 @@ class ApeParser extends TagParser<ApeMetadata> {
         break;
       case 'DISCNUMBER':
         final (number, total) = _parseNumberPair(value);
-        if (number != null) {
-          metadata.discNumber = number;
-        }
-        if (total != null) {
-          metadata.discTotal = total;
+        if (isStandardKey && isFirst) {
+          if (number != null) metadata.discNumber = number;
+          if (total != null) metadata.discTotal = total;
+        } else {
+          if (number != null) metadata.discNumber ??= number;
+          if (total != null) metadata.discTotal ??= total;
         }
         break;
       case 'DISCTOTAL' || 'TOTALDISCS':
@@ -381,9 +411,13 @@ class ApeParser extends TagParser<ApeMetadata> {
       case 'DATE':
         final parsedDate = _parseDate(value);
         if (parsedDate != null) {
-          metadata.date = parsedDate;
+          if (isStandardKey && isFirst) {
+            metadata.date = parsedDate;
+          } else {
+            metadata.date ??= parsedDate;
+          }
         } else {
-          metadata.unknowns[key] = value;
+          metadata.unknowns[normalizedKey] = value;
         }
         break;
       case 'GENRE':
@@ -411,7 +445,7 @@ class ApeParser extends TagParser<ApeMetadata> {
         metadata.language.add(value);
         break;
       default:
-        metadata.unknowns[key] = value;
+        metadata.unknowns[normalizedKey] = value;
         break;
     }
   }

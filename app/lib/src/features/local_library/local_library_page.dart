@@ -499,42 +499,45 @@ class _RootsDialog extends StatelessWidget {
   final LocalLibraryController controller;
   final VoidCallback onAdd;
   @override
-  Widget build(BuildContext context) => AlertDialog(
-        title: const Text('管理音乐目录'),
-        content: SizedBox(
-          width: 620,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            for (final root in controller.roots)
-              ListTile(
-                leading: const Icon(Icons.folder_rounded),
-                title: Text(root.displayName),
-                subtitle: Text(root.lastError ?? root.path,
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
-                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  IconButton(
-                      tooltip: '扫描',
-                      onPressed: controller.isScanning
-                          ? null
-                          : () => controller.scanRoot(root.id),
-                      icon: const Icon(Icons.refresh_rounded)),
-                  IconButton(
-                      tooltip: '移除索引（不会删除文件）',
-                      onPressed: () => controller.removeRoot(root.id),
-                      icon: const Icon(Icons.delete_outline_rounded)),
-                ]),
-              ),
-            Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                    onPressed: onAdd,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('添加音乐目录'))),
-          ]),
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) => AlertDialog(
+          title: const Text('管理音乐目录'),
+          content: SizedBox(
+            width: 620,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              for (final root in controller.roots)
+                ListTile(
+                  leading: const Icon(Icons.folder_rounded),
+                  title: Text(root.displayName),
+                  subtitle: Text(root.lastError ?? root.path,
+                      maxLines: 2, overflow: TextOverflow.ellipsis),
+                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                    IconButton(
+                        tooltip: '扫描',
+                        onPressed: controller.isScanning
+                            ? null
+                            : () => controller.scanRoot(root.id),
+                        icon: const Icon(Icons.refresh_rounded)),
+                    IconButton(
+                        tooltip: '移除索引（不会删除文件）',
+                        onPressed: () => controller.removeRoot(root.id),
+                        icon: const Icon(Icons.delete_outline_rounded)),
+                  ]),
+                ),
+              Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                      onPressed: onAdd,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('添加音乐目录'))),
+            ]),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context), child: const Text('完成'))
+          ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('完成'))
-        ],
       );
 }
 

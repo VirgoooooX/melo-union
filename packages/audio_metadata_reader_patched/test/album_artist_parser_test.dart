@@ -77,6 +77,44 @@ void main() {
     expect(metadata.albumArtist, 'Album Artist');
     expect(metadata.albumArtists, ['Album Artist', 'Album Credit']);
   });
+
+  test('OGG fixture with trailing APEv2 tag is parsed as VorbisMetadata', () {
+    final temp = Directory.systemTemp.createTempSync('melo_ogg_ape_test_');
+    final file = File('${temp.path}/artists_with_ape.ogg');
+    addTearDown(() => temp.deleteSync(recursive: true));
+
+    final oggBytes = _oggFixture([
+      'ARTIST=Track Artist',
+      'ALBUMARTIST=Album Artist',
+    ]);
+    final apeBytes = _apeFixture({
+      'ARTIST': 'Ape Track Artist',
+    });
+
+    file.writeAsBytesSync([...oggBytes, ...apeBytes]);
+
+    final rawMetadata = readAllMetadata(file, getImage: false);
+    expect(rawMetadata, isA<VorbisMetadata>());
+    expect((rawMetadata as VorbisMetadata).artist, ['Track Artist']);
+
+    final highLevelMetadata = readMetadata(file, getImage: false);
+    expect(highLevelMetadata.artist, 'Track Artist');
+  });
+
+  test('APE fixture prefers standard ALBUMARTIST over non-standard Album Artist', () {
+    final temp = Directory.systemTemp.createTempSync('melo_ape_standard_test_');
+    final file = File('${temp.path}/artists.ape');
+    addTearDown(() => temp.deleteSync(recursive: true));
+    file.writeAsBytesSync(_apeFixture({
+      'Album Artist': 'Garbled Album Artist',
+      'ALBUMARTIST': 'Correct Album Artist',
+    }));
+
+    final metadata = readAllMetadata(file, getImage: false) as ApeMetadata;
+
+    expect(metadata.albumArtist, 'Correct Album Artist');
+    expect(metadata.albumArtists, ['Correct Album Artist']);
+  });
 }
 
 List<int> _oggFixture(List<String> comments) {
