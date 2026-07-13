@@ -222,6 +222,9 @@ class MeloDesktopTrackRow extends StatelessWidget {
     this.isCached = false,
     this.onDoubleTap,
     this.trailing,
+    this.titleFlex = 3,
+    this.albumFlex = 3,
+    this.yearWidth,
     super.key,
   });
 
@@ -237,6 +240,9 @@ class MeloDesktopTrackRow extends StatelessWidget {
   final bool isCached;
   final VoidCallback? onDoubleTap;
   final Widget? trailing;
+  final int titleFlex;
+  final int albumFlex;
+  final double? yearWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -273,7 +279,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
             ),
             const SizedBox(width: MeloSpacing.md),
             Expanded(
-              flex: 3,
+              flex: titleFlex,
               child: Row(
                 children: [
                   MeloTrackCover(
@@ -296,7 +302,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
             ),
             if (subtitle != null)
               Expanded(
-                flex: 3,
+                flex: albumFlex,
                 child: Text(
                   subtitle!,
                   maxLines: 1,
@@ -309,7 +315,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
               )
             else if (album != null)
               Expanded(
-                flex: 3,
+                flex: albumFlex,
                 child: Text(
                   album!,
                   maxLines: 1,
@@ -322,7 +328,7 @@ class MeloDesktopTrackRow extends StatelessWidget {
               ),
             if (year != null)
               SizedBox(
-                width: MeloDimensions.desktopTrackMetadataColumnWidth,
+                width: yearWidth ?? MeloDimensions.desktopTrackMetadataColumnWidth,
                 child: Text(
                   year!,
                   textAlign: TextAlign.center,

@@ -13,9 +13,20 @@ import '../../widgets/melo_components.dart';
 import '../../widgets/melo_track_row.dart';
 
 class LocalSongsView extends ConsumerWidget {
-  const LocalSongsView({super.key, required this.controller, this.tracks});
+  const LocalSongsView({
+    super.key,
+    required this.controller,
+    this.tracks,
+    this.titleFlex = 3,
+    this.albumFlex = 3,
+    this.yearWidth,
+  });
+
   final LocalLibraryController controller;
   final List<LocalLibraryTrack>? tracks;
+  final int titleFlex;
+  final int albumFlex;
+  final double? yearWidth;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,7 +43,11 @@ class LocalSongsView extends ConsumerWidget {
       child: ClipRRect(
         borderRadius: MeloRadii.sm,
         child: Column(children: [
-          const _TrackHeader(),
+          _TrackHeader(
+            titleFlex: titleFlex,
+            albumFlex: albumFlex,
+            yearWidth: yearWidth,
+          ),
           const Divider(height: 1, color: MeloColors.border),
           Expanded(
               child: ListView.builder(
@@ -59,6 +74,9 @@ class LocalSongsView extends ConsumerWidget {
                 isActive: currentRef == track.ref,
                 onDoubleTap: () =>
                     unawaited(repository.playOrToggleTrack(track)),
+                titleFlex: titleFlex,
+                albumFlex: albumFlex,
+                yearWidth: yearWidth,
                 trailing: SizedBox(
                     width: MeloDimensions.desktopTrackActionColumnWidth,
                     child: Center(
@@ -248,12 +266,24 @@ class _LibraryCardState extends State<_LibraryCard> {
                           Align(
                               alignment: Alignment.bottomRight,
                               child: Padding(
-                                  padding: const EdgeInsets.all(MeloSpacing.sm),
-                                  child: FloatingActionButton.small(
-                                      heroTag: null,
-                                      onPressed: widget.onTap,
-                                      child: const Icon(
-                                          Icons.play_arrow_rounded)))),
+                                  padding: const EdgeInsets.all(6.0),
+                                  child: Material(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    shape: const CircleBorder(),
+                                    elevation: 2,
+                                    child: InkWell(
+                                      customBorder: const CircleBorder(),
+                                      onTap: widget.onTap,
+                                      child: const SizedBox.square(
+                                        dimension: 30,
+                                        child: Icon(
+                                          Icons.play_arrow_rounded,
+                                          color: Colors.white,
+                                          size: 18,
+                                        ),
+                                      ),
+                                    ),
+                                  ))),
                       ])),
                       const SizedBox(height: MeloSpacing.sm),
                       Text(widget.title,
@@ -525,12 +555,34 @@ class LocalArtistDetailView extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    artist.displayName,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          artist.displayName,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      const SizedBox(width: MeloSpacing.md),
+                      FutureBuilder<List<LocalLibraryTrack>>(
+                        future: controller.tracksForArtist(artist.artistKey),
+                        builder: (_, snapshot) => FilledButton.icon(
+                          onPressed: snapshot.hasData
+                              ? () => ref
+                                  .read(demoRepositoryProvider)
+                                  .playTracks(snapshot.data!
+                                      .map((t) => t.toSourceTrack())
+                                      .toList())
+                              : null,
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text('播放全部'),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -551,95 +603,108 @@ class LocalArtistDetailView extends ConsumerWidget {
                             ),
                       ),
                     ),
-                  const SizedBox(height: MeloSpacing.md),
-                  FutureBuilder<List<LocalLibraryTrack>>(
-                    future: controller.tracksForArtist(artist.artistKey),
-                    builder: (_, snapshot) => FilledButton.icon(
-                      onPressed: snapshot.hasData
-                          ? () => ref
-                              .read(demoRepositoryProvider)
-                              .playTracks(snapshot.data!
-                                  .map((t) => t.toSourceTrack())
-                                  .toList())
-                          : null,
-                      icon: const Icon(Icons.play_arrow_rounded),
-                      label: const Text('播放全部'),
-                    ),
-                  ),
                 ],
               ),
             ),
           ],
         ),
         const SizedBox(height: MeloSpacing.lg),
-        FutureBuilder<List<LocalLibraryAlbum>>(
-          future: controller.albumsForArtist(artist.artistKey),
-          builder: (context, snapshot) {
-            final albums = snapshot.data ?? const [];
-            if (albums.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '专辑',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: MeloSpacing.sm),
-                SizedBox(
-                  height: 200,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: albums.length,
-                    separatorBuilder: (_, __) => const SizedBox(
-                      width: MeloSpacing.sm,
-                    ),
-                    itemBuilder: (context, index) {
-                      final album = albums[index];
-                      return SizedBox(
-                        width: 150,
-                        child: _LibraryCard(
-                          artwork: album.artworkPath == null
-                              ? const []
-                              : [album.artworkPath!],
-                          title: album.title,
-                          subtitle:
-                              '${album.canonicalYear ?? '未知年份'} · ${album.trackCount} 首',
-                          hasYearConflict: album.hasYearConflict,
-                          onTap: () => onAlbumTap(album),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: MeloSpacing.md),
-              ],
-            );
-          },
-        ),
-        Text(
-          '全部歌曲',
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: MeloSpacing.sm),
         Expanded(
-          child: FutureBuilder<List<LocalLibraryTrack>>(
-            future: controller.tracksForArtist(artist.artistKey),
-            builder: (_, snapshot) => snapshot.hasData
-                ? LocalSongsView(
-                    controller: controller,
-                    tracks: snapshot.data,
-                  )
-                : const Center(
-                    child: CircularProgressIndicator(),
-                  ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left side: Albums (3-column grid)
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '专辑',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: MeloSpacing.sm),
+                    Expanded(
+                      child: FutureBuilder<List<LocalLibraryAlbum>>(
+                        future: controller.albumsForArtist(artist.artistKey),
+                        builder: (context, snapshot) {
+                          final albums = snapshot.data ?? const [];
+                          if (albums.isEmpty) {
+                            return const Center(child: Text('暂无专辑'));
+                          }
+                          return LayoutBuilder(
+                            builder: (context, constraints) {
+                              final maxWidth = constraints.maxWidth;
+                              const spacing = 16.0; // MeloSpacing.md is 16.0
+                              final cardWidth = (maxWidth - (spacing * 2)) / 3;
+                              final cardHeight = cardWidth + 52.0; // 52.0 fits padding and text perfectly
+                              final childAspectRatio = cardWidth / cardHeight;
+
+                              return GridView.builder(
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  mainAxisSpacing: MeloSpacing.md,
+                                  crossAxisSpacing: MeloSpacing.md,
+                                  childAspectRatio: childAspectRatio,
+                                ),
+                                itemCount: albums.length,
+                                itemBuilder: (context, index) {
+                                  final album = albums[index];
+                                  return _LibraryCard(
+                                    artwork: album.artworkPath == null ? const [] : [album.artworkPath!],
+                                    title: album.title,
+                                    subtitle: '${album.canonicalYear ?? '未知年份'} · ${album.trackCount} 首',
+                                    hasYearConflict: album.hasYearConflict,
+                                    onTap: () => onAlbumTap(album),
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: MeloSpacing.xl),
+              // Right side: All Songs
+              Expanded(
+                flex: 5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '全部歌曲',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: MeloSpacing.sm),
+                    Expanded(
+                      child: FutureBuilder<List<LocalLibraryTrack>>(
+                        future: controller.tracksForArtist(artist.artistKey),
+                        builder: (_, snapshot) => snapshot.hasData
+                            ? LocalSongsView(
+                                controller: controller,
+                                tracks: snapshot.data,
+                                titleFlex: 5,
+                                albumFlex: 3,
+                                yearWidth: 80.0,
+                              )
+                            : const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -706,7 +771,16 @@ class _AlbumYearConflictDetails extends StatelessWidget {
 }
 
 class _TrackHeader extends StatelessWidget {
-  const _TrackHeader();
+  const _TrackHeader({
+    this.titleFlex = 3,
+    this.albumFlex = 3,
+    this.yearWidth,
+  });
+
+  final int titleFlex;
+  final int albumFlex;
+  final double? yearWidth;
+
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -720,10 +794,10 @@ class _TrackHeader extends StatelessWidget {
               width: 32,
               child: Text('#', style: style, textAlign: TextAlign.center)),
           const SizedBox(width: MeloSpacing.md),
-          Expanded(flex: 3, child: Text('歌曲', style: style)),
-          Expanded(flex: 3, child: Text('专辑', style: style)),
+          Expanded(flex: titleFlex, child: Text('歌曲', style: style)),
+          Expanded(flex: albumFlex, child: Text('专辑', style: style)),
           SizedBox(
-              width: MeloDimensions.desktopTrackMetadataColumnWidth,
+              width: yearWidth ?? MeloDimensions.desktopTrackMetadataColumnWidth,
               child: Text('年份', style: style, textAlign: TextAlign.center)),
           SizedBox(
               width: MeloDimensions.desktopTrackActionColumnWidth,
