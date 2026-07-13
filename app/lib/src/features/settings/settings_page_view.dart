@@ -27,7 +27,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 1120;
     final mobile = MediaQuery.sizeOf(context).width < 960;
     final repository = ref.watch(demoRepositoryProvider);
     if (mobile) {
@@ -37,62 +36,45 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       );
     }
 
+    final tabs = <ProviderTabItem>[
+      for (final section in _SettingsSection.values)
+        ProviderTabItem(
+          id: section.name,
+          label: section.label,
+          leading: Icon(section.icon, size: 18),
+        ),
+    ];
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 22, 28, 18),
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SettingsHeader(section: _selected),
-          const SizedBox(height: MeloSpacing.lg),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ProviderTabs(
+              items: tabs,
+              selectedId: _selected.name,
+              onSelected: (id) {
+                final section = _SettingsSection.values.firstWhere(
+                  (s) => s.name == id,
+                  orElse: () => _SettingsSection.sources,
+                );
+                setState(() => _selected = section);
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
           Expanded(
-            child: compact
-                ? Column(
-                    children: [
-                      _SettingsNav(
-                        selected: _selected,
-                        horizontal: true,
-                        onSelected: (value) =>
-                            setState(() => _selected = value),
-                      ),
-                      const SizedBox(height: MeloSpacing.md),
-                      Expanded(
-                        child: _SettingsContent(
-                          section: _selected,
-                          wifiOnly: _wifiOnly,
-                          playbackQuality: repository.playbackQuality,
-                          onWifiOnlyChanged: (value) =>
-                              setState(() => _wifiOnly = value),
-                          onPlaybackQualityChanged:
-                              repository.setPlaybackQuality,
-                        ),
-                      ),
-                    ],
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 224,
-                        child: _SettingsNav(
-                          selected: _selected,
-                          onSelected: (value) =>
-                              setState(() => _selected = value),
-                        ),
-                      ),
-                      const SizedBox(width: MeloSpacing.xl),
-                      Expanded(
-                        child: _SettingsContent(
-                          section: _selected,
-                          wifiOnly: _wifiOnly,
-                          playbackQuality: repository.playbackQuality,
-                          onWifiOnlyChanged: (value) =>
-                              setState(() => _wifiOnly = value),
-                          onPlaybackQualityChanged:
-                              repository.setPlaybackQuality,
-                        ),
-                      ),
-                    ],
-                  ),
+            child: _SettingsContent(
+              section: _selected,
+              wifiOnly: _wifiOnly,
+              playbackQuality: repository.playbackQuality,
+              onWifiOnlyChanged: (value) =>
+                  setState(() => _wifiOnly = value),
+              onPlaybackQualityChanged:
+                  repository.setPlaybackQuality,
+            ),
           ),
         ],
       ),
@@ -524,141 +506,6 @@ class _MobileMoreSourcesCard extends ConsumerWidget {
                   onPressed: () => Navigator.pop(context),
                   child: const Text('关闭'),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsHeader extends StatelessWidget {
-  const _SettingsHeader({required this.section});
-
-  final _SettingsSection section;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: const BoxDecoration(
-            color: MeloColors.primary50,
-            borderRadius: MeloRadii.md,
-          ),
-          child: Icon(section.icon, color: MeloColors.primary700, size: 22),
-        ),
-        const SizedBox(width: MeloSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '设置',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '管理音乐来源、播放行为与应用偏好。',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: MeloColors.textSecondary,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SettingsNav extends StatelessWidget {
-  const _SettingsNav({
-    required this.selected,
-    required this.onSelected,
-    this.horizontal = false,
-  });
-
-  final _SettingsSection selected;
-  final ValueChanged<_SettingsSection> onSelected;
-  final bool horizontal;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      for (final section in _SettingsSection.values)
-        _SettingsNavItem(
-          section: section,
-          selected: section == selected,
-          horizontal: horizontal,
-          onTap: () => onSelected(section),
-        ),
-    ];
-
-    final content = horizontal
-        ? SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: items),
-          )
-        : Column(children: items);
-
-    return _SettingsSurface(
-      padding: EdgeInsets.all(horizontal ? MeloSpacing.xs : MeloSpacing.sm),
-      child: content,
-    );
-  }
-}
-
-class _SettingsNavItem extends StatelessWidget {
-  const _SettingsNavItem({
-    required this.section,
-    required this.selected,
-    required this.horizontal,
-    required this.onTap,
-  });
-
-  final _SettingsSection section;
-  final bool selected;
-  final bool horizontal;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = selected ? MeloColors.primary700 : MeloColors.textPrimary;
-    return Padding(
-      padding: EdgeInsets.only(
-        right: horizontal ? MeloSpacing.xs : 0,
-        bottom: horizontal ? 0 : MeloSpacing.xs,
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: MeloRadii.sm,
-        child: Ink(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: MeloSpacing.sm),
-          decoration: BoxDecoration(
-            color: selected ? MeloColors.primary50 : Colors.transparent,
-            borderRadius: MeloRadii.sm,
-            border: Border.all(
-              color: selected ? MeloColors.primary100 : Colors.transparent,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: horizontal ? MainAxisSize.min : MainAxisSize.max,
-            children: [
-              Icon(section.icon, color: color, size: 19),
-              const SizedBox(width: MeloSpacing.xs),
-              Text(
-                section.label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: color,
-                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                    ),
               ),
             ],
           ),

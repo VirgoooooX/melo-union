@@ -21,6 +21,7 @@ import '../../presentation/app_destination.dart';
 import '../../presentation/provider_presentation.dart';
 import '../../widgets/melo_components.dart';
 import '../../widgets/melo_logo_mark.dart';
+import '../../widgets/provider_tabs.dart';
 
 part 'settings_page_view.dart';
 part 'settings_audio_cache_card.dart';

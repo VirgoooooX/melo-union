@@ -40,13 +40,42 @@ class _AllFavoritesPageState extends ConsumerState<AllFavoritesPage> {
           entry.provider.isAuthenticated &&
           !entryIds.contains(descriptor.id);
     });
+
+    // Sort provider entries by the most recent likedAt timestamp so that
+    // providers with recently-added favorites appear first.
+    final favoritesData = repository.lastFavoritesData;
+    final sortedEntries = List<ProviderRegistryEntry>.from(entries);
+    if (favoritesData != null && favoritesData.isNotEmpty) {
+      // Build a map: providerId -> latest likedAt across all favorites.
+      final latestLikedAt = <String, DateTime>{};
+      for (final track in favoritesData) {
+        for (final variant in track.variants) {
+          final pid = variant.ref.providerId.value;
+          final likedAt = variant.likedAt;
+          if (likedAt == null) continue;
+          final existing = latestLikedAt[pid];
+          if (existing == null || likedAt.isAfter(existing)) {
+            latestLikedAt[pid] = likedAt;
+          }
+        }
+      }
+      sortedEntries.sort((a, b) {
+        final aTime = latestLikedAt[a.descriptor.id.value];
+        final bTime = latestLikedAt[b.descriptor.id.value];
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime); // Most recent first.
+      });
+    }
+
     final tabs = <ProviderTabItem>[
       const ProviderTabItem(
         id: 'all',
         label: '全部喜欢',
         leading: MeloBrandIcon(),
       ),
-      for (final entry in entries)
+      for (final entry in sortedEntries)
         ProviderTabItem(
           id: entry.descriptor.id.value,
           label: meloProviderLabel(entry.descriptor.id),
