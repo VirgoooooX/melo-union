@@ -44,7 +44,8 @@ final class NeteaseQrLoginResult {
   final String? message;
 }
 
-final class NeteaseMusicProvider implements MusicProvider {
+final class NeteaseMusicProvider
+    implements MusicProvider, ArtistMetadataProvider {
   NeteaseMusicProvider({
     NeteaseCredentials? credentials,
     http.Client? client,
@@ -317,6 +318,90 @@ final class NeteaseMusicProvider implements MusicProvider {
     } catch (_) {
       return initialTracks;
     }
+  }
+
+  @override
+  Future<List<ProviderArtistCandidate>> searchArtistMetadata({
+    required String artistName,
+    required List<ArtistMatchTrack> samples,
+    int limit = 5,
+  }) async {
+    final normalizedName = artistName.trim();
+    if (normalizedName.isEmpty || limit <= 0) return const [];
+    final queries = <String>[
+      if (samples.isNotEmpty) '$normalizedName ${samples.first.title}',
+      normalizedName,
+    ];
+    final matches = <String, _NeteaseArtistMatch>{};
+    for (final query in queries) {
+      final payload = await _getJson(
+        '/api/search/get/web',
+        query: {'s': query, 'type': '1', 'limit': '30', 'offset': '0'},
+      );
+      final result = _jsonMap(payload['result']);
+      final songs = result['songs'] as List<Object?>? ?? const [];
+      for (final rawSong in songs.whereType<Map<Object?, Object?>>()) {
+        final song = _stringMap(rawSong);
+        final songArtists =
+            (song['artists'] ?? song['ar']) as List<Object?>? ?? const [];
+        for (final rawArtist
+            in songArtists.whereType<Map<Object?, Object?>>()) {
+          final artist = _stringMap(rawArtist);
+          final id = artist['id']?.toString() ?? '';
+          final name = artist['name']?.toString().trim() ?? '';
+          if (id.isEmpty ||
+              name.isEmpty ||
+              _normalizedText(name) != _normalizedText(normalizedName)) {
+            continue;
+          }
+          final match = matches.putIfAbsent(
+            id,
+            () => _NeteaseArtistMatch(id: id, name: name),
+          );
+          match.score += _sampleScore(song, samples);
+          match.songIds.add(song['id']?.toString() ?? '');
+        }
+      }
+    }
+    final ranked = matches.values.toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
+    return ranked.take(limit).map((match) {
+      return ProviderArtistCandidate(
+        artist: ProviderArtistRef(
+          providerId: descriptor.id,
+          artistId: match.id,
+          name: match.name,
+        ),
+        providerScore: match.score,
+      );
+    }).toList(growable: false);
+  }
+
+  @override
+  Future<ProviderArtistMetadata?> getArtistMetadata(String artistId) async {
+    final id = artistId.trim();
+    if (id.isEmpty) return null;
+    final payload = await _getJson('/api/artist/$id');
+    final artist = _jsonMap(payload['artist']);
+    final name = artist['name']?.toString().trim() ?? '';
+    if (name.isEmpty) return null;
+    final aliases = (artist['alias'] as List<Object?>? ?? const [])
+        .map((value) => value.toString().trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+    return ProviderArtistMetadata(
+      artist: ProviderArtistRef(
+        providerId: descriptor.id,
+        artistId: id,
+        name: name,
+      ),
+      aliases: aliases,
+      avatar: _optionalUri(artist['picUrl'] ?? artist['img1v1Url']),
+      background: _optionalUri(artist['cover']),
+      description: _optionalText(
+        artist['briefDesc'] ?? artist['trans'] ?? payload['briefDesc'],
+      ),
+    );
   }
 
   @override
@@ -616,6 +701,10 @@ final class NeteaseMusicProvider implements MusicProvider {
     final album = _jsonMap(song['album'] ?? song['al']);
     final artists =
         (song['artists'] ?? song['ar']) as List<Object?>? ?? const [];
+    final artistMaps = artists
+        .whereType<Map<Object?, Object?>>()
+        .map(_stringMap)
+        .toList(growable: false);
     final fee = song['fee'] as num?;
     final status = song['status'] as num?;
 
@@ -628,8 +717,7 @@ final class NeteaseMusicProvider implements MusicProvider {
         },
       ),
       title: song['name']?.toString() ?? 'Untitled',
-      artists: artists
-          .whereType<Map<Object?, Object?>>()
+      artists: artistMaps
           .map((artist) => artist['name']?.toString() ?? '')
           .where((artist) => artist.isNotEmpty)
           .toList(growable: false),
@@ -642,6 +730,15 @@ final class NeteaseMusicProvider implements MusicProvider {
       isPlayable: status == null || status == 0,
       isDownloadable: true,
       isrc: song['isrc']?.toString(),
+      artistRefs: artistMaps
+          .map((artist) => ProviderArtistRef(
+                providerId: descriptor.id,
+                artistId: artist['id']?.toString() ?? '',
+                name: artist['name']?.toString() ?? '',
+              ))
+          .where((artist) =>
+              artist.artistId.isNotEmpty && artist.name.trim().isNotEmpty)
+          .toList(growable: false),
     ).copyWith(
       isPlayable: (status == null || status == 0) && fee != 4,
     );
@@ -864,6 +961,42 @@ final class NeteaseMusicProvider implements MusicProvider {
     return Uri.tryParse(text);
   }
 
+  String? _optionalText(Object? value) {
+    final text = value?.toString().trim();
+    return text == null || text.isEmpty ? null : text;
+  }
+
+  double _sampleScore(
+    Map<String, Object?> song,
+    List<ArtistMatchTrack> samples,
+  ) {
+    final title = _normalizedText(song['name']?.toString() ?? '');
+    final album = _jsonMap(song['album'] ?? song['al']);
+    final albumName = _normalizedText(album['name']?.toString() ?? '');
+    final durationMs =
+        (song['duration'] as num? ?? song['dt'] as num?)?.toInt() ?? 0;
+    var best = 1.0;
+    for (final sample in samples) {
+      if (_normalizedText(sample.title) != title) continue;
+      var score = 3.0;
+      if (sample.album != null && _normalizedText(sample.album!) == albumName) {
+        score += 1.0;
+      }
+      if (durationMs > 0 &&
+          (durationMs - sample.duration.inMilliseconds).abs() <= 2000) {
+        score += 1.0;
+      }
+      if (score > best) best = score;
+    }
+    return best;
+  }
+
+  String _normalizedText(String value) => value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[\p{P}\p{S}]', unicode: true), '');
+
   Iterable<List<T>> _chunks<T>(List<T> values, int size) sync* {
     for (var index = 0; index < values.length; index += size) {
       yield values.sublist(
@@ -872,6 +1005,14 @@ final class NeteaseMusicProvider implements MusicProvider {
       );
     }
   }
+}
+
+final class _NeteaseArtistMatch {
+  _NeteaseArtistMatch({required this.id, required this.name});
+  final String id;
+  final String name;
+  final Set<String> songIds = {};
+  double score = 0;
 }
 
 final class _ResolvedMedia {

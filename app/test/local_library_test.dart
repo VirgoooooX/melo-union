@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -55,6 +56,133 @@ void main() {
     expect(tracks.single.format, 'APE');
     expect(tracks.single.title, 'Local Song');
     expect(ape.existsSync(), isTrue);
+  });
+
+  test('scanner persists embedded and resolved album artist across rescans',
+      () async {
+    final album = Directory(path.join(temp.path, 'Album'))..createSync();
+    final first = File(path.join(album.path, 'one.mp3'))
+      ..writeAsBytesSync(_id3Fixture(
+        title: 'One',
+        trackArtist: 'Guest Artist',
+        albumArtist: 'Album Artist',
+        album: 'Shared Album',
+      ));
+    File(path.join(album.path, 'two.mp3')).writeAsBytesSync(_id3Fixture(
+      title: 'Two',
+      trackArtist: 'Track Artist',
+      albumArtist: 'Album Artist',
+      album: 'Shared Album',
+    ));
+    final root = LocalLibraryRoot(
+      id: 'root-artists',
+      path: temp.path,
+      displayName: 'Test',
+    );
+    final scanner = LocalLibraryScanner(
+      repository: repository,
+      artworkDirectory: Directory(path.join(temp.path, 'covers')),
+    );
+
+    await scanner.scan(root, onProgress: (_) {});
+
+    var tracks = await repository.listTracks();
+    expect(tracks, hasLength(2));
+    expect(
+      tracks.map((track) => track.embeddedAlbumArtist),
+      everyElement('Album Artist'),
+    );
+    expect(
+      tracks.map((track) => track.albumArtist),
+      everyElement('Album Artist'),
+    );
+    expect(
+      tracks.map((track) => track.albumArtistSource),
+      everyElement(LocalAlbumArtistSource.embeddedTag),
+    );
+    expect(
+      tracks.firstWhere((track) => track.title == 'One').artists,
+      ['Guest Artist'],
+    );
+
+    final overridden = tracks.first.copyWith(
+      albumArtist: 'Custom Library Artist',
+      albumArtistSource: LocalAlbumArtistSource.userOverride,
+    );
+    await repository.upsertTracks([overridden]);
+    await first.writeAsBytes([0], mode: FileMode.append, flush: true);
+    await scanner.scan(root, onProgress: (_) {});
+
+    tracks = await repository.listTracks();
+    expect(
+      tracks.map((track) => track.albumArtist),
+      everyElement('Custom Library Artist'),
+    );
+    expect(
+      tracks.firstWhere((track) => track.id == overridden.id).albumArtistSource,
+      LocalAlbumArtistSource.userOverride,
+    );
+    expect(
+      tracks.firstWhere((track) => track.id != overridden.id).albumArtistSource,
+      LocalAlbumArtistSource.albumConsensus,
+    );
+  });
+
+  test('scanner hydrates unchanged legacy tracks exactly once', () async {
+    final tagged = File(path.join(temp.path, 'tagged.mp3'))
+      ..writeAsBytesSync(_id3Fixture(
+        title: 'Hydrated Title',
+        trackArtist: 'Track Artist',
+        albumArtist: 'Album Artist',
+        album: 'Shared Album',
+      ));
+    final missing = File(path.join(temp.path, 'missing.ape'))
+      ..writeAsBytesSync(List<int>.generate(128, (index) => index));
+    final root = LocalLibraryRoot(
+      id: 'root-hydration',
+      path: temp.path,
+      displayName: 'Hydration',
+    );
+    await repository.upsertRoot(root);
+    await repository.upsertTracks([
+      _legacyTrack('legacy-tagged', root.id, tagged),
+      _legacyTrack('legacy-missing', root.id, missing),
+    ]);
+    final scanner = LocalLibraryScanner(
+      repository: repository,
+      artworkDirectory: Directory(path.join(temp.path, 'covers')),
+    );
+
+    await scanner.scan(root, onProgress: (_) {});
+
+    var tracks = await repository.listTracks();
+    final hydrated =
+        tracks.firstWhere((track) => track.filePath == tagged.path);
+    final withoutTag =
+        tracks.firstWhere((track) => track.filePath == missing.path);
+    expect(hydrated.title, 'Hydrated Title');
+    expect(hydrated.embeddedAlbumArtist, 'Album Artist');
+    expect(hydrated.albumArtist, 'Album Artist');
+    expect(
+      hydrated.albumArtistSource,
+      LocalAlbumArtistSource.embeddedTag,
+    );
+    expect(
+      withoutTag.albumArtistSource,
+      LocalAlbumArtistSource.trackArtistFallback,
+    );
+
+    await repository.upsertTracks([
+      withoutTag.copyWith(title: 'Skip After Hydration'),
+    ]);
+    await scanner.scan(root, onProgress: (_) {});
+
+    tracks = await repository.listTracks();
+    expect(
+      tracks.firstWhere((track) => track.filePath == missing.path).title,
+      'Skip After Hydration',
+      reason: 'A resolved missing tag must not be parsed again while unchanged',
+    );
   });
 
   test('local provider exposes favorites, lyrics and file playback ticket',
@@ -154,4 +282,63 @@ void main() {
         reason: '文件不存在时应抛可读异常而非静默返回空 ticket');
     expect((caught as ProviderException).message, contains('本地文件不存在'));
   });
+}
+
+List<int> _id3Fixture({
+  required String title,
+  required String trackArtist,
+  required String albumArtist,
+  required String album,
+}) {
+  final frames = <int>[
+    ..._id3TextFrame('TIT2', title),
+    ..._id3TextFrame('TPE1', trackArtist),
+    ..._id3TextFrame('TPE2', albumArtist),
+    ..._id3TextFrame('TALB', album),
+  ];
+  return [
+    ...'ID3'.codeUnits,
+    3,
+    0,
+    0,
+    ..._syncSafe(frames.length),
+    ...frames,
+  ];
+}
+
+List<int> _id3TextFrame(String id, String value) {
+  final payload = <int>[0, ...value.codeUnits];
+  final size = ByteData(4)..setUint32(0, payload.length);
+  return [
+    ...id.codeUnits,
+    ...size.buffer.asUint8List(),
+    0,
+    0,
+    ...payload,
+  ];
+}
+
+List<int> _syncSafe(int value) => [
+      (value >> 21) & 0x7f,
+      (value >> 14) & 0x7f,
+      (value >> 7) & 0x7f,
+      value & 0x7f,
+    ];
+
+LocalLibraryTrack _legacyTrack(String id, String rootId, File file) {
+  final stat = file.statSync();
+  return LocalLibraryTrack(
+    id: id,
+    rootId: rootId,
+    filePath: file.path,
+    relativePath: path.basename(file.path),
+    fileSize: stat.size,
+    modifiedAt: stat.modified,
+    fingerprint: 'legacy-$id',
+    title: 'Legacy Title',
+    artists: const ['Legacy Artist'],
+    duration: Duration.zero,
+    format: path.extension(file.path).substring(1).toUpperCase(),
+    albumArtistSource: LocalAlbumArtistSource.unresolved,
+  );
 }

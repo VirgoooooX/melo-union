@@ -72,6 +72,7 @@ void main() {
     expect(results.single.ref.trackId, '1901371647');
     expect(results.single.title, '孤勇者');
     expect(results.single.artists, ['陈奕迅']);
+    expect(results.single.artistRefs.single.artistId, '2116');
     expect(results.single.album, '孤勇者');
     expect(results.single.artwork.toString(),
         'https://p1.music.126.net/cover.jpg');
@@ -351,6 +352,85 @@ void main() {
     final result = await provider.checkQrLoginSession(session);
     expect(result.status, NeteaseQrLoginStatus.authorized);
     expect(result.credentials?.cookie, 'MUSIC_U=qr-cookie; NMTID=abc');
+  });
+
+  test('searches and loads NetEase artist metadata', () async {
+    final provider = NeteaseMusicProvider(
+      baseUri: Uri.parse('https://netease.test'),
+      client: MockClient((request) async {
+        if (request.url.path == '/api/search/get/web') {
+          return _jsonResponse({
+            'code': 200,
+            'result': {
+              'songs': [
+                {
+                  'id': 1,
+                  'name': '孤勇者',
+                  'duration': 256000,
+                  'artists': [
+                    {'id': 2116, 'name': '陈奕迅'},
+                  ],
+                  'album': {'name': '孤勇者'},
+                },
+              ],
+            },
+          });
+        }
+        if (request.url.path == '/api/artist/2116') {
+          return _jsonResponse({
+            'code': 200,
+            'artist': {
+              'id': 2116,
+              'name': '陈奕迅',
+              'alias': ['Eason Chan'],
+              'picUrl': 'https://img.test/eason.jpg',
+              'briefDesc': '歌手简介',
+            },
+          });
+        }
+        return http.Response('not found', 404);
+      }),
+    );
+
+    final candidates = await provider.searchArtistMetadata(
+      artistName: '陈奕迅',
+      samples: const [
+        ArtistMatchTrack(
+          title: '孤勇者',
+          album: '孤勇者',
+          duration: Duration(seconds: 256),
+        ),
+      ],
+    );
+    expect(candidates.single.artist.artistId, '2116');
+    expect(candidates.single.providerScore, greaterThan(4));
+
+    final metadata = await provider.getArtistMetadata('2116');
+    expect(metadata?.artist.name, '陈奕迅');
+    expect(metadata?.aliases, ['Eason Chan']);
+    expect(metadata?.avatar.toString(), 'https://img.test/eason.jpg');
+    expect(metadata?.description, '歌手简介');
+  });
+
+  test('NetEase artist metadata returns empty results for missing data',
+      () async {
+    final provider = NeteaseMusicProvider(
+      client: MockClient((request) async => _jsonResponse({
+            'code': 200,
+            if (request.url.path.contains('search'))
+              'result': {'songs': <Object?>[]}
+            else
+              'artist': <String, Object?>{},
+          })),
+    );
+    expect(
+      await provider.searchArtistMetadata(
+        artistName: 'Nobody',
+        samples: const [],
+      ),
+      isEmpty,
+    );
+    expect(await provider.getArtistMetadata('missing'), isNull);
   });
 }
 

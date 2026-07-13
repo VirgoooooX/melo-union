@@ -93,6 +93,8 @@ final class BackupCoordinator {
     String? accountPassword,
   }) async {
     await repository.persistNow();
+    final snapshot =
+        await repository.snapshotStore?.read() ?? repository.toSnapshot();
     final now = _now().toUtc();
     final accountVaultBytes = includeAccounts
         ? await accountVaultService.exportEncrypted(accountPassword ?? '')
@@ -100,7 +102,7 @@ final class BackupCoordinator {
     return BackupBuildResult(
       fileName: backupFileName(now),
       bytes: archiveService.createArchive(
-        snapshot: repository.toSnapshot(),
+        snapshot: snapshot,
         deviceName: await _deviceName(),
         platform: Platform.operatingSystem,
         accountVaultBytes: accountVaultBytes,

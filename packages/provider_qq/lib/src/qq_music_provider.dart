@@ -149,7 +149,7 @@ final class QqMusicQrLoginResult {
   final String? message;
 }
 
-final class QqMusicProvider implements MusicProvider {
+final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
   QqMusicProvider({
     QqMusicCredentials? credentials,
     http.Client? client,
@@ -510,6 +510,107 @@ final class QqMusicProvider implements MusicProvider {
         .map((item) => _trackFromSearch(_stringMap(item)))
         .where((track) => track.ref.trackId.isNotEmpty)
         .toList(growable: false);
+  }
+
+  @override
+  Future<List<ProviderArtistCandidate>> searchArtistMetadata({
+    required String artistName,
+    required List<ArtistMatchTrack> samples,
+    int limit = 5,
+  }) async {
+    final normalizedName = artistName.trim();
+    if (normalizedName.isEmpty || limit <= 0) return const [];
+    final queries = <String>[
+      if (samples.isNotEmpty) '$normalizedName ${samples.first.title}',
+      normalizedName,
+    ];
+    final matches = <String, _QqArtistMatch>{};
+    for (final query in queries) {
+      final uri = _searchBaseUri.replace(
+        path: '/soso/fcgi-bin/client_search_cp',
+        queryParameters: {'format': 'json', 'p': '1', 'n': '30', 'w': query},
+      );
+      final payload = await _getJson(uri);
+      final data = _jsonMap(payload['data']);
+      final song = _jsonMap(data['song']);
+      final list = song['list'] as List<Object?>? ?? const [];
+      for (final rawSong in list.whereType<Map<Object?, Object?>>()) {
+        final songMap = _stringMap(rawSong);
+        final singers = songMap['singer'] as List<Object?>? ?? const [];
+        for (final rawSinger in singers.whereType<Map<Object?, Object?>>()) {
+          final singer = _stringMap(rawSinger);
+          final id = _qqArtistId(singer);
+          final name = singer['name']?.toString().trim() ?? '';
+          if (id.isEmpty ||
+              name.isEmpty ||
+              _normalizedText(name) != _normalizedText(normalizedName)) {
+            continue;
+          }
+          final match = matches.putIfAbsent(
+            id,
+            () => _QqArtistMatch(id: id, name: name),
+          );
+          match.score += _sampleScore(songMap, samples);
+        }
+      }
+    }
+    final ranked = matches.values.toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
+    return ranked.take(limit).map((match) {
+      return ProviderArtistCandidate(
+        artist: ProviderArtistRef(
+          providerId: descriptor.id,
+          artistId: match.id,
+          name: match.name,
+        ),
+        avatar: _qqArtistImage(match.id),
+        providerScore: match.score,
+      );
+    }).toList(growable: false);
+  }
+
+  @override
+  Future<ProviderArtistMetadata?> getArtistMetadata(String artistId) async {
+    final id = artistId.trim();
+    if (id.isEmpty) return null;
+    final payload = await _musicuRequest({
+      'comm': {'ct': 24, 'cv': 0, 'format': 'json', 'platform': 'yqq.json'},
+      'req_1': {
+        'module': 'music.musichallSinger.SingerInfoInter',
+        'method': 'GetSingerDetail',
+        'param': {
+          'singer_mids': [id],
+          'ex_singer': 1,
+          'wiki_singer': 1,
+          'group_singer': 0,
+        },
+      },
+    });
+    final request = _jsonMap(payload['req_1']);
+    final data = _jsonMap(request['data']);
+    final singers = data['singer_list'] as List<Object?>? ?? const [];
+    if (singers.isEmpty || singers.first is! Map<Object?, Object?>) return null;
+    final singer = _stringMap(singers.first as Map<Object?, Object?>);
+    final basic = _jsonMap(singer['basic_info']);
+    final extra = _jsonMap(singer['ex_info']);
+    final name = _firstNonEmpty([
+      basic['name']?.toString(),
+      singer['name']?.toString(),
+    ]);
+    if (name.isEmpty) return null;
+    final description = _firstNonEmpty([
+      extra['desc']?.toString(),
+      singer['desc']?.toString(),
+    ]);
+    return ProviderArtistMetadata(
+      artist: ProviderArtistRef(
+        providerId: descriptor.id,
+        artistId: id,
+        name: name,
+      ),
+      avatar: _qqArtistImage(id),
+      description: description.isEmpty ? null : _stripHtml(description),
+    );
   }
 
   @override
@@ -1091,6 +1192,7 @@ final class QqMusicProvider implements MusicProvider {
     final mediaMid = _mediaMidFromSong(item, songMid);
     final albumMid = item['albummid']?.toString() ?? '';
     final artists = item['singer'] as List<Object?>? ?? const [];
+    final artistMaps = _artistMaps(artists);
     return SourceTrack(
       ref: ProviderTrackRef(
         providerId: descriptor.id,
@@ -1106,8 +1208,7 @@ final class QqMusicProvider implements MusicProvider {
       title: _stripHtml(item['songname']?.toString() ??
           item['name']?.toString() ??
           'Untitled'),
-      artists: artists
-          .whereType<Map<Object?, Object?>>()
+      artists: artistMaps
           .map((artist) => artist['name']?.toString() ?? '')
           .where((artist) => artist.isNotEmpty)
           .toList(growable: false),
@@ -1120,6 +1221,7 @@ final class QqMusicProvider implements MusicProvider {
       isFavorited: false,
       isPlayable: true,
       isDownloadable: true,
+      artistRefs: _artistRefs(artistMaps),
     );
   }
 
@@ -1614,6 +1716,64 @@ final class QqMusicProvider implements MusicProvider {
     return '';
   }
 
+  List<Map<String, Object?>> _artistMaps(List<Object?> values) => values
+      .whereType<Map<Object?, Object?>>()
+      .map(_stringMap)
+      .toList(growable: false);
+
+  List<ProviderArtistRef> _artistRefs(List<Map<String, Object?>> artists) =>
+      artists
+          .map((artist) => ProviderArtistRef(
+                providerId: descriptor.id,
+                artistId: _qqArtistId(artist),
+                name: artist['name']?.toString() ?? '',
+              ))
+          .where((artist) =>
+              artist.artistId.isNotEmpty && artist.name.trim().isNotEmpty)
+          .toList(growable: false);
+
+  String _qqArtistId(Map<String, Object?> artist) => _firstNonEmpty([
+        artist['mid']?.toString(),
+        artist['singermid']?.toString(),
+        artist['id']?.toString(),
+        artist['singerid']?.toString(),
+      ]);
+
+  Uri _qqArtistImage(String artistId) => Uri.parse(
+        'https://y.gtimg.cn/music/photo_new/T001R500x500M000$artistId.jpg',
+      );
+
+  double _sampleScore(
+    Map<String, Object?> song,
+    List<ArtistMatchTrack> samples,
+  ) {
+    final title = _normalizedText(
+      _stripHtml(song['songname']?.toString() ?? song['name']?.toString()),
+    );
+    final album = _normalizedText(_stripHtml(song['albumname']?.toString()));
+    final durationSeconds = (song['interval'] as num?)?.toInt() ?? 0;
+    var best = 1.0;
+    for (final sample in samples) {
+      if (_normalizedText(sample.title) != title) continue;
+      var score = 3.0;
+      if (sample.album != null && _normalizedText(sample.album!) == album) {
+        score += 1.0;
+      }
+      if (durationSeconds > 0 &&
+          (durationSeconds - sample.duration.inSeconds).abs() <= 2) {
+        score += 1.0;
+      }
+      if (score > best) best = score;
+    }
+    return best;
+  }
+
+  String _normalizedText(String value) => value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[\p{P}\p{S}]', unicode: true), '');
+
   int? _intValue(Object? value) {
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value);
@@ -1854,11 +2014,11 @@ final class QqMusicProvider implements MusicProvider {
     final mediaMid = _mediaMidFromSong(songData, songmid);
     final albumMid = songData['albummid']?.toString() ?? '';
     final artists = songData['singer'] as List<Object?>? ?? const [];
+    final artistMaps = _artistMaps(artists);
     return _buildQqTrack(
       songmid: songmid,
       title: songData['songname']?.toString() ?? 'Untitled',
-      artists: artists
-          .whereType<Map<Object?, Object?>>()
+      artists: artistMaps
           .map((s) => s['name']?.toString() ?? '')
           .where((n) => n.isNotEmpty)
           .toList(growable: false),
@@ -1872,6 +2032,7 @@ final class QqMusicProvider implements MusicProvider {
       likedAt: likedAt,
       likedAtSource: 'qq_import',
       likedAtPrecision: likedAt != null ? 'exact' : 'unknown',
+      artistRefs: _artistRefs(artistMaps),
     );
   }
 
@@ -1888,6 +2049,7 @@ final class QqMusicProvider implements MusicProvider {
     final albumMid =
         song['albummid']?.toString() ?? _nestedString(song['album'], 'mid');
     final artists = song['singer'] as List<Object?>? ?? const [];
+    final artistMaps = _artistMaps(artists);
     final albumName =
         song['albumname']?.toString() ?? _nestedString(song['album'], 'name');
     return _buildQqTrack(
@@ -1895,8 +2057,7 @@ final class QqMusicProvider implements MusicProvider {
       title: song['songname']?.toString() ??
           song['name']?.toString() ??
           'Untitled',
-      artists: artists
-          .whereType<Map<Object?, Object?>>()
+      artists: artistMaps
           .map((s) => s['name']?.toString() ?? '')
           .where((n) => n.isNotEmpty)
           .toList(growable: false),
@@ -1907,6 +2068,7 @@ final class QqMusicProvider implements MusicProvider {
       albumMid: albumMid,
       songId: song['songid']?.toString() ?? song['id']?.toString(),
       songType: _songTypeFromSong(song),
+      artistRefs: _artistRefs(artistMaps),
     );
   }
 
@@ -1948,6 +2110,7 @@ final class QqMusicProvider implements MusicProvider {
     required String songmid,
     required String title,
     required List<String> artists,
+    List<ProviderArtistRef> artistRefs = const [],
     String? album,
     required int intervalSeconds,
     required bool isFavorited,
@@ -1973,6 +2136,7 @@ final class QqMusicProvider implements MusicProvider {
       ),
       title: title,
       artists: artists,
+      artistRefs: artistRefs,
       album: album,
       duration: Duration(seconds: intervalSeconds),
       isFavorited: isFavorited,
@@ -2100,6 +2264,13 @@ final class QqMusicProvider implements MusicProvider {
     final https = url.replaceFirst(RegExp(r'^http:'), 'https:');
     return Uri.tryParse(https);
   }
+}
+
+final class _QqArtistMatch {
+  _QqArtistMatch({required this.id, required this.name});
+  final String id;
+  final String name;
+  double score = 0;
 }
 
 final class _ResolvedQqMedia {

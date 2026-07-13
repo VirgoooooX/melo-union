@@ -59,9 +59,46 @@ final class DriftMeloDataStore
     final localRepository = DriftLocalLibraryRepository(database);
     final localRoots = await localRepository.listRoots();
     final localTracks = await localRepository.listTracks(limit: 1000000);
+    final localMetadataRows =
+        await database.select(database.storedLocalArtistMetadata).get();
+    final localMatchRows =
+        await database.select(database.storedLocalTrackMatches).get();
     final localEncoded = _codec.encodeSnapshot(MeloDataSnapshot(
       localLibraryRoots: localRoots,
       localLibraryTracks: localTracks,
+      localArtistMetadata: [
+        for (final row in localMetadataRows)
+          LocalArtistMetadata(
+            artistKey: row.artistKey,
+            displayName: row.displayName,
+            status: ArtistMetadataStatus.values.firstWhere(
+                (v) => v.name == row.status,
+                orElse: () => ArtistMetadataStatus.pending),
+            sourceProviderId: row.sourceProviderId == null
+                ? null
+                : ProviderId(row.sourceProviderId!),
+            remoteArtistId: row.remoteArtistId,
+            remoteName: row.remoteName,
+            avatarUrl: row.avatarUrl,
+            backgroundUrl: row.backgroundUrl,
+            description: row.description,
+            confidence: row.confidence,
+            userConfirmed: row.userConfirmed,
+            fetchedAt: row.fetchedAt,
+            retryAfter: row.retryAfter,
+          ),
+      ],
+      localTrackMatches: [
+        for (final row in localMatchRows)
+          LocalTrackMatch(
+              remote: ProviderTrackRef(
+                  providerId: ProviderId(row.providerId),
+                  trackId: row.providerTrackId),
+              localTrackId: row.localTrackId,
+              method: row.matchMethod,
+              confidence: row.confidence,
+              updatedAt: row.updatedAt),
+      ],
     ));
 
     return _codec.decodeSnapshot({
@@ -94,6 +131,8 @@ final class DriftMeloDataStore
       ],
       'localLibraryRoots': localEncoded['localLibraryRoots'],
       'localLibraryTracks': localEncoded['localLibraryTracks'],
+      'localArtistMetadata': localEncoded['localArtistMetadata'],
+      'localTrackMatches': localEncoded['localTrackMatches'],
       'favoritesOverrides': _decodeOverrides(overrideRows),
       'favoriteProviderSnapshots': _decodeFavoriteProviderSnapshots(
         favoriteRows,
@@ -242,6 +281,22 @@ final class DriftMeloDataStore
         snapshot.localLibraryRoots,
         snapshot.localLibraryTracks,
       );
+    }
+    final repository = DriftLocalLibraryRepository(database);
+    // Ordinary app snapshots intentionally omit the independently managed
+    // local-library tables. Only replace these tables when a full backup or
+    // restore snapshot actually carries their contents.
+    if (snapshot.localArtistMetadata.isNotEmpty) {
+      await database.delete(database.storedLocalArtistMetadata).go();
+      for (final value in snapshot.localArtistMetadata) {
+        await repository.upsertArtistMetadata(value);
+      }
+    }
+    if (snapshot.localTrackMatches.isNotEmpty) {
+      await database.delete(database.storedLocalTrackMatches).go();
+      for (final value in snapshot.localTrackMatches) {
+        await repository.upsertLocalTrackMatch(value);
+      }
     }
   }
 

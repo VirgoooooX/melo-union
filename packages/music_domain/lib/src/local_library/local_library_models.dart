@@ -4,9 +4,42 @@ const localMusicProviderIdValue = 'local';
 
 ProviderId get localMusicProviderId => ProviderId(localMusicProviderIdValue);
 
+String normalizeLocalMetadata(String value) => value
+    .toLowerCase()
+    .replaceAll(RegExp(r'[\s\p{P}\p{S}]+', unicode: true), '')
+    .trim();
+
+String localArtistKey(String value) => value
+    .toLowerCase()
+    .replaceAll('\u3000', ' ')
+    .replaceAll('／', '/')
+    .replaceAll('\\', '/')
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim();
+
+String localAlbumKey(String artist, String album, [String? editionKey]) =>
+    '${localArtistKey(artist)}|${normalizeLocalMetadata(album)}|'
+    '${editionKey?.trim().toLowerCase() ?? ''}';
+
 enum LocalLibraryScanState { idle, scanning, completed, failed }
 
 enum LocalLibrarySortOrder { album, title, artist }
+
+enum LocalArtistSortOrder { name, albumCount, trackCount, recentlyAdded }
+
+enum LocalAlbumSortOrder { artist, title, year, recentlyAdded, trackCount }
+
+enum ArtistMetadataStatus { pending, matched, noMatch, failed, forcedCollage }
+
+enum LocalAlbumArtistSource {
+  unresolved,
+  embeddedTag,
+  directoryConsensus,
+  albumConsensus,
+  trackArtistFallback,
+  variousArtists,
+  userOverride,
+}
 
 final class LocalLibraryRoot {
   const LocalLibraryRoot({
@@ -58,6 +91,16 @@ final class LocalLibraryTrack {
     required this.format,
     this.album,
     this.genre,
+    this.genres = const [],
+    this.embeddedAlbumArtist,
+    this.albumArtist,
+    this.albumArtistSource = LocalAlbumArtistSource.unresolved,
+    this.albumEditionKey,
+    this.isrc,
+    DateTime? addedAt,
+    this.bitRate,
+    this.sampleRate,
+    this.bitDepth,
     this.year,
     this.trackNumber,
     this.discNumber,
@@ -66,7 +109,7 @@ final class LocalLibraryTrack {
     this.isAvailable = true,
     this.isFavorited = false,
     this.likedAt,
-  });
+  }) : addedAt = addedAt ?? modifiedAt;
 
   final String id;
   final String rootId;
@@ -81,6 +124,16 @@ final class LocalLibraryTrack {
   final String format;
   final String? album;
   final String? genre;
+  final List<String> genres;
+  final String? embeddedAlbumArtist;
+  final String? albumArtist;
+  final LocalAlbumArtistSource albumArtistSource;
+  final String? albumEditionKey;
+  final String? isrc;
+  final DateTime addedAt;
+  final int? bitRate;
+  final int? sampleRate;
+  final int? bitDepth;
   final int? year;
   final int? trackNumber;
   final int? discNumber;
@@ -89,6 +142,8 @@ final class LocalLibraryTrack {
   final bool isAvailable;
   final bool isFavorited;
   final DateTime? likedAt;
+
+  List<String> get trackArtists => artists;
 
   ProviderTrackRef get ref => ProviderTrackRef(
         providerId: localMusicProviderId,
@@ -106,6 +161,7 @@ final class LocalLibraryTrack {
         year: year,
         trackNumber: trackNumber,
         discNumber: discNumber,
+        isrc: isrc,
         artwork: artworkPath == null ? null : Uri.file(artworkPath!),
         // 本地曲一旦被索引即视为可点击播放；磁盘可用性在 ticket 解析阶段
         // （LocalMusicProvider.createPlaybackTicket）复核，不在此处叠加闸门——
@@ -129,6 +185,16 @@ final class LocalLibraryTrack {
     String? format,
     String? album,
     String? genre,
+    List<String>? genres,
+    String? embeddedAlbumArtist,
+    String? albumArtist,
+    LocalAlbumArtistSource? albumArtistSource,
+    String? albumEditionKey,
+    String? isrc,
+    DateTime? addedAt,
+    int? bitRate,
+    int? sampleRate,
+    int? bitDepth,
     int? year,
     int? trackNumber,
     int? discNumber,
@@ -153,6 +219,16 @@ final class LocalLibraryTrack {
         format: format ?? this.format,
         album: album ?? this.album,
         genre: genre ?? this.genre,
+        genres: genres ?? this.genres,
+        embeddedAlbumArtist: embeddedAlbumArtist ?? this.embeddedAlbumArtist,
+        albumArtist: albumArtist ?? this.albumArtist,
+        albumArtistSource: albumArtistSource ?? this.albumArtistSource,
+        albumEditionKey: albumEditionKey ?? this.albumEditionKey,
+        isrc: isrc ?? this.isrc,
+        addedAt: addedAt ?? this.addedAt,
+        bitRate: bitRate ?? this.bitRate,
+        sampleRate: sampleRate ?? this.sampleRate,
+        bitDepth: bitDepth ?? this.bitDepth,
         year: year ?? this.year,
         trackNumber: trackNumber ?? this.trackNumber,
         discNumber: discNumber ?? this.discNumber,
@@ -162,6 +238,108 @@ final class LocalLibraryTrack {
         isFavorited: isFavorited ?? this.isFavorited,
         likedAt: clearLikedAt ? null : likedAt ?? this.likedAt,
       );
+}
+
+final class LocalLibraryStats {
+  const LocalLibraryStats(
+      {required this.trackCount,
+      required this.albumCount,
+      required this.artistCount});
+  final int trackCount;
+  final int albumCount;
+  final int artistCount;
+}
+
+final class LocalLibraryArtist {
+  const LocalLibraryArtist(
+      {required this.artistKey,
+      required this.displayName,
+      required this.trackCount,
+      required this.albumCount,
+      this.sampleArtworkPaths = const [],
+      this.metadata});
+  final String artistKey;
+  final String displayName;
+  final int trackCount;
+  final int albumCount;
+  final List<String> sampleArtworkPaths;
+  final LocalArtistMetadata? metadata;
+}
+
+final class LocalLibraryAlbum {
+  const LocalLibraryAlbum({
+    required this.albumKey,
+    required this.title,
+    required this.albumArtist,
+    required this.trackCount,
+    required this.duration,
+    int? year,
+    int? canonicalYear,
+    this.observedYears = const [],
+    this.hasYearConflict = false,
+    this.albumArtistSource = LocalAlbumArtistSource.unresolved,
+    this.artworkPath,
+  }) : canonicalYear = canonicalYear ?? year;
+  final String albumKey;
+  final String title;
+  final String albumArtist;
+  final int? canonicalYear;
+  final List<int> observedYears;
+  final bool hasYearConflict;
+  final LocalAlbumArtistSource albumArtistSource;
+  final int trackCount;
+  final Duration duration;
+  final String? artworkPath;
+
+  int? get year => canonicalYear;
+}
+
+final class LocalArtistMetadata {
+  const LocalArtistMetadata(
+      {required this.artistKey,
+      required this.displayName,
+      required this.status,
+      this.sourceProviderId,
+      this.remoteArtistId,
+      this.remoteName,
+      this.avatarUrl,
+      this.avatarCachePath,
+      this.backgroundUrl,
+      this.backgroundCachePath,
+      this.description,
+      this.confidence,
+      this.userConfirmed = false,
+      this.fetchedAt,
+      this.retryAfter});
+  final String artistKey;
+  final String displayName;
+  final ArtistMetadataStatus status;
+  final ProviderId? sourceProviderId;
+  final String? remoteArtistId;
+  final String? remoteName;
+  final String? avatarUrl;
+  final String? avatarCachePath;
+  final String? backgroundUrl;
+  final String? backgroundCachePath;
+  final String? description;
+  final double? confidence;
+  final bool userConfirmed;
+  final DateTime? fetchedAt;
+  final DateTime? retryAfter;
+}
+
+final class LocalTrackMatch {
+  const LocalTrackMatch(
+      {required this.remote,
+      required this.localTrackId,
+      required this.method,
+      required this.confidence,
+      required this.updatedAt});
+  final ProviderTrackRef remote;
+  final String localTrackId;
+  final String method;
+  final double confidence;
+  final DateTime updatedAt;
 }
 
 abstract interface class LocalLibraryRepository {
@@ -184,4 +362,25 @@ abstract interface class LocalLibraryRepository {
   );
   Future<void> markUnavailableExcept(String rootId, Set<String> availablePaths);
   Future<void> setFavorite(String trackId, bool liked, {DateTime? likedAt});
+  Future<LocalLibraryStats> getStats();
+  Future<List<LocalLibraryArtist>> listArtists(
+      {String query = '',
+      LocalArtistSortOrder sort = LocalArtistSortOrder.name,
+      int limit = 100,
+      int offset = 0});
+  Future<LocalLibraryArtist?> getArtist(String artistKey);
+  Future<List<LocalLibraryTrack>> listArtistTracks(String artistKey);
+  Future<List<LocalLibraryAlbum>> listArtistAlbums(String artistKey);
+  Future<List<LocalLibraryAlbum>> listAlbums(
+      {String query = '',
+      LocalAlbumSortOrder sort = LocalAlbumSortOrder.artist,
+      int limit = 100,
+      int offset = 0});
+  Future<LocalLibraryAlbum?> getAlbum(String albumKey);
+  Future<List<LocalLibraryTrack>> listAlbumTracks(String albumKey);
+  Future<LocalArtistMetadata?> getArtistMetadata(String artistKey);
+  Future<void> upsertArtistMetadata(LocalArtistMetadata metadata);
+  Future<LocalTrackMatch?> findLocalMatch(ProviderTrackRef remote);
+  Future<void> upsertLocalTrackMatch(LocalTrackMatch match);
+  Future<void> removeLocalTrackMatch(ProviderTrackRef remote);
 }

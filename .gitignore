@@ -6,7 +6,7 @@ build/
 .flutter-plugins
 .flutter-plugins-dependencies
 coverage/
-
+.omo
 # Android
 app/.cxx/
 android/.gradle/

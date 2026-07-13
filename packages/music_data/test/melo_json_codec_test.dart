@@ -189,6 +189,16 @@ void main() {
             artists: const ['周杰伦'],
             duration: const Duration(minutes: 4, seconds: 29),
             variants: [qqTrack],
+            localPlaybackVariant: SourceTrack(
+              ref: ProviderTrackRef(
+                providerId: ProviderId('local'),
+                trackId: 'local_qingtian',
+              ),
+              title: '晴天',
+              artists: const ['周杰伦'],
+              duration: const Duration(minutes: 4, seconds: 29),
+              isFavorited: false,
+            ),
           ),
         ],
       ),
@@ -208,6 +218,11 @@ void main() {
     expect(decoded.favoriteLikedAtLedger.likedAtFor(qqRef)?.likedAt,
         DateTime.utc(2026, 7, 7, 12));
     expect(decoded.unifiedFavoritesCache?.tracks.single.title, '晴天');
+    expect(
+      decoded.unifiedFavoritesCache?.tracks.single.localPlaybackVariant?.ref
+          .providerId.value,
+      'local',
+    );
     expect(decoded.favoriteProviderStates.single.lastSuccessAt,
         DateTime.utc(2026, 7, 7, 12, 2));
   });
@@ -247,6 +262,74 @@ void main() {
         const Duration(minutes: 1, seconds: 23));
     expect(decoded.playbackQueue?.shuffleEnabled, isTrue);
     expect(decoded.playbackQueue?.repeatMode, 'one');
+  });
+
+  test('local library album ownership metadata round trips', () {
+    final localTrack = LocalLibraryTrack(
+      id: 'local-1',
+      rootId: 'root-1',
+      filePath: r'C:\Music\Album\Track.flac',
+      relativePath: r'Album\Track.flac',
+      fileSize: 1024,
+      modifiedAt: DateTime.utc(2026, 7, 13),
+      fingerprint: 'local-1',
+      title: 'Track',
+      artists: const ['Artist', 'Guest'],
+      duration: const Duration(minutes: 3),
+      format: 'FLAC',
+      album: 'Album',
+      embeddedAlbumArtist: 'Tagged Artist',
+      albumArtist: 'Library Artist',
+      albumArtistSource: LocalAlbumArtistSource.albumConsensus,
+      albumEditionKey: 'deluxe',
+    );
+
+    final decoded = codec.decodeSnapshot(codec.encodeSnapshot(
+      MeloDataSnapshot(localLibraryTracks: [localTrack]),
+    ));
+
+    expect(decoded.localLibraryTracks.single.trackArtists, ['Artist', 'Guest']);
+    expect(
+        decoded.localLibraryTracks.single.embeddedAlbumArtist, 'Tagged Artist');
+    expect(decoded.localLibraryTracks.single.albumArtist, 'Library Artist');
+    expect(decoded.localLibraryTracks.single.albumArtistSource,
+        LocalAlbumArtistSource.albumConsensus);
+    expect(decoded.localLibraryTracks.single.albumEditionKey, 'deluxe');
+  });
+
+  test('old local library backups default album ownership to unresolved', () {
+    final encoded = codec.encodeSnapshot(MeloDataSnapshot(
+      localLibraryTracks: [
+        LocalLibraryTrack(
+          id: 'legacy-local',
+          rootId: 'root-1',
+          filePath: r'C:\Music\Legacy.mp3',
+          relativePath: 'Legacy.mp3',
+          fileSize: 128,
+          modifiedAt: DateTime.utc(2026, 7, 13),
+          fingerprint: 'legacy-local',
+          title: 'Legacy',
+          artists: const ['Artist'],
+          duration: const Duration(minutes: 3),
+          format: 'MP3',
+          albumArtist: 'Artist',
+        ),
+      ],
+    ));
+    encoded['schemaVersion'] = 4;
+    final localTrack =
+        (encoded['localLibraryTracks']! as List).single as Map<String, Object?>;
+    localTrack
+      ..remove('embeddedAlbumArtist')
+      ..remove('albumArtistSource')
+      ..remove('albumEditionKey');
+
+    final decoded = codec.decodeSnapshot(encoded).localLibraryTracks.single;
+
+    expect(decoded.albumArtist, 'Artist');
+    expect(decoded.embeddedAlbumArtist, isNull);
+    expect(decoded.albumArtistSource, LocalAlbumArtistSource.unresolved);
+    expect(decoded.albumEditionKey, isNull);
   });
 
   test('JSON store reads and writes snapshots from disk', () async {

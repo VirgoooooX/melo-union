@@ -46,6 +46,8 @@ dev_dependencies:
   msix: ^3.16.0
 
 dependency_overrides:
+  audio_metadata_reader:
+    path: ../packages/audio_metadata_reader_patched
   just_audio_windows:
     path: ../packages/just_audio_windows_patched
 

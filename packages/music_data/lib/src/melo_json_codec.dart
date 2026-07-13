@@ -6,7 +6,7 @@ import 'melo_data_snapshot.dart';
 final class MeloJsonCodec {
   const MeloJsonCodec();
 
-  static const int schemaVersion = 4;
+  static const int schemaVersion = 5;
 
   Map<String, Object?> encodeSnapshot(MeloDataSnapshot snapshot) {
     return {
@@ -27,6 +27,14 @@ final class MeloJsonCodec {
       'localLibraryTracks': [
         for (final track in snapshot.localLibraryTracks)
           _encodeLocalTrack(track),
+      ],
+      'localArtistMetadata': [
+        for (final value in snapshot.localArtistMetadata)
+          _encodeLocalArtistMetadata(value),
+      ],
+      'localTrackMatches': [
+        for (final value in snapshot.localTrackMatches)
+          _encodeLocalTrackMatch(value),
       ],
       'favoriteProviderSnapshots': [
         for (final snapshot in snapshot.favoriteProviderSnapshots)
@@ -116,6 +124,14 @@ final class MeloJsonCodec {
         for (final item in _listOfMaps(json['localLibraryTracks']))
           _decodeLocalTrack(item),
       ],
+      localArtistMetadata: [
+        for (final item in _listOfMaps(json['localArtistMetadata']))
+          _decodeLocalArtistMetadata(item)
+      ],
+      localTrackMatches: [
+        for (final item in _listOfMaps(json['localTrackMatches']))
+          _decodeLocalTrackMatch(item)
+      ],
       favoriteProviderSnapshots: [
         for (final item in _listOfMaps(json['favoriteProviderSnapshots']))
           _decodeFavoriteSnapshot(item),
@@ -189,6 +205,16 @@ final class MeloJsonCodec {
         'format': track.format,
         'album': track.album,
         'genre': track.genre,
+        'genres': track.genres,
+        'embeddedAlbumArtist': track.embeddedAlbumArtist,
+        'albumArtist': track.albumArtist,
+        'albumArtistSource': track.albumArtistSource.name,
+        'albumEditionKey': track.albumEditionKey,
+        'isrc': track.isrc,
+        'addedAt': track.addedAt.toUtc().toIso8601String(),
+        'bitRate': track.bitRate,
+        'sampleRate': track.sampleRate,
+        'bitDepth': track.bitDepth,
         'year': track.year,
         'trackNumber': track.trackNumber,
         'discNumber': track.discNumber,
@@ -216,6 +242,21 @@ final class MeloJsonCodec {
         format: _requiredString(json, 'format'),
         album: json['album'] as String?,
         genre: json['genre'] as String?,
+        genres: json['genres'] == null
+            ? [if (json['genre'] case final String genre) genre]
+            : _stringList(json['genres']),
+        embeddedAlbumArtist: json['embeddedAlbumArtist'] as String?,
+        albumArtist: json['albumArtist'] as String?,
+        albumArtistSource: LocalAlbumArtistSource.values.firstWhere(
+          (source) => source.name == json['albumArtistSource'],
+          orElse: () => LocalAlbumArtistSource.unresolved,
+        ),
+        albumEditionKey: json['albumEditionKey'] as String?,
+        isrc: json['isrc'] as String?,
+        addedAt: _optionalDateTime(json['addedAt']?.toString()),
+        bitRate: (json['bitRate'] as num?)?.toInt(),
+        sampleRate: (json['sampleRate'] as num?)?.toInt(),
+        bitDepth: (json['bitDepth'] as num?)?.toInt(),
         year: (json['year'] as num?)?.toInt(),
         trackNumber: (json['trackNumber'] as num?)?.toInt(),
         discNumber: (json['discNumber'] as num?)?.toInt(),
@@ -224,6 +265,62 @@ final class MeloJsonCodec {
         isAvailable: json['isAvailable'] as bool? ?? true,
         isFavorited: json['isFavorited'] as bool? ?? false,
         likedAt: _optionalDateTime(json['likedAt']?.toString()),
+      );
+
+  Map<String, Object?> _encodeLocalArtistMetadata(LocalArtistMetadata value) =>
+      {
+        'artistKey': value.artistKey,
+        'displayName': value.displayName,
+        'status': value.status.name,
+        'sourceProviderId': value.sourceProviderId?.value,
+        'remoteArtistId': value.remoteArtistId,
+        'remoteName': value.remoteName,
+        'avatarUrl': value.avatarUrl,
+        'backgroundUrl': value.backgroundUrl,
+        'description': value.description,
+        'confidence': value.confidence,
+        'userConfirmed': value.userConfirmed,
+        'fetchedAt': value.fetchedAt?.toUtc().toIso8601String(),
+        'retryAfter': value.retryAfter?.toUtc().toIso8601String(),
+      };
+
+  LocalArtistMetadata _decodeLocalArtistMetadata(Map<String, Object?> json) =>
+      LocalArtistMetadata(
+        artistKey: _requiredString(json, 'artistKey'),
+        displayName: _requiredString(json, 'displayName'),
+        status: ArtistMetadataStatus.values.firstWhere(
+            (v) => v.name == json['status'],
+            orElse: () => ArtistMetadataStatus.pending),
+        sourceProviderId: json['sourceProviderId'] == null
+            ? null
+            : ProviderId(json['sourceProviderId'].toString()),
+        remoteArtistId: json['remoteArtistId'] as String?,
+        remoteName: json['remoteName'] as String?,
+        avatarUrl: json['avatarUrl'] as String?,
+        backgroundUrl: json['backgroundUrl'] as String?,
+        description: json['description'] as String?,
+        confidence: (json['confidence'] as num?)?.toDouble(),
+        userConfirmed: json['userConfirmed'] as bool? ?? false,
+        fetchedAt: _optionalDateTime(json['fetchedAt']?.toString()),
+        retryAfter: _optionalDateTime(json['retryAfter']?.toString()),
+      );
+
+  Map<String, Object?> _encodeLocalTrackMatch(LocalTrackMatch value) => {
+        'remote': _encodeTrackRef(value.remote),
+        'localTrackId': value.localTrackId,
+        'method': value.method,
+        'confidence': value.confidence,
+        'updatedAt': value.updatedAt.toUtc().toIso8601String(),
+      };
+
+  LocalTrackMatch _decodeLocalTrackMatch(Map<String, Object?> json) =>
+      LocalTrackMatch(
+        remote: _decodeTrackRef(_requiredMap(json, 'remote')),
+        localTrackId: _requiredString(json, 'localTrackId'),
+        method: json['method']?.toString() ?? 'unknown',
+        confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+        updatedAt: _optionalDateTime(json['updatedAt']?.toString()) ??
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       );
 
   LocalPlaylist _decodePlaylist(Map<String, Object?> json) {
@@ -367,6 +464,8 @@ final class MeloJsonCodec {
       'variants': [
         for (final variant in track.variants) _encodeSourceTrack(variant),
       ],
+      if (track.localPlaybackVariant != null)
+        'localPlaybackVariant': _encodeSourceTrack(track.localPlaybackVariant!),
     };
   }
 
@@ -380,6 +479,11 @@ final class MeloJsonCodec {
         for (final item in _listOfMaps(json['variants']))
           _decodeSourceTrack(item),
       ],
+      localPlaybackVariant: json['localPlaybackVariant'] == null
+          ? null
+          : _decodeSourceTrack(
+              _stringKeyedMap(json['localPlaybackVariant'] as Map),
+            ),
     );
   }
 
@@ -509,6 +613,14 @@ final class MeloJsonCodec {
       if (track.likedAtSource != null) 'likedAtSource': track.likedAtSource,
       if (track.likedAtPrecision != null)
         'likedAtPrecision': track.likedAtPrecision,
+      'artistRefs': [
+        for (final artist in track.artistRefs)
+          {
+            'providerId': artist.providerId.value,
+            'artistId': artist.artistId,
+            'name': artist.name
+          }
+      ],
     };
   }
 
@@ -532,6 +644,13 @@ final class MeloJsonCodec {
       likedAt: likedAtStr == null ? null : DateTime.parse(likedAtStr).toUtc(),
       likedAtSource: json['likedAtSource'] as String?,
       likedAtPrecision: json['likedAtPrecision'] as String?,
+      artistRefs: [
+        for (final item in _listOfMaps(json['artistRefs']))
+          ProviderArtistRef(
+              providerId: ProviderId(_requiredString(item, 'providerId')),
+              artistId: _requiredString(item, 'artistId'),
+              name: _requiredString(item, 'name'))
+      ],
     );
   }
 

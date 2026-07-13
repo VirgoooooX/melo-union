@@ -10,6 +10,7 @@ final class UnifiedFavoriteTrack {
     required this.artists,
     required this.duration,
     required this.variants,
+    this.localPlaybackVariant,
   });
 
   final String unifiedId;
@@ -17,6 +18,22 @@ final class UnifiedFavoriteTrack {
   final List<String> artists;
   final Duration duration;
   final List<SourceTrack> variants;
+
+  /// A matching local-library file that can be preferred for playback without
+  /// changing which provider variants are actually favorited.
+  final SourceTrack? localPlaybackVariant;
+
+  bool get isLocallyAvailable => localPlaybackVariant?.isPlayable == true;
+
+  UnifiedFavoriteTrack copyWithLocalPlaybackVariant(SourceTrack? value) =>
+      UnifiedFavoriteTrack(
+        unifiedId: unifiedId,
+        title: title,
+        artists: artists,
+        duration: duration,
+        variants: variants,
+        localPlaybackVariant: value,
+      );
 
   bool get hasMultipleSources => variants.length > 1;
 

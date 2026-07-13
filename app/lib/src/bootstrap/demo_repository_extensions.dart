@@ -12,8 +12,7 @@ extension UnifiedQueuePlayback on DemoRepository {
   Future<void> playUnifiedTracks(List<UnifiedFavoriteTrack> tracks) async {
     final sources = <SourceTrack>[
       for (final track in tracks)
-        if (track.variants.any((variant) => variant.isPlayable))
-          track.variants.firstWhere((variant) => variant.isPlayable),
+        if (selectUnifiedPlaybackSource(track) case final source?) source,
     ];
     await playTracks(sources);
   }
@@ -23,20 +22,8 @@ extension UnifiedQueuePlayback on DemoRepository {
     UnifiedFavoriteTrack selected, {
     String? providerId,
   }) async {
-    List<SourceTrack> playableVariantsFor(UnifiedFavoriteTrack track) {
-      final variants = providerId == null
-          ? track.variants
-          : track.variants.where(
-              (variant) => variant.ref.providerId.value == providerId,
-            );
-      return variants.where((variant) => variant.isPlayable).toList();
-    }
-
-    final selectedVariants = playableVariantsFor(selected);
-    if (selectedVariants.isEmpty) {
-      return;
-    }
-
-    await playTrack(selectedVariants.first);
+    final source =
+        selectUnifiedPlaybackSource(selected, providerId: providerId);
+    if (source != null) await playTrack(source);
   }
 }

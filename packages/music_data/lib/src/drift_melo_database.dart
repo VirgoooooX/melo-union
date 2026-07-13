@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
+import 'package:music_domain/music_domain.dart';
 
 part 'drift_melo_database.g.dart';
 
@@ -142,6 +145,20 @@ class StoredLocalLibraryTracks extends Table {
   TextColumn get format => text()();
   TextColumn get album => text().nullable()();
   TextColumn get genre => text().nullable()();
+  TextColumn get genresJson => text().withDefault(const Constant('[]'))();
+  TextColumn get embeddedAlbumArtist => text().nullable()();
+  TextColumn get albumArtist => text().nullable()();
+  TextColumn get albumArtistSource =>
+      text().withDefault(const Constant('unresolved'))();
+  TextColumn get albumEditionKey => text().nullable()();
+  TextColumn get isrc => text().nullable()();
+  DateTimeColumn get addedAt => dateTime().nullable()();
+  IntColumn get bitRate => integer().nullable()();
+  IntColumn get sampleRate => integer().nullable()();
+  IntColumn get bitDepth => integer().nullable()();
+  TextColumn get normalizedTitle => text().withDefault(const Constant(''))();
+  TextColumn get normalizedArtists => text().withDefault(const Constant(''))();
+  TextColumn get normalizedAlbum => text().withDefault(const Constant(''))();
   IntColumn get year => integer().nullable()();
   IntColumn get trackNumber => integer().nullable()();
   IntColumn get discNumber => integer().nullable()();
@@ -177,12 +194,14 @@ class StoredLocalLibraryFavorites extends Table {
     StoredLocalLibraryRoots,
     StoredLocalLibraryTracks,
     StoredLocalLibraryFavorites,
+    StoredLocalArtistMetadata,
+    StoredLocalTrackMatches,
   ],
 )
 class MeloDriftDatabase extends _$MeloDriftDatabase {
   MeloDriftDatabase(super.executor);
 
-  static const currentSchemaVersion = 4;
+  static const currentSchemaVersion = 6;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -205,6 +224,10 @@ class MeloDriftDatabase extends _$MeloDriftDatabase {
             await m.createTable(storedLocalLibraryTracks);
             await m.createTable(storedLocalLibraryFavorites);
           }
+          // Versions 5 and 6 can be reached from preview builds that already
+          // added a subset of these columns and tables without bumping
+          // user_version.
+          // The idempotent beforeOpen repair below owns this schema expansion.
         },
         beforeOpen: (details) async {
           await _ensureLocalLibraryColumns();
@@ -239,6 +262,17 @@ class MeloDriftDatabase extends _$MeloDriftDatabase {
       '"format" TEXT NOT NULL, '
       '"album" TEXT, '
       '"genre" TEXT, '
+      '"genres_json" TEXT NOT NULL DEFAULT \'[]\', '
+      '"embedded_album_artist" TEXT, '
+      '"album_artist" TEXT, '
+      '"album_artist_source" TEXT NOT NULL DEFAULT \'unresolved\', '
+      '"album_edition_key" TEXT, '
+      '"isrc" TEXT, '
+      '"added_at" INTEGER NOT NULL DEFAULT 0, '
+      '"bit_rate" INTEGER, "sample_rate" INTEGER, "bit_depth" INTEGER, '
+      '"normalized_title" TEXT NOT NULL DEFAULT \'\', '
+      '"normalized_artists" TEXT NOT NULL DEFAULT \'\', '
+      '"normalized_album" TEXT NOT NULL DEFAULT \'\', '
       '"year" INTEGER, '
       '"track_number" INTEGER, '
       '"disc_number" INTEGER, '
@@ -291,6 +325,19 @@ class MeloDriftDatabase extends _$MeloDriftDatabase {
         'format': "TEXT NOT NULL DEFAULT ''",
         'album': 'TEXT',
         'genre': 'TEXT',
+        'genres_json': "TEXT NOT NULL DEFAULT '[]'",
+        'embedded_album_artist': 'TEXT',
+        'album_artist': 'TEXT',
+        'album_artist_source': "TEXT NOT NULL DEFAULT 'unresolved'",
+        'album_edition_key': 'TEXT',
+        'isrc': 'TEXT',
+        'added_at': 'INTEGER NOT NULL DEFAULT 0',
+        'bit_rate': 'INTEGER',
+        'sample_rate': 'INTEGER',
+        'bit_depth': 'INTEGER',
+        'normalized_title': "TEXT NOT NULL DEFAULT ''",
+        'normalized_artists': "TEXT NOT NULL DEFAULT ''",
+        'normalized_album': "TEXT NOT NULL DEFAULT ''",
         'year': 'INTEGER',
         'track_number': 'INTEGER',
         'disc_number': 'INTEGER',
@@ -325,7 +372,94 @@ class MeloDriftDatabase extends _$MeloDriftDatabase {
           'FROM stored_local_library_tracks WHERE is_favorited = 1',
         );
       }
+      await customStatement(
+          "UPDATE stored_local_library_tracks SET genres_json = json_array(genre) WHERE genre IS NOT NULL AND genres_json = '[]'");
+      await customStatement(
+          'UPDATE stored_local_library_tracks SET added_at = modified_at WHERE added_at = 0');
+      await customStatement(
+        'UPDATE stored_local_library_tracks '
+        'SET embedded_album_artist = album_artist '
+        "WHERE (embedded_album_artist IS NULL OR trim(embedded_album_artist) = '') "
+        "AND album_artist IS NOT NULL AND trim(album_artist) <> '' "
+        "AND (album_artist_source IS NULL OR trim(album_artist_source) = '' "
+        "OR album_artist_source = 'unresolved')",
+      );
+      await customStatement(
+        'UPDATE stored_local_library_tracks '
+        "SET album_artist_source = 'embeddedTag' "
+        "WHERE (album_artist_source IS NULL OR trim(album_artist_source) = '' "
+        "OR album_artist_source = 'unresolved') "
+        'AND embedded_album_artist IS NOT NULL '
+        "AND trim(embedded_album_artist) <> ''",
+      );
+      await customStatement(
+        'UPDATE stored_local_library_tracks '
+        "SET album_artist_source = 'unresolved' "
+        "WHERE album_artist_source IS NULL OR trim(album_artist_source) = '' "
+        "OR album_artist_source NOT IN ('unresolved', 'embeddedTag', "
+        "'directoryConsensus', 'albumConsensus', 'trackArtistFallback', "
+        "'variousArtists', 'userOverride')",
+      );
+      final tracksToNormalize = await customSelect(
+        'SELECT id, title, artists_json, album '
+        'FROM stored_local_library_tracks '
+        "WHERE normalized_title = '' OR normalized_artists = '' "
+        "OR (normalized_album = '' AND album IS NOT NULL)",
+      ).get();
+      for (final row in tracksToNormalize) {
+        final normalizedArtists = (jsonDecode(row.read<String>('artists_json'))
+                as List)
+            .map((value) => normalizeLocalMetadata(value.toString()))
+            .toList()
+          ..sort();
+        await customStatement(
+          'UPDATE stored_local_library_tracks SET '
+          "normalized_title = CASE WHEN normalized_title = '' THEN ? "
+          'ELSE normalized_title END, '
+          "normalized_artists = CASE WHEN normalized_artists = '' THEN ? "
+          'ELSE normalized_artists END, '
+          "normalized_album = CASE WHEN normalized_album = '' THEN ? "
+          'ELSE normalized_album END '
+          'WHERE id = ?',
+          [
+            normalizeLocalMetadata(row.read<String>('title')),
+            normalizedArtists.join('|'),
+            normalizeLocalMetadata(row.readNullable<String>('album') ?? ''),
+            row.read<String>('id'),
+          ],
+        );
+      }
     }
+    await customStatement(
+        'CREATE TABLE IF NOT EXISTS stored_local_artist_metadata (artist_key TEXT NOT NULL PRIMARY KEY, display_name TEXT NOT NULL, source_provider_id TEXT, remote_artist_id TEXT, remote_name TEXT, avatar_url TEXT, avatar_cache_path TEXT, background_url TEXT, background_cache_path TEXT, description TEXT, confidence REAL, user_confirmed INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, fetched_at INTEGER, retry_after INTEGER)');
+    final matchColumns = await _columnNames('stored_local_track_matches');
+    const requiredMatchColumns = {
+      'provider_id',
+      'provider_track_id',
+      'local_track_id',
+      'match_method',
+      'confidence',
+      'updated_at',
+    };
+    if (matchColumns.isNotEmpty &&
+        !matchColumns.containsAll(requiredMatchColumns)) {
+      // Early local-library builds used this table name for an incompatible
+      // remote_identity/payload_json cache. Matches are derived data, so the
+      // only lossless migration is to rebuild the cache in its current shape.
+      await customStatement('DROP TABLE stored_local_track_matches');
+    }
+    await customStatement(
+        'CREATE TABLE IF NOT EXISTS stored_local_track_matches (provider_id TEXT NOT NULL, provider_track_id TEXT NOT NULL, local_track_id TEXT NOT NULL, match_method TEXT NOT NULL, confidence REAL NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY(provider_id, provider_track_id))');
+    await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_local_tracks_normalized_identity ON stored_local_library_tracks(normalized_title, normalized_artists)');
+    await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_local_tracks_isrc ON stored_local_library_tracks(isrc)');
+    await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_local_tracks_album ON stored_local_library_tracks(normalized_album)');
+    await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_local_tracks_added ON stored_local_library_tracks(added_at)');
+    await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_local_tracks_root_available ON stored_local_library_tracks(root_id, is_available)');
   }
 
   Future<Set<String>> _columnNames(String table) async {
@@ -346,4 +480,36 @@ class MeloDriftDatabase extends _$MeloDriftDatabase {
     await customStatement('ALTER TABLE $table ADD COLUMN $name $definition');
     columns.add(name);
   }
+}
+
+class StoredLocalArtistMetadata extends Table {
+  TextColumn get artistKey => text()();
+  TextColumn get displayName => text()();
+  TextColumn get sourceProviderId => text().nullable()();
+  TextColumn get remoteArtistId => text().nullable()();
+  TextColumn get remoteName => text().nullable()();
+  TextColumn get avatarUrl => text().nullable()();
+  TextColumn get avatarCachePath => text().nullable()();
+  TextColumn get backgroundUrl => text().nullable()();
+  TextColumn get backgroundCachePath => text().nullable()();
+  TextColumn get description => text().nullable()();
+  RealColumn get confidence => real().nullable()();
+  BoolColumn get userConfirmed =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get status => text()();
+  DateTimeColumn get fetchedAt => dateTime().nullable()();
+  DateTimeColumn get retryAfter => dateTime().nullable()();
+  @override
+  Set<Column<Object>> get primaryKey => {artistKey};
+}
+
+class StoredLocalTrackMatches extends Table {
+  TextColumn get providerId => text()();
+  TextColumn get providerTrackId => text()();
+  TextColumn get localTrackId => text()();
+  TextColumn get matchMethod => text()();
+  RealColumn get confidence => real()();
+  DateTimeColumn get updatedAt => dateTime()();
+  @override
+  Set<Column<Object>> get primaryKey => {providerId, providerTrackId};
 }

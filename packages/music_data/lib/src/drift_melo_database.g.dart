@@ -3698,6 +3698,93 @@ class $StoredLocalLibraryTracksTable extends StoredLocalLibraryTracks
   late final GeneratedColumn<String> genre = GeneratedColumn<String>(
       'genre', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _genresJsonMeta =
+      const VerificationMeta('genresJson');
+  @override
+  late final GeneratedColumn<String> genresJson = GeneratedColumn<String>(
+      'genres_json', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
+  static const VerificationMeta _embeddedAlbumArtistMeta =
+      const VerificationMeta('embeddedAlbumArtist');
+  @override
+  late final GeneratedColumn<String> embeddedAlbumArtist =
+      GeneratedColumn<String>('embedded_album_artist', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _albumArtistMeta =
+      const VerificationMeta('albumArtist');
+  @override
+  late final GeneratedColumn<String> albumArtist = GeneratedColumn<String>(
+      'album_artist', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _albumArtistSourceMeta =
+      const VerificationMeta('albumArtistSource');
+  @override
+  late final GeneratedColumn<String> albumArtistSource =
+      GeneratedColumn<String>('album_artist_source', aliasedName, false,
+          type: DriftSqlType.string,
+          requiredDuringInsert: false,
+          defaultValue: const Constant('unresolved'));
+  static const VerificationMeta _albumEditionKeyMeta =
+      const VerificationMeta('albumEditionKey');
+  @override
+  late final GeneratedColumn<String> albumEditionKey = GeneratedColumn<String>(
+      'album_edition_key', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _isrcMeta = const VerificationMeta('isrc');
+  @override
+  late final GeneratedColumn<String> isrc = GeneratedColumn<String>(
+      'isrc', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _addedAtMeta =
+      const VerificationMeta('addedAt');
+  @override
+  late final GeneratedColumn<DateTime> addedAt = GeneratedColumn<DateTime>(
+      'added_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _bitRateMeta =
+      const VerificationMeta('bitRate');
+  @override
+  late final GeneratedColumn<int> bitRate = GeneratedColumn<int>(
+      'bit_rate', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _sampleRateMeta =
+      const VerificationMeta('sampleRate');
+  @override
+  late final GeneratedColumn<int> sampleRate = GeneratedColumn<int>(
+      'sample_rate', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _bitDepthMeta =
+      const VerificationMeta('bitDepth');
+  @override
+  late final GeneratedColumn<int> bitDepth = GeneratedColumn<int>(
+      'bit_depth', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _normalizedTitleMeta =
+      const VerificationMeta('normalizedTitle');
+  @override
+  late final GeneratedColumn<String> normalizedTitle = GeneratedColumn<String>(
+      'normalized_title', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _normalizedArtistsMeta =
+      const VerificationMeta('normalizedArtists');
+  @override
+  late final GeneratedColumn<String> normalizedArtists =
+      GeneratedColumn<String>('normalized_artists', aliasedName, false,
+          type: DriftSqlType.string,
+          requiredDuringInsert: false,
+          defaultValue: const Constant(''));
+  static const VerificationMeta _normalizedAlbumMeta =
+      const VerificationMeta('normalizedAlbum');
+  @override
+  late final GeneratedColumn<String> normalizedAlbum = GeneratedColumn<String>(
+      'normalized_album', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
   static const VerificationMeta _yearMeta = const VerificationMeta('year');
   @override
   late final GeneratedColumn<int> year = GeneratedColumn<int>(
@@ -3751,6 +3838,19 @@ class $StoredLocalLibraryTracksTable extends StoredLocalLibraryTracks
         format,
         album,
         genre,
+        genresJson,
+        embeddedAlbumArtist,
+        albumArtist,
+        albumArtistSource,
+        albumEditionKey,
+        isrc,
+        addedAt,
+        bitRate,
+        sampleRate,
+        bitDepth,
+        normalizedTitle,
+        normalizedArtists,
+        normalizedAlbum,
         year,
         trackNumber,
         discNumber,
@@ -3852,6 +3952,76 @@ class $StoredLocalLibraryTracksTable extends StoredLocalLibraryTracks
       context.handle(
           _genreMeta, genre.isAcceptableOrUnknown(data['genre']!, _genreMeta));
     }
+    if (data.containsKey('genres_json')) {
+      context.handle(
+          _genresJsonMeta,
+          genresJson.isAcceptableOrUnknown(
+              data['genres_json']!, _genresJsonMeta));
+    }
+    if (data.containsKey('embedded_album_artist')) {
+      context.handle(
+          _embeddedAlbumArtistMeta,
+          embeddedAlbumArtist.isAcceptableOrUnknown(
+              data['embedded_album_artist']!, _embeddedAlbumArtistMeta));
+    }
+    if (data.containsKey('album_artist')) {
+      context.handle(
+          _albumArtistMeta,
+          albumArtist.isAcceptableOrUnknown(
+              data['album_artist']!, _albumArtistMeta));
+    }
+    if (data.containsKey('album_artist_source')) {
+      context.handle(
+          _albumArtistSourceMeta,
+          albumArtistSource.isAcceptableOrUnknown(
+              data['album_artist_source']!, _albumArtistSourceMeta));
+    }
+    if (data.containsKey('album_edition_key')) {
+      context.handle(
+          _albumEditionKeyMeta,
+          albumEditionKey.isAcceptableOrUnknown(
+              data['album_edition_key']!, _albumEditionKeyMeta));
+    }
+    if (data.containsKey('isrc')) {
+      context.handle(
+          _isrcMeta, isrc.isAcceptableOrUnknown(data['isrc']!, _isrcMeta));
+    }
+    if (data.containsKey('added_at')) {
+      context.handle(_addedAtMeta,
+          addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta));
+    }
+    if (data.containsKey('bit_rate')) {
+      context.handle(_bitRateMeta,
+          bitRate.isAcceptableOrUnknown(data['bit_rate']!, _bitRateMeta));
+    }
+    if (data.containsKey('sample_rate')) {
+      context.handle(
+          _sampleRateMeta,
+          sampleRate.isAcceptableOrUnknown(
+              data['sample_rate']!, _sampleRateMeta));
+    }
+    if (data.containsKey('bit_depth')) {
+      context.handle(_bitDepthMeta,
+          bitDepth.isAcceptableOrUnknown(data['bit_depth']!, _bitDepthMeta));
+    }
+    if (data.containsKey('normalized_title')) {
+      context.handle(
+          _normalizedTitleMeta,
+          normalizedTitle.isAcceptableOrUnknown(
+              data['normalized_title']!, _normalizedTitleMeta));
+    }
+    if (data.containsKey('normalized_artists')) {
+      context.handle(
+          _normalizedArtistsMeta,
+          normalizedArtists.isAcceptableOrUnknown(
+              data['normalized_artists']!, _normalizedArtistsMeta));
+    }
+    if (data.containsKey('normalized_album')) {
+      context.handle(
+          _normalizedAlbumMeta,
+          normalizedAlbum.isAcceptableOrUnknown(
+              data['normalized_album']!, _normalizedAlbumMeta));
+    }
     if (data.containsKey('year')) {
       context.handle(
           _yearMeta, year.isAcceptableOrUnknown(data['year']!, _yearMeta));
@@ -3920,6 +4090,32 @@ class $StoredLocalLibraryTracksTable extends StoredLocalLibraryTracks
           .read(DriftSqlType.string, data['${effectivePrefix}album']),
       genre: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}genre']),
+      genresJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}genres_json'])!,
+      embeddedAlbumArtist: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}embedded_album_artist']),
+      albumArtist: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}album_artist']),
+      albumArtistSource: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}album_artist_source'])!,
+      albumEditionKey: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}album_edition_key']),
+      isrc: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}isrc']),
+      addedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}added_at']),
+      bitRate: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}bit_rate']),
+      sampleRate: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}sample_rate']),
+      bitDepth: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}bit_depth']),
+      normalizedTitle: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}normalized_title'])!,
+      normalizedArtists: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}normalized_artists'])!,
+      normalizedAlbum: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}normalized_album'])!,
       year: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}year']),
       trackNumber: attachedDatabase.typeMapping
@@ -3956,6 +4152,19 @@ class StoredLocalLibraryTrack extends DataClass
   final String format;
   final String? album;
   final String? genre;
+  final String genresJson;
+  final String? embeddedAlbumArtist;
+  final String? albumArtist;
+  final String albumArtistSource;
+  final String? albumEditionKey;
+  final String? isrc;
+  final DateTime? addedAt;
+  final int? bitRate;
+  final int? sampleRate;
+  final int? bitDepth;
+  final String normalizedTitle;
+  final String normalizedArtists;
+  final String normalizedAlbum;
   final int? year;
   final int? trackNumber;
   final int? discNumber;
@@ -3976,6 +4185,19 @@ class StoredLocalLibraryTrack extends DataClass
       required this.format,
       this.album,
       this.genre,
+      required this.genresJson,
+      this.embeddedAlbumArtist,
+      this.albumArtist,
+      required this.albumArtistSource,
+      this.albumEditionKey,
+      this.isrc,
+      this.addedAt,
+      this.bitRate,
+      this.sampleRate,
+      this.bitDepth,
+      required this.normalizedTitle,
+      required this.normalizedArtists,
+      required this.normalizedAlbum,
       this.year,
       this.trackNumber,
       this.discNumber,
@@ -4002,6 +4224,35 @@ class StoredLocalLibraryTrack extends DataClass
     if (!nullToAbsent || genre != null) {
       map['genre'] = Variable<String>(genre);
     }
+    map['genres_json'] = Variable<String>(genresJson);
+    if (!nullToAbsent || embeddedAlbumArtist != null) {
+      map['embedded_album_artist'] = Variable<String>(embeddedAlbumArtist);
+    }
+    if (!nullToAbsent || albumArtist != null) {
+      map['album_artist'] = Variable<String>(albumArtist);
+    }
+    map['album_artist_source'] = Variable<String>(albumArtistSource);
+    if (!nullToAbsent || albumEditionKey != null) {
+      map['album_edition_key'] = Variable<String>(albumEditionKey);
+    }
+    if (!nullToAbsent || isrc != null) {
+      map['isrc'] = Variable<String>(isrc);
+    }
+    if (!nullToAbsent || addedAt != null) {
+      map['added_at'] = Variable<DateTime>(addedAt);
+    }
+    if (!nullToAbsent || bitRate != null) {
+      map['bit_rate'] = Variable<int>(bitRate);
+    }
+    if (!nullToAbsent || sampleRate != null) {
+      map['sample_rate'] = Variable<int>(sampleRate);
+    }
+    if (!nullToAbsent || bitDepth != null) {
+      map['bit_depth'] = Variable<int>(bitDepth);
+    }
+    map['normalized_title'] = Variable<String>(normalizedTitle);
+    map['normalized_artists'] = Variable<String>(normalizedArtists);
+    map['normalized_album'] = Variable<String>(normalizedAlbum);
     if (!nullToAbsent || year != null) {
       map['year'] = Variable<int>(year);
     }
@@ -4038,6 +4289,33 @@ class StoredLocalLibraryTrack extends DataClass
           album == null && nullToAbsent ? const Value.absent() : Value(album),
       genre:
           genre == null && nullToAbsent ? const Value.absent() : Value(genre),
+      genresJson: Value(genresJson),
+      embeddedAlbumArtist: embeddedAlbumArtist == null && nullToAbsent
+          ? const Value.absent()
+          : Value(embeddedAlbumArtist),
+      albumArtist: albumArtist == null && nullToAbsent
+          ? const Value.absent()
+          : Value(albumArtist),
+      albumArtistSource: Value(albumArtistSource),
+      albumEditionKey: albumEditionKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(albumEditionKey),
+      isrc: isrc == null && nullToAbsent ? const Value.absent() : Value(isrc),
+      addedAt: addedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(addedAt),
+      bitRate: bitRate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bitRate),
+      sampleRate: sampleRate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sampleRate),
+      bitDepth: bitDepth == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bitDepth),
+      normalizedTitle: Value(normalizedTitle),
+      normalizedArtists: Value(normalizedArtists),
+      normalizedAlbum: Value(normalizedAlbum),
       year: year == null && nullToAbsent ? const Value.absent() : Value(year),
       trackNumber: trackNumber == null && nullToAbsent
           ? const Value.absent()
@@ -4071,6 +4349,20 @@ class StoredLocalLibraryTrack extends DataClass
       format: serializer.fromJson<String>(json['format']),
       album: serializer.fromJson<String?>(json['album']),
       genre: serializer.fromJson<String?>(json['genre']),
+      genresJson: serializer.fromJson<String>(json['genresJson']),
+      embeddedAlbumArtist:
+          serializer.fromJson<String?>(json['embeddedAlbumArtist']),
+      albumArtist: serializer.fromJson<String?>(json['albumArtist']),
+      albumArtistSource: serializer.fromJson<String>(json['albumArtistSource']),
+      albumEditionKey: serializer.fromJson<String?>(json['albumEditionKey']),
+      isrc: serializer.fromJson<String?>(json['isrc']),
+      addedAt: serializer.fromJson<DateTime?>(json['addedAt']),
+      bitRate: serializer.fromJson<int?>(json['bitRate']),
+      sampleRate: serializer.fromJson<int?>(json['sampleRate']),
+      bitDepth: serializer.fromJson<int?>(json['bitDepth']),
+      normalizedTitle: serializer.fromJson<String>(json['normalizedTitle']),
+      normalizedArtists: serializer.fromJson<String>(json['normalizedArtists']),
+      normalizedAlbum: serializer.fromJson<String>(json['normalizedAlbum']),
       year: serializer.fromJson<int?>(json['year']),
       trackNumber: serializer.fromJson<int?>(json['trackNumber']),
       discNumber: serializer.fromJson<int?>(json['discNumber']),
@@ -4096,6 +4388,19 @@ class StoredLocalLibraryTrack extends DataClass
       'format': serializer.toJson<String>(format),
       'album': serializer.toJson<String?>(album),
       'genre': serializer.toJson<String?>(genre),
+      'genresJson': serializer.toJson<String>(genresJson),
+      'embeddedAlbumArtist': serializer.toJson<String?>(embeddedAlbumArtist),
+      'albumArtist': serializer.toJson<String?>(albumArtist),
+      'albumArtistSource': serializer.toJson<String>(albumArtistSource),
+      'albumEditionKey': serializer.toJson<String?>(albumEditionKey),
+      'isrc': serializer.toJson<String?>(isrc),
+      'addedAt': serializer.toJson<DateTime?>(addedAt),
+      'bitRate': serializer.toJson<int?>(bitRate),
+      'sampleRate': serializer.toJson<int?>(sampleRate),
+      'bitDepth': serializer.toJson<int?>(bitDepth),
+      'normalizedTitle': serializer.toJson<String>(normalizedTitle),
+      'normalizedArtists': serializer.toJson<String>(normalizedArtists),
+      'normalizedAlbum': serializer.toJson<String>(normalizedAlbum),
       'year': serializer.toJson<int?>(year),
       'trackNumber': serializer.toJson<int?>(trackNumber),
       'discNumber': serializer.toJson<int?>(discNumber),
@@ -4119,6 +4424,19 @@ class StoredLocalLibraryTrack extends DataClass
           String? format,
           Value<String?> album = const Value.absent(),
           Value<String?> genre = const Value.absent(),
+          String? genresJson,
+          Value<String?> embeddedAlbumArtist = const Value.absent(),
+          Value<String?> albumArtist = const Value.absent(),
+          String? albumArtistSource,
+          Value<String?> albumEditionKey = const Value.absent(),
+          Value<String?> isrc = const Value.absent(),
+          Value<DateTime?> addedAt = const Value.absent(),
+          Value<int?> bitRate = const Value.absent(),
+          Value<int?> sampleRate = const Value.absent(),
+          Value<int?> bitDepth = const Value.absent(),
+          String? normalizedTitle,
+          String? normalizedArtists,
+          String? normalizedAlbum,
           Value<int?> year = const Value.absent(),
           Value<int?> trackNumber = const Value.absent(),
           Value<int?> discNumber = const Value.absent(),
@@ -4139,6 +4457,23 @@ class StoredLocalLibraryTrack extends DataClass
         format: format ?? this.format,
         album: album.present ? album.value : this.album,
         genre: genre.present ? genre.value : this.genre,
+        genresJson: genresJson ?? this.genresJson,
+        embeddedAlbumArtist: embeddedAlbumArtist.present
+            ? embeddedAlbumArtist.value
+            : this.embeddedAlbumArtist,
+        albumArtist: albumArtist.present ? albumArtist.value : this.albumArtist,
+        albumArtistSource: albumArtistSource ?? this.albumArtistSource,
+        albumEditionKey: albumEditionKey.present
+            ? albumEditionKey.value
+            : this.albumEditionKey,
+        isrc: isrc.present ? isrc.value : this.isrc,
+        addedAt: addedAt.present ? addedAt.value : this.addedAt,
+        bitRate: bitRate.present ? bitRate.value : this.bitRate,
+        sampleRate: sampleRate.present ? sampleRate.value : this.sampleRate,
+        bitDepth: bitDepth.present ? bitDepth.value : this.bitDepth,
+        normalizedTitle: normalizedTitle ?? this.normalizedTitle,
+        normalizedArtists: normalizedArtists ?? this.normalizedArtists,
+        normalizedAlbum: normalizedAlbum ?? this.normalizedAlbum,
         year: year.present ? year.value : this.year,
         trackNumber: trackNumber.present ? trackNumber.value : this.trackNumber,
         discNumber: discNumber.present ? discNumber.value : this.discNumber,
@@ -4168,6 +4503,34 @@ class StoredLocalLibraryTrack extends DataClass
       format: data.format.present ? data.format.value : this.format,
       album: data.album.present ? data.album.value : this.album,
       genre: data.genre.present ? data.genre.value : this.genre,
+      genresJson:
+          data.genresJson.present ? data.genresJson.value : this.genresJson,
+      embeddedAlbumArtist: data.embeddedAlbumArtist.present
+          ? data.embeddedAlbumArtist.value
+          : this.embeddedAlbumArtist,
+      albumArtist:
+          data.albumArtist.present ? data.albumArtist.value : this.albumArtist,
+      albumArtistSource: data.albumArtistSource.present
+          ? data.albumArtistSource.value
+          : this.albumArtistSource,
+      albumEditionKey: data.albumEditionKey.present
+          ? data.albumEditionKey.value
+          : this.albumEditionKey,
+      isrc: data.isrc.present ? data.isrc.value : this.isrc,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      bitRate: data.bitRate.present ? data.bitRate.value : this.bitRate,
+      sampleRate:
+          data.sampleRate.present ? data.sampleRate.value : this.sampleRate,
+      bitDepth: data.bitDepth.present ? data.bitDepth.value : this.bitDepth,
+      normalizedTitle: data.normalizedTitle.present
+          ? data.normalizedTitle.value
+          : this.normalizedTitle,
+      normalizedArtists: data.normalizedArtists.present
+          ? data.normalizedArtists.value
+          : this.normalizedArtists,
+      normalizedAlbum: data.normalizedAlbum.present
+          ? data.normalizedAlbum.value
+          : this.normalizedAlbum,
       year: data.year.present ? data.year.value : this.year,
       trackNumber:
           data.trackNumber.present ? data.trackNumber.value : this.trackNumber,
@@ -4197,6 +4560,19 @@ class StoredLocalLibraryTrack extends DataClass
           ..write('format: $format, ')
           ..write('album: $album, ')
           ..write('genre: $genre, ')
+          ..write('genresJson: $genresJson, ')
+          ..write('embeddedAlbumArtist: $embeddedAlbumArtist, ')
+          ..write('albumArtist: $albumArtist, ')
+          ..write('albumArtistSource: $albumArtistSource, ')
+          ..write('albumEditionKey: $albumEditionKey, ')
+          ..write('isrc: $isrc, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('bitRate: $bitRate, ')
+          ..write('sampleRate: $sampleRate, ')
+          ..write('bitDepth: $bitDepth, ')
+          ..write('normalizedTitle: $normalizedTitle, ')
+          ..write('normalizedArtists: $normalizedArtists, ')
+          ..write('normalizedAlbum: $normalizedAlbum, ')
           ..write('year: $year, ')
           ..write('trackNumber: $trackNumber, ')
           ..write('discNumber: $discNumber, ')
@@ -4208,26 +4584,40 @@ class StoredLocalLibraryTrack extends DataClass
   }
 
   @override
-  int get hashCode => Object.hash(
-      id,
-      rootId,
-      filePath,
-      relativePath,
-      fileSize,
-      modifiedAt,
-      fingerprint,
-      title,
-      artistsJson,
-      durationMs,
-      format,
-      album,
-      genre,
-      year,
-      trackNumber,
-      discNumber,
-      lyrics,
-      artworkPath,
-      isAvailable);
+  int get hashCode => Object.hashAll([
+        id,
+        rootId,
+        filePath,
+        relativePath,
+        fileSize,
+        modifiedAt,
+        fingerprint,
+        title,
+        artistsJson,
+        durationMs,
+        format,
+        album,
+        genre,
+        genresJson,
+        embeddedAlbumArtist,
+        albumArtist,
+        albumArtistSource,
+        albumEditionKey,
+        isrc,
+        addedAt,
+        bitRate,
+        sampleRate,
+        bitDepth,
+        normalizedTitle,
+        normalizedArtists,
+        normalizedAlbum,
+        year,
+        trackNumber,
+        discNumber,
+        lyrics,
+        artworkPath,
+        isAvailable
+      ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4245,6 +4635,19 @@ class StoredLocalLibraryTrack extends DataClass
           other.format == this.format &&
           other.album == this.album &&
           other.genre == this.genre &&
+          other.genresJson == this.genresJson &&
+          other.embeddedAlbumArtist == this.embeddedAlbumArtist &&
+          other.albumArtist == this.albumArtist &&
+          other.albumArtistSource == this.albumArtistSource &&
+          other.albumEditionKey == this.albumEditionKey &&
+          other.isrc == this.isrc &&
+          other.addedAt == this.addedAt &&
+          other.bitRate == this.bitRate &&
+          other.sampleRate == this.sampleRate &&
+          other.bitDepth == this.bitDepth &&
+          other.normalizedTitle == this.normalizedTitle &&
+          other.normalizedArtists == this.normalizedArtists &&
+          other.normalizedAlbum == this.normalizedAlbum &&
           other.year == this.year &&
           other.trackNumber == this.trackNumber &&
           other.discNumber == this.discNumber &&
@@ -4268,6 +4671,19 @@ class StoredLocalLibraryTracksCompanion
   final Value<String> format;
   final Value<String?> album;
   final Value<String?> genre;
+  final Value<String> genresJson;
+  final Value<String?> embeddedAlbumArtist;
+  final Value<String?> albumArtist;
+  final Value<String> albumArtistSource;
+  final Value<String?> albumEditionKey;
+  final Value<String?> isrc;
+  final Value<DateTime?> addedAt;
+  final Value<int?> bitRate;
+  final Value<int?> sampleRate;
+  final Value<int?> bitDepth;
+  final Value<String> normalizedTitle;
+  final Value<String> normalizedArtists;
+  final Value<String> normalizedAlbum;
   final Value<int?> year;
   final Value<int?> trackNumber;
   final Value<int?> discNumber;
@@ -4289,6 +4705,19 @@ class StoredLocalLibraryTracksCompanion
     this.format = const Value.absent(),
     this.album = const Value.absent(),
     this.genre = const Value.absent(),
+    this.genresJson = const Value.absent(),
+    this.embeddedAlbumArtist = const Value.absent(),
+    this.albumArtist = const Value.absent(),
+    this.albumArtistSource = const Value.absent(),
+    this.albumEditionKey = const Value.absent(),
+    this.isrc = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.bitRate = const Value.absent(),
+    this.sampleRate = const Value.absent(),
+    this.bitDepth = const Value.absent(),
+    this.normalizedTitle = const Value.absent(),
+    this.normalizedArtists = const Value.absent(),
+    this.normalizedAlbum = const Value.absent(),
     this.year = const Value.absent(),
     this.trackNumber = const Value.absent(),
     this.discNumber = const Value.absent(),
@@ -4311,6 +4740,19 @@ class StoredLocalLibraryTracksCompanion
     required String format,
     this.album = const Value.absent(),
     this.genre = const Value.absent(),
+    this.genresJson = const Value.absent(),
+    this.embeddedAlbumArtist = const Value.absent(),
+    this.albumArtist = const Value.absent(),
+    this.albumArtistSource = const Value.absent(),
+    this.albumEditionKey = const Value.absent(),
+    this.isrc = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.bitRate = const Value.absent(),
+    this.sampleRate = const Value.absent(),
+    this.bitDepth = const Value.absent(),
+    this.normalizedTitle = const Value.absent(),
+    this.normalizedArtists = const Value.absent(),
+    this.normalizedAlbum = const Value.absent(),
     this.year = const Value.absent(),
     this.trackNumber = const Value.absent(),
     this.discNumber = const Value.absent(),
@@ -4343,6 +4785,19 @@ class StoredLocalLibraryTracksCompanion
     Expression<String>? format,
     Expression<String>? album,
     Expression<String>? genre,
+    Expression<String>? genresJson,
+    Expression<String>? embeddedAlbumArtist,
+    Expression<String>? albumArtist,
+    Expression<String>? albumArtistSource,
+    Expression<String>? albumEditionKey,
+    Expression<String>? isrc,
+    Expression<DateTime>? addedAt,
+    Expression<int>? bitRate,
+    Expression<int>? sampleRate,
+    Expression<int>? bitDepth,
+    Expression<String>? normalizedTitle,
+    Expression<String>? normalizedArtists,
+    Expression<String>? normalizedAlbum,
     Expression<int>? year,
     Expression<int>? trackNumber,
     Expression<int>? discNumber,
@@ -4365,6 +4820,20 @@ class StoredLocalLibraryTracksCompanion
       if (format != null) 'format': format,
       if (album != null) 'album': album,
       if (genre != null) 'genre': genre,
+      if (genresJson != null) 'genres_json': genresJson,
+      if (embeddedAlbumArtist != null)
+        'embedded_album_artist': embeddedAlbumArtist,
+      if (albumArtist != null) 'album_artist': albumArtist,
+      if (albumArtistSource != null) 'album_artist_source': albumArtistSource,
+      if (albumEditionKey != null) 'album_edition_key': albumEditionKey,
+      if (isrc != null) 'isrc': isrc,
+      if (addedAt != null) 'added_at': addedAt,
+      if (bitRate != null) 'bit_rate': bitRate,
+      if (sampleRate != null) 'sample_rate': sampleRate,
+      if (bitDepth != null) 'bit_depth': bitDepth,
+      if (normalizedTitle != null) 'normalized_title': normalizedTitle,
+      if (normalizedArtists != null) 'normalized_artists': normalizedArtists,
+      if (normalizedAlbum != null) 'normalized_album': normalizedAlbum,
       if (year != null) 'year': year,
       if (trackNumber != null) 'track_number': trackNumber,
       if (discNumber != null) 'disc_number': discNumber,
@@ -4389,6 +4858,19 @@ class StoredLocalLibraryTracksCompanion
       Value<String>? format,
       Value<String?>? album,
       Value<String?>? genre,
+      Value<String>? genresJson,
+      Value<String?>? embeddedAlbumArtist,
+      Value<String?>? albumArtist,
+      Value<String>? albumArtistSource,
+      Value<String?>? albumEditionKey,
+      Value<String?>? isrc,
+      Value<DateTime?>? addedAt,
+      Value<int?>? bitRate,
+      Value<int?>? sampleRate,
+      Value<int?>? bitDepth,
+      Value<String>? normalizedTitle,
+      Value<String>? normalizedArtists,
+      Value<String>? normalizedAlbum,
       Value<int?>? year,
       Value<int?>? trackNumber,
       Value<int?>? discNumber,
@@ -4410,6 +4892,19 @@ class StoredLocalLibraryTracksCompanion
       format: format ?? this.format,
       album: album ?? this.album,
       genre: genre ?? this.genre,
+      genresJson: genresJson ?? this.genresJson,
+      embeddedAlbumArtist: embeddedAlbumArtist ?? this.embeddedAlbumArtist,
+      albumArtist: albumArtist ?? this.albumArtist,
+      albumArtistSource: albumArtistSource ?? this.albumArtistSource,
+      albumEditionKey: albumEditionKey ?? this.albumEditionKey,
+      isrc: isrc ?? this.isrc,
+      addedAt: addedAt ?? this.addedAt,
+      bitRate: bitRate ?? this.bitRate,
+      sampleRate: sampleRate ?? this.sampleRate,
+      bitDepth: bitDepth ?? this.bitDepth,
+      normalizedTitle: normalizedTitle ?? this.normalizedTitle,
+      normalizedArtists: normalizedArtists ?? this.normalizedArtists,
+      normalizedAlbum: normalizedAlbum ?? this.normalizedAlbum,
       year: year ?? this.year,
       trackNumber: trackNumber ?? this.trackNumber,
       discNumber: discNumber ?? this.discNumber,
@@ -4462,6 +4957,46 @@ class StoredLocalLibraryTracksCompanion
     if (genre.present) {
       map['genre'] = Variable<String>(genre.value);
     }
+    if (genresJson.present) {
+      map['genres_json'] = Variable<String>(genresJson.value);
+    }
+    if (embeddedAlbumArtist.present) {
+      map['embedded_album_artist'] =
+          Variable<String>(embeddedAlbumArtist.value);
+    }
+    if (albumArtist.present) {
+      map['album_artist'] = Variable<String>(albumArtist.value);
+    }
+    if (albumArtistSource.present) {
+      map['album_artist_source'] = Variable<String>(albumArtistSource.value);
+    }
+    if (albumEditionKey.present) {
+      map['album_edition_key'] = Variable<String>(albumEditionKey.value);
+    }
+    if (isrc.present) {
+      map['isrc'] = Variable<String>(isrc.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<DateTime>(addedAt.value);
+    }
+    if (bitRate.present) {
+      map['bit_rate'] = Variable<int>(bitRate.value);
+    }
+    if (sampleRate.present) {
+      map['sample_rate'] = Variable<int>(sampleRate.value);
+    }
+    if (bitDepth.present) {
+      map['bit_depth'] = Variable<int>(bitDepth.value);
+    }
+    if (normalizedTitle.present) {
+      map['normalized_title'] = Variable<String>(normalizedTitle.value);
+    }
+    if (normalizedArtists.present) {
+      map['normalized_artists'] = Variable<String>(normalizedArtists.value);
+    }
+    if (normalizedAlbum.present) {
+      map['normalized_album'] = Variable<String>(normalizedAlbum.value);
+    }
     if (year.present) {
       map['year'] = Variable<int>(year.value);
     }
@@ -4502,6 +5037,19 @@ class StoredLocalLibraryTracksCompanion
           ..write('format: $format, ')
           ..write('album: $album, ')
           ..write('genre: $genre, ')
+          ..write('genresJson: $genresJson, ')
+          ..write('embeddedAlbumArtist: $embeddedAlbumArtist, ')
+          ..write('albumArtist: $albumArtist, ')
+          ..write('albumArtistSource: $albumArtistSource, ')
+          ..write('albumEditionKey: $albumEditionKey, ')
+          ..write('isrc: $isrc, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('bitRate: $bitRate, ')
+          ..write('sampleRate: $sampleRate, ')
+          ..write('bitDepth: $bitDepth, ')
+          ..write('normalizedTitle: $normalizedTitle, ')
+          ..write('normalizedArtists: $normalizedArtists, ')
+          ..write('normalizedAlbum: $normalizedAlbum, ')
           ..write('year: $year, ')
           ..write('trackNumber: $trackNumber, ')
           ..write('discNumber: $discNumber, ')
@@ -4715,6 +5263,1161 @@ class StoredLocalLibraryFavoritesCompanion
   }
 }
 
+class $StoredLocalArtistMetadataTable extends StoredLocalArtistMetadata
+    with
+        TableInfo<$StoredLocalArtistMetadataTable,
+            StoredLocalArtistMetadataData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StoredLocalArtistMetadataTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _artistKeyMeta =
+      const VerificationMeta('artistKey');
+  @override
+  late final GeneratedColumn<String> artistKey = GeneratedColumn<String>(
+      'artist_key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _displayNameMeta =
+      const VerificationMeta('displayName');
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+      'display_name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _sourceProviderIdMeta =
+      const VerificationMeta('sourceProviderId');
+  @override
+  late final GeneratedColumn<String> sourceProviderId = GeneratedColumn<String>(
+      'source_provider_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _remoteArtistIdMeta =
+      const VerificationMeta('remoteArtistId');
+  @override
+  late final GeneratedColumn<String> remoteArtistId = GeneratedColumn<String>(
+      'remote_artist_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _remoteNameMeta =
+      const VerificationMeta('remoteName');
+  @override
+  late final GeneratedColumn<String> remoteName = GeneratedColumn<String>(
+      'remote_name', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _avatarUrlMeta =
+      const VerificationMeta('avatarUrl');
+  @override
+  late final GeneratedColumn<String> avatarUrl = GeneratedColumn<String>(
+      'avatar_url', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _avatarCachePathMeta =
+      const VerificationMeta('avatarCachePath');
+  @override
+  late final GeneratedColumn<String> avatarCachePath = GeneratedColumn<String>(
+      'avatar_cache_path', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _backgroundUrlMeta =
+      const VerificationMeta('backgroundUrl');
+  @override
+  late final GeneratedColumn<String> backgroundUrl = GeneratedColumn<String>(
+      'background_url', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _backgroundCachePathMeta =
+      const VerificationMeta('backgroundCachePath');
+  @override
+  late final GeneratedColumn<String> backgroundCachePath =
+      GeneratedColumn<String>('background_cache_path', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _descriptionMeta =
+      const VerificationMeta('description');
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+      'description', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _confidenceMeta =
+      const VerificationMeta('confidence');
+  @override
+  late final GeneratedColumn<double> confidence = GeneratedColumn<double>(
+      'confidence', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _userConfirmedMeta =
+      const VerificationMeta('userConfirmed');
+  @override
+  late final GeneratedColumn<bool> userConfirmed = GeneratedColumn<bool>(
+      'user_confirmed', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("user_confirmed" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+      'status', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _fetchedAtMeta =
+      const VerificationMeta('fetchedAt');
+  @override
+  late final GeneratedColumn<DateTime> fetchedAt = GeneratedColumn<DateTime>(
+      'fetched_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _retryAfterMeta =
+      const VerificationMeta('retryAfter');
+  @override
+  late final GeneratedColumn<DateTime> retryAfter = GeneratedColumn<DateTime>(
+      'retry_after', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        artistKey,
+        displayName,
+        sourceProviderId,
+        remoteArtistId,
+        remoteName,
+        avatarUrl,
+        avatarCachePath,
+        backgroundUrl,
+        backgroundCachePath,
+        description,
+        confidence,
+        userConfirmed,
+        status,
+        fetchedAt,
+        retryAfter
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'stored_local_artist_metadata';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<StoredLocalArtistMetadataData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('artist_key')) {
+      context.handle(_artistKeyMeta,
+          artistKey.isAcceptableOrUnknown(data['artist_key']!, _artistKeyMeta));
+    } else if (isInserting) {
+      context.missing(_artistKeyMeta);
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+          _displayNameMeta,
+          displayName.isAcceptableOrUnknown(
+              data['display_name']!, _displayNameMeta));
+    } else if (isInserting) {
+      context.missing(_displayNameMeta);
+    }
+    if (data.containsKey('source_provider_id')) {
+      context.handle(
+          _sourceProviderIdMeta,
+          sourceProviderId.isAcceptableOrUnknown(
+              data['source_provider_id']!, _sourceProviderIdMeta));
+    }
+    if (data.containsKey('remote_artist_id')) {
+      context.handle(
+          _remoteArtistIdMeta,
+          remoteArtistId.isAcceptableOrUnknown(
+              data['remote_artist_id']!, _remoteArtistIdMeta));
+    }
+    if (data.containsKey('remote_name')) {
+      context.handle(
+          _remoteNameMeta,
+          remoteName.isAcceptableOrUnknown(
+              data['remote_name']!, _remoteNameMeta));
+    }
+    if (data.containsKey('avatar_url')) {
+      context.handle(_avatarUrlMeta,
+          avatarUrl.isAcceptableOrUnknown(data['avatar_url']!, _avatarUrlMeta));
+    }
+    if (data.containsKey('avatar_cache_path')) {
+      context.handle(
+          _avatarCachePathMeta,
+          avatarCachePath.isAcceptableOrUnknown(
+              data['avatar_cache_path']!, _avatarCachePathMeta));
+    }
+    if (data.containsKey('background_url')) {
+      context.handle(
+          _backgroundUrlMeta,
+          backgroundUrl.isAcceptableOrUnknown(
+              data['background_url']!, _backgroundUrlMeta));
+    }
+    if (data.containsKey('background_cache_path')) {
+      context.handle(
+          _backgroundCachePathMeta,
+          backgroundCachePath.isAcceptableOrUnknown(
+              data['background_cache_path']!, _backgroundCachePathMeta));
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+          _descriptionMeta,
+          description.isAcceptableOrUnknown(
+              data['description']!, _descriptionMeta));
+    }
+    if (data.containsKey('confidence')) {
+      context.handle(
+          _confidenceMeta,
+          confidence.isAcceptableOrUnknown(
+              data['confidence']!, _confidenceMeta));
+    }
+    if (data.containsKey('user_confirmed')) {
+      context.handle(
+          _userConfirmedMeta,
+          userConfirmed.isAcceptableOrUnknown(
+              data['user_confirmed']!, _userConfirmedMeta));
+    }
+    if (data.containsKey('status')) {
+      context.handle(_statusMeta,
+          status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('fetched_at')) {
+      context.handle(_fetchedAtMeta,
+          fetchedAt.isAcceptableOrUnknown(data['fetched_at']!, _fetchedAtMeta));
+    }
+    if (data.containsKey('retry_after')) {
+      context.handle(
+          _retryAfterMeta,
+          retryAfter.isAcceptableOrUnknown(
+              data['retry_after']!, _retryAfterMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {artistKey};
+  @override
+  StoredLocalArtistMetadataData map(Map<String, dynamic> data,
+      {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredLocalArtistMetadataData(
+      artistKey: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}artist_key'])!,
+      displayName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}display_name'])!,
+      sourceProviderId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}source_provider_id']),
+      remoteArtistId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}remote_artist_id']),
+      remoteName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}remote_name']),
+      avatarUrl: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}avatar_url']),
+      avatarCachePath: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}avatar_cache_path']),
+      backgroundUrl: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}background_url']),
+      backgroundCachePath: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}background_cache_path']),
+      description: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}description']),
+      confidence: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}confidence']),
+      userConfirmed: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}user_confirmed'])!,
+      status: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
+      fetchedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}fetched_at']),
+      retryAfter: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}retry_after']),
+    );
+  }
+
+  @override
+  $StoredLocalArtistMetadataTable createAlias(String alias) {
+    return $StoredLocalArtistMetadataTable(attachedDatabase, alias);
+  }
+}
+
+class StoredLocalArtistMetadataData extends DataClass
+    implements Insertable<StoredLocalArtistMetadataData> {
+  final String artistKey;
+  final String displayName;
+  final String? sourceProviderId;
+  final String? remoteArtistId;
+  final String? remoteName;
+  final String? avatarUrl;
+  final String? avatarCachePath;
+  final String? backgroundUrl;
+  final String? backgroundCachePath;
+  final String? description;
+  final double? confidence;
+  final bool userConfirmed;
+  final String status;
+  final DateTime? fetchedAt;
+  final DateTime? retryAfter;
+  const StoredLocalArtistMetadataData(
+      {required this.artistKey,
+      required this.displayName,
+      this.sourceProviderId,
+      this.remoteArtistId,
+      this.remoteName,
+      this.avatarUrl,
+      this.avatarCachePath,
+      this.backgroundUrl,
+      this.backgroundCachePath,
+      this.description,
+      this.confidence,
+      required this.userConfirmed,
+      required this.status,
+      this.fetchedAt,
+      this.retryAfter});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['artist_key'] = Variable<String>(artistKey);
+    map['display_name'] = Variable<String>(displayName);
+    if (!nullToAbsent || sourceProviderId != null) {
+      map['source_provider_id'] = Variable<String>(sourceProviderId);
+    }
+    if (!nullToAbsent || remoteArtistId != null) {
+      map['remote_artist_id'] = Variable<String>(remoteArtistId);
+    }
+    if (!nullToAbsent || remoteName != null) {
+      map['remote_name'] = Variable<String>(remoteName);
+    }
+    if (!nullToAbsent || avatarUrl != null) {
+      map['avatar_url'] = Variable<String>(avatarUrl);
+    }
+    if (!nullToAbsent || avatarCachePath != null) {
+      map['avatar_cache_path'] = Variable<String>(avatarCachePath);
+    }
+    if (!nullToAbsent || backgroundUrl != null) {
+      map['background_url'] = Variable<String>(backgroundUrl);
+    }
+    if (!nullToAbsent || backgroundCachePath != null) {
+      map['background_cache_path'] = Variable<String>(backgroundCachePath);
+    }
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || confidence != null) {
+      map['confidence'] = Variable<double>(confidence);
+    }
+    map['user_confirmed'] = Variable<bool>(userConfirmed);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || fetchedAt != null) {
+      map['fetched_at'] = Variable<DateTime>(fetchedAt);
+    }
+    if (!nullToAbsent || retryAfter != null) {
+      map['retry_after'] = Variable<DateTime>(retryAfter);
+    }
+    return map;
+  }
+
+  StoredLocalArtistMetadataCompanion toCompanion(bool nullToAbsent) {
+    return StoredLocalArtistMetadataCompanion(
+      artistKey: Value(artistKey),
+      displayName: Value(displayName),
+      sourceProviderId: sourceProviderId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceProviderId),
+      remoteArtistId: remoteArtistId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteArtistId),
+      remoteName: remoteName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteName),
+      avatarUrl: avatarUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avatarUrl),
+      avatarCachePath: avatarCachePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avatarCachePath),
+      backgroundUrl: backgroundUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(backgroundUrl),
+      backgroundCachePath: backgroundCachePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(backgroundCachePath),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      confidence: confidence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(confidence),
+      userConfirmed: Value(userConfirmed),
+      status: Value(status),
+      fetchedAt: fetchedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fetchedAt),
+      retryAfter: retryAfter == null && nullToAbsent
+          ? const Value.absent()
+          : Value(retryAfter),
+    );
+  }
+
+  factory StoredLocalArtistMetadataData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredLocalArtistMetadataData(
+      artistKey: serializer.fromJson<String>(json['artistKey']),
+      displayName: serializer.fromJson<String>(json['displayName']),
+      sourceProviderId: serializer.fromJson<String?>(json['sourceProviderId']),
+      remoteArtistId: serializer.fromJson<String?>(json['remoteArtistId']),
+      remoteName: serializer.fromJson<String?>(json['remoteName']),
+      avatarUrl: serializer.fromJson<String?>(json['avatarUrl']),
+      avatarCachePath: serializer.fromJson<String?>(json['avatarCachePath']),
+      backgroundUrl: serializer.fromJson<String?>(json['backgroundUrl']),
+      backgroundCachePath:
+          serializer.fromJson<String?>(json['backgroundCachePath']),
+      description: serializer.fromJson<String?>(json['description']),
+      confidence: serializer.fromJson<double?>(json['confidence']),
+      userConfirmed: serializer.fromJson<bool>(json['userConfirmed']),
+      status: serializer.fromJson<String>(json['status']),
+      fetchedAt: serializer.fromJson<DateTime?>(json['fetchedAt']),
+      retryAfter: serializer.fromJson<DateTime?>(json['retryAfter']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'artistKey': serializer.toJson<String>(artistKey),
+      'displayName': serializer.toJson<String>(displayName),
+      'sourceProviderId': serializer.toJson<String?>(sourceProviderId),
+      'remoteArtistId': serializer.toJson<String?>(remoteArtistId),
+      'remoteName': serializer.toJson<String?>(remoteName),
+      'avatarUrl': serializer.toJson<String?>(avatarUrl),
+      'avatarCachePath': serializer.toJson<String?>(avatarCachePath),
+      'backgroundUrl': serializer.toJson<String?>(backgroundUrl),
+      'backgroundCachePath': serializer.toJson<String?>(backgroundCachePath),
+      'description': serializer.toJson<String?>(description),
+      'confidence': serializer.toJson<double?>(confidence),
+      'userConfirmed': serializer.toJson<bool>(userConfirmed),
+      'status': serializer.toJson<String>(status),
+      'fetchedAt': serializer.toJson<DateTime?>(fetchedAt),
+      'retryAfter': serializer.toJson<DateTime?>(retryAfter),
+    };
+  }
+
+  StoredLocalArtistMetadataData copyWith(
+          {String? artistKey,
+          String? displayName,
+          Value<String?> sourceProviderId = const Value.absent(),
+          Value<String?> remoteArtistId = const Value.absent(),
+          Value<String?> remoteName = const Value.absent(),
+          Value<String?> avatarUrl = const Value.absent(),
+          Value<String?> avatarCachePath = const Value.absent(),
+          Value<String?> backgroundUrl = const Value.absent(),
+          Value<String?> backgroundCachePath = const Value.absent(),
+          Value<String?> description = const Value.absent(),
+          Value<double?> confidence = const Value.absent(),
+          bool? userConfirmed,
+          String? status,
+          Value<DateTime?> fetchedAt = const Value.absent(),
+          Value<DateTime?> retryAfter = const Value.absent()}) =>
+      StoredLocalArtistMetadataData(
+        artistKey: artistKey ?? this.artistKey,
+        displayName: displayName ?? this.displayName,
+        sourceProviderId: sourceProviderId.present
+            ? sourceProviderId.value
+            : this.sourceProviderId,
+        remoteArtistId:
+            remoteArtistId.present ? remoteArtistId.value : this.remoteArtistId,
+        remoteName: remoteName.present ? remoteName.value : this.remoteName,
+        avatarUrl: avatarUrl.present ? avatarUrl.value : this.avatarUrl,
+        avatarCachePath: avatarCachePath.present
+            ? avatarCachePath.value
+            : this.avatarCachePath,
+        backgroundUrl:
+            backgroundUrl.present ? backgroundUrl.value : this.backgroundUrl,
+        backgroundCachePath: backgroundCachePath.present
+            ? backgroundCachePath.value
+            : this.backgroundCachePath,
+        description: description.present ? description.value : this.description,
+        confidence: confidence.present ? confidence.value : this.confidence,
+        userConfirmed: userConfirmed ?? this.userConfirmed,
+        status: status ?? this.status,
+        fetchedAt: fetchedAt.present ? fetchedAt.value : this.fetchedAt,
+        retryAfter: retryAfter.present ? retryAfter.value : this.retryAfter,
+      );
+  StoredLocalArtistMetadataData copyWithCompanion(
+      StoredLocalArtistMetadataCompanion data) {
+    return StoredLocalArtistMetadataData(
+      artistKey: data.artistKey.present ? data.artistKey.value : this.artistKey,
+      displayName:
+          data.displayName.present ? data.displayName.value : this.displayName,
+      sourceProviderId: data.sourceProviderId.present
+          ? data.sourceProviderId.value
+          : this.sourceProviderId,
+      remoteArtistId: data.remoteArtistId.present
+          ? data.remoteArtistId.value
+          : this.remoteArtistId,
+      remoteName:
+          data.remoteName.present ? data.remoteName.value : this.remoteName,
+      avatarUrl: data.avatarUrl.present ? data.avatarUrl.value : this.avatarUrl,
+      avatarCachePath: data.avatarCachePath.present
+          ? data.avatarCachePath.value
+          : this.avatarCachePath,
+      backgroundUrl: data.backgroundUrl.present
+          ? data.backgroundUrl.value
+          : this.backgroundUrl,
+      backgroundCachePath: data.backgroundCachePath.present
+          ? data.backgroundCachePath.value
+          : this.backgroundCachePath,
+      description:
+          data.description.present ? data.description.value : this.description,
+      confidence:
+          data.confidence.present ? data.confidence.value : this.confidence,
+      userConfirmed: data.userConfirmed.present
+          ? data.userConfirmed.value
+          : this.userConfirmed,
+      status: data.status.present ? data.status.value : this.status,
+      fetchedAt: data.fetchedAt.present ? data.fetchedAt.value : this.fetchedAt,
+      retryAfter:
+          data.retryAfter.present ? data.retryAfter.value : this.retryAfter,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredLocalArtistMetadataData(')
+          ..write('artistKey: $artistKey, ')
+          ..write('displayName: $displayName, ')
+          ..write('sourceProviderId: $sourceProviderId, ')
+          ..write('remoteArtistId: $remoteArtistId, ')
+          ..write('remoteName: $remoteName, ')
+          ..write('avatarUrl: $avatarUrl, ')
+          ..write('avatarCachePath: $avatarCachePath, ')
+          ..write('backgroundUrl: $backgroundUrl, ')
+          ..write('backgroundCachePath: $backgroundCachePath, ')
+          ..write('description: $description, ')
+          ..write('confidence: $confidence, ')
+          ..write('userConfirmed: $userConfirmed, ')
+          ..write('status: $status, ')
+          ..write('fetchedAt: $fetchedAt, ')
+          ..write('retryAfter: $retryAfter')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      artistKey,
+      displayName,
+      sourceProviderId,
+      remoteArtistId,
+      remoteName,
+      avatarUrl,
+      avatarCachePath,
+      backgroundUrl,
+      backgroundCachePath,
+      description,
+      confidence,
+      userConfirmed,
+      status,
+      fetchedAt,
+      retryAfter);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredLocalArtistMetadataData &&
+          other.artistKey == this.artistKey &&
+          other.displayName == this.displayName &&
+          other.sourceProviderId == this.sourceProviderId &&
+          other.remoteArtistId == this.remoteArtistId &&
+          other.remoteName == this.remoteName &&
+          other.avatarUrl == this.avatarUrl &&
+          other.avatarCachePath == this.avatarCachePath &&
+          other.backgroundUrl == this.backgroundUrl &&
+          other.backgroundCachePath == this.backgroundCachePath &&
+          other.description == this.description &&
+          other.confidence == this.confidence &&
+          other.userConfirmed == this.userConfirmed &&
+          other.status == this.status &&
+          other.fetchedAt == this.fetchedAt &&
+          other.retryAfter == this.retryAfter);
+}
+
+class StoredLocalArtistMetadataCompanion
+    extends UpdateCompanion<StoredLocalArtistMetadataData> {
+  final Value<String> artistKey;
+  final Value<String> displayName;
+  final Value<String?> sourceProviderId;
+  final Value<String?> remoteArtistId;
+  final Value<String?> remoteName;
+  final Value<String?> avatarUrl;
+  final Value<String?> avatarCachePath;
+  final Value<String?> backgroundUrl;
+  final Value<String?> backgroundCachePath;
+  final Value<String?> description;
+  final Value<double?> confidence;
+  final Value<bool> userConfirmed;
+  final Value<String> status;
+  final Value<DateTime?> fetchedAt;
+  final Value<DateTime?> retryAfter;
+  final Value<int> rowid;
+  const StoredLocalArtistMetadataCompanion({
+    this.artistKey = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.sourceProviderId = const Value.absent(),
+    this.remoteArtistId = const Value.absent(),
+    this.remoteName = const Value.absent(),
+    this.avatarUrl = const Value.absent(),
+    this.avatarCachePath = const Value.absent(),
+    this.backgroundUrl = const Value.absent(),
+    this.backgroundCachePath = const Value.absent(),
+    this.description = const Value.absent(),
+    this.confidence = const Value.absent(),
+    this.userConfirmed = const Value.absent(),
+    this.status = const Value.absent(),
+    this.fetchedAt = const Value.absent(),
+    this.retryAfter = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StoredLocalArtistMetadataCompanion.insert({
+    required String artistKey,
+    required String displayName,
+    this.sourceProviderId = const Value.absent(),
+    this.remoteArtistId = const Value.absent(),
+    this.remoteName = const Value.absent(),
+    this.avatarUrl = const Value.absent(),
+    this.avatarCachePath = const Value.absent(),
+    this.backgroundUrl = const Value.absent(),
+    this.backgroundCachePath = const Value.absent(),
+    this.description = const Value.absent(),
+    this.confidence = const Value.absent(),
+    this.userConfirmed = const Value.absent(),
+    required String status,
+    this.fetchedAt = const Value.absent(),
+    this.retryAfter = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : artistKey = Value(artistKey),
+        displayName = Value(displayName),
+        status = Value(status);
+  static Insertable<StoredLocalArtistMetadataData> custom({
+    Expression<String>? artistKey,
+    Expression<String>? displayName,
+    Expression<String>? sourceProviderId,
+    Expression<String>? remoteArtistId,
+    Expression<String>? remoteName,
+    Expression<String>? avatarUrl,
+    Expression<String>? avatarCachePath,
+    Expression<String>? backgroundUrl,
+    Expression<String>? backgroundCachePath,
+    Expression<String>? description,
+    Expression<double>? confidence,
+    Expression<bool>? userConfirmed,
+    Expression<String>? status,
+    Expression<DateTime>? fetchedAt,
+    Expression<DateTime>? retryAfter,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (artistKey != null) 'artist_key': artistKey,
+      if (displayName != null) 'display_name': displayName,
+      if (sourceProviderId != null) 'source_provider_id': sourceProviderId,
+      if (remoteArtistId != null) 'remote_artist_id': remoteArtistId,
+      if (remoteName != null) 'remote_name': remoteName,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+      if (avatarCachePath != null) 'avatar_cache_path': avatarCachePath,
+      if (backgroundUrl != null) 'background_url': backgroundUrl,
+      if (backgroundCachePath != null)
+        'background_cache_path': backgroundCachePath,
+      if (description != null) 'description': description,
+      if (confidence != null) 'confidence': confidence,
+      if (userConfirmed != null) 'user_confirmed': userConfirmed,
+      if (status != null) 'status': status,
+      if (fetchedAt != null) 'fetched_at': fetchedAt,
+      if (retryAfter != null) 'retry_after': retryAfter,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StoredLocalArtistMetadataCompanion copyWith(
+      {Value<String>? artistKey,
+      Value<String>? displayName,
+      Value<String?>? sourceProviderId,
+      Value<String?>? remoteArtistId,
+      Value<String?>? remoteName,
+      Value<String?>? avatarUrl,
+      Value<String?>? avatarCachePath,
+      Value<String?>? backgroundUrl,
+      Value<String?>? backgroundCachePath,
+      Value<String?>? description,
+      Value<double?>? confidence,
+      Value<bool>? userConfirmed,
+      Value<String>? status,
+      Value<DateTime?>? fetchedAt,
+      Value<DateTime?>? retryAfter,
+      Value<int>? rowid}) {
+    return StoredLocalArtistMetadataCompanion(
+      artistKey: artistKey ?? this.artistKey,
+      displayName: displayName ?? this.displayName,
+      sourceProviderId: sourceProviderId ?? this.sourceProviderId,
+      remoteArtistId: remoteArtistId ?? this.remoteArtistId,
+      remoteName: remoteName ?? this.remoteName,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      avatarCachePath: avatarCachePath ?? this.avatarCachePath,
+      backgroundUrl: backgroundUrl ?? this.backgroundUrl,
+      backgroundCachePath: backgroundCachePath ?? this.backgroundCachePath,
+      description: description ?? this.description,
+      confidence: confidence ?? this.confidence,
+      userConfirmed: userConfirmed ?? this.userConfirmed,
+      status: status ?? this.status,
+      fetchedAt: fetchedAt ?? this.fetchedAt,
+      retryAfter: retryAfter ?? this.retryAfter,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (artistKey.present) {
+      map['artist_key'] = Variable<String>(artistKey.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (sourceProviderId.present) {
+      map['source_provider_id'] = Variable<String>(sourceProviderId.value);
+    }
+    if (remoteArtistId.present) {
+      map['remote_artist_id'] = Variable<String>(remoteArtistId.value);
+    }
+    if (remoteName.present) {
+      map['remote_name'] = Variable<String>(remoteName.value);
+    }
+    if (avatarUrl.present) {
+      map['avatar_url'] = Variable<String>(avatarUrl.value);
+    }
+    if (avatarCachePath.present) {
+      map['avatar_cache_path'] = Variable<String>(avatarCachePath.value);
+    }
+    if (backgroundUrl.present) {
+      map['background_url'] = Variable<String>(backgroundUrl.value);
+    }
+    if (backgroundCachePath.present) {
+      map['background_cache_path'] =
+          Variable<String>(backgroundCachePath.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (confidence.present) {
+      map['confidence'] = Variable<double>(confidence.value);
+    }
+    if (userConfirmed.present) {
+      map['user_confirmed'] = Variable<bool>(userConfirmed.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (fetchedAt.present) {
+      map['fetched_at'] = Variable<DateTime>(fetchedAt.value);
+    }
+    if (retryAfter.present) {
+      map['retry_after'] = Variable<DateTime>(retryAfter.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredLocalArtistMetadataCompanion(')
+          ..write('artistKey: $artistKey, ')
+          ..write('displayName: $displayName, ')
+          ..write('sourceProviderId: $sourceProviderId, ')
+          ..write('remoteArtistId: $remoteArtistId, ')
+          ..write('remoteName: $remoteName, ')
+          ..write('avatarUrl: $avatarUrl, ')
+          ..write('avatarCachePath: $avatarCachePath, ')
+          ..write('backgroundUrl: $backgroundUrl, ')
+          ..write('backgroundCachePath: $backgroundCachePath, ')
+          ..write('description: $description, ')
+          ..write('confidence: $confidence, ')
+          ..write('userConfirmed: $userConfirmed, ')
+          ..write('status: $status, ')
+          ..write('fetchedAt: $fetchedAt, ')
+          ..write('retryAfter: $retryAfter, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $StoredLocalTrackMatchesTable extends StoredLocalTrackMatches
+    with TableInfo<$StoredLocalTrackMatchesTable, StoredLocalTrackMatche> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StoredLocalTrackMatchesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _providerIdMeta =
+      const VerificationMeta('providerId');
+  @override
+  late final GeneratedColumn<String> providerId = GeneratedColumn<String>(
+      'provider_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _providerTrackIdMeta =
+      const VerificationMeta('providerTrackId');
+  @override
+  late final GeneratedColumn<String> providerTrackId = GeneratedColumn<String>(
+      'provider_track_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _localTrackIdMeta =
+      const VerificationMeta('localTrackId');
+  @override
+  late final GeneratedColumn<String> localTrackId = GeneratedColumn<String>(
+      'local_track_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _matchMethodMeta =
+      const VerificationMeta('matchMethod');
+  @override
+  late final GeneratedColumn<String> matchMethod = GeneratedColumn<String>(
+      'match_method', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _confidenceMeta =
+      const VerificationMeta('confidence');
+  @override
+  late final GeneratedColumn<double> confidence = GeneratedColumn<double>(
+      'confidence', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        providerId,
+        providerTrackId,
+        localTrackId,
+        matchMethod,
+        confidence,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'stored_local_track_matches';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<StoredLocalTrackMatche> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('provider_id')) {
+      context.handle(
+          _providerIdMeta,
+          providerId.isAcceptableOrUnknown(
+              data['provider_id']!, _providerIdMeta));
+    } else if (isInserting) {
+      context.missing(_providerIdMeta);
+    }
+    if (data.containsKey('provider_track_id')) {
+      context.handle(
+          _providerTrackIdMeta,
+          providerTrackId.isAcceptableOrUnknown(
+              data['provider_track_id']!, _providerTrackIdMeta));
+    } else if (isInserting) {
+      context.missing(_providerTrackIdMeta);
+    }
+    if (data.containsKey('local_track_id')) {
+      context.handle(
+          _localTrackIdMeta,
+          localTrackId.isAcceptableOrUnknown(
+              data['local_track_id']!, _localTrackIdMeta));
+    } else if (isInserting) {
+      context.missing(_localTrackIdMeta);
+    }
+    if (data.containsKey('match_method')) {
+      context.handle(
+          _matchMethodMeta,
+          matchMethod.isAcceptableOrUnknown(
+              data['match_method']!, _matchMethodMeta));
+    } else if (isInserting) {
+      context.missing(_matchMethodMeta);
+    }
+    if (data.containsKey('confidence')) {
+      context.handle(
+          _confidenceMeta,
+          confidence.isAcceptableOrUnknown(
+              data['confidence']!, _confidenceMeta));
+    } else if (isInserting) {
+      context.missing(_confidenceMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {providerId, providerTrackId};
+  @override
+  StoredLocalTrackMatche map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredLocalTrackMatche(
+      providerId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}provider_id'])!,
+      providerTrackId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}provider_track_id'])!,
+      localTrackId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}local_track_id'])!,
+      matchMethod: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}match_method'])!,
+      confidence: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}confidence'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $StoredLocalTrackMatchesTable createAlias(String alias) {
+    return $StoredLocalTrackMatchesTable(attachedDatabase, alias);
+  }
+}
+
+class StoredLocalTrackMatche extends DataClass
+    implements Insertable<StoredLocalTrackMatche> {
+  final String providerId;
+  final String providerTrackId;
+  final String localTrackId;
+  final String matchMethod;
+  final double confidence;
+  final DateTime updatedAt;
+  const StoredLocalTrackMatche(
+      {required this.providerId,
+      required this.providerTrackId,
+      required this.localTrackId,
+      required this.matchMethod,
+      required this.confidence,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['provider_id'] = Variable<String>(providerId);
+    map['provider_track_id'] = Variable<String>(providerTrackId);
+    map['local_track_id'] = Variable<String>(localTrackId);
+    map['match_method'] = Variable<String>(matchMethod);
+    map['confidence'] = Variable<double>(confidence);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  StoredLocalTrackMatchesCompanion toCompanion(bool nullToAbsent) {
+    return StoredLocalTrackMatchesCompanion(
+      providerId: Value(providerId),
+      providerTrackId: Value(providerTrackId),
+      localTrackId: Value(localTrackId),
+      matchMethod: Value(matchMethod),
+      confidence: Value(confidence),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory StoredLocalTrackMatche.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredLocalTrackMatche(
+      providerId: serializer.fromJson<String>(json['providerId']),
+      providerTrackId: serializer.fromJson<String>(json['providerTrackId']),
+      localTrackId: serializer.fromJson<String>(json['localTrackId']),
+      matchMethod: serializer.fromJson<String>(json['matchMethod']),
+      confidence: serializer.fromJson<double>(json['confidence']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'providerId': serializer.toJson<String>(providerId),
+      'providerTrackId': serializer.toJson<String>(providerTrackId),
+      'localTrackId': serializer.toJson<String>(localTrackId),
+      'matchMethod': serializer.toJson<String>(matchMethod),
+      'confidence': serializer.toJson<double>(confidence),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  StoredLocalTrackMatche copyWith(
+          {String? providerId,
+          String? providerTrackId,
+          String? localTrackId,
+          String? matchMethod,
+          double? confidence,
+          DateTime? updatedAt}) =>
+      StoredLocalTrackMatche(
+        providerId: providerId ?? this.providerId,
+        providerTrackId: providerTrackId ?? this.providerTrackId,
+        localTrackId: localTrackId ?? this.localTrackId,
+        matchMethod: matchMethod ?? this.matchMethod,
+        confidence: confidence ?? this.confidence,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  StoredLocalTrackMatche copyWithCompanion(
+      StoredLocalTrackMatchesCompanion data) {
+    return StoredLocalTrackMatche(
+      providerId:
+          data.providerId.present ? data.providerId.value : this.providerId,
+      providerTrackId: data.providerTrackId.present
+          ? data.providerTrackId.value
+          : this.providerTrackId,
+      localTrackId: data.localTrackId.present
+          ? data.localTrackId.value
+          : this.localTrackId,
+      matchMethod:
+          data.matchMethod.present ? data.matchMethod.value : this.matchMethod,
+      confidence:
+          data.confidence.present ? data.confidence.value : this.confidence,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredLocalTrackMatche(')
+          ..write('providerId: $providerId, ')
+          ..write('providerTrackId: $providerTrackId, ')
+          ..write('localTrackId: $localTrackId, ')
+          ..write('matchMethod: $matchMethod, ')
+          ..write('confidence: $confidence, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(providerId, providerTrackId, localTrackId,
+      matchMethod, confidence, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredLocalTrackMatche &&
+          other.providerId == this.providerId &&
+          other.providerTrackId == this.providerTrackId &&
+          other.localTrackId == this.localTrackId &&
+          other.matchMethod == this.matchMethod &&
+          other.confidence == this.confidence &&
+          other.updatedAt == this.updatedAt);
+}
+
+class StoredLocalTrackMatchesCompanion
+    extends UpdateCompanion<StoredLocalTrackMatche> {
+  final Value<String> providerId;
+  final Value<String> providerTrackId;
+  final Value<String> localTrackId;
+  final Value<String> matchMethod;
+  final Value<double> confidence;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const StoredLocalTrackMatchesCompanion({
+    this.providerId = const Value.absent(),
+    this.providerTrackId = const Value.absent(),
+    this.localTrackId = const Value.absent(),
+    this.matchMethod = const Value.absent(),
+    this.confidence = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StoredLocalTrackMatchesCompanion.insert({
+    required String providerId,
+    required String providerTrackId,
+    required String localTrackId,
+    required String matchMethod,
+    required double confidence,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  })  : providerId = Value(providerId),
+        providerTrackId = Value(providerTrackId),
+        localTrackId = Value(localTrackId),
+        matchMethod = Value(matchMethod),
+        confidence = Value(confidence),
+        updatedAt = Value(updatedAt);
+  static Insertable<StoredLocalTrackMatche> custom({
+    Expression<String>? providerId,
+    Expression<String>? providerTrackId,
+    Expression<String>? localTrackId,
+    Expression<String>? matchMethod,
+    Expression<double>? confidence,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (providerId != null) 'provider_id': providerId,
+      if (providerTrackId != null) 'provider_track_id': providerTrackId,
+      if (localTrackId != null) 'local_track_id': localTrackId,
+      if (matchMethod != null) 'match_method': matchMethod,
+      if (confidence != null) 'confidence': confidence,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StoredLocalTrackMatchesCompanion copyWith(
+      {Value<String>? providerId,
+      Value<String>? providerTrackId,
+      Value<String>? localTrackId,
+      Value<String>? matchMethod,
+      Value<double>? confidence,
+      Value<DateTime>? updatedAt,
+      Value<int>? rowid}) {
+    return StoredLocalTrackMatchesCompanion(
+      providerId: providerId ?? this.providerId,
+      providerTrackId: providerTrackId ?? this.providerTrackId,
+      localTrackId: localTrackId ?? this.localTrackId,
+      matchMethod: matchMethod ?? this.matchMethod,
+      confidence: confidence ?? this.confidence,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (providerId.present) {
+      map['provider_id'] = Variable<String>(providerId.value);
+    }
+    if (providerTrackId.present) {
+      map['provider_track_id'] = Variable<String>(providerTrackId.value);
+    }
+    if (localTrackId.present) {
+      map['local_track_id'] = Variable<String>(localTrackId.value);
+    }
+    if (matchMethod.present) {
+      map['match_method'] = Variable<String>(matchMethod.value);
+    }
+    if (confidence.present) {
+      map['confidence'] = Variable<double>(confidence.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredLocalTrackMatchesCompanion(')
+          ..write('providerId: $providerId, ')
+          ..write('providerTrackId: $providerTrackId, ')
+          ..write('localTrackId: $localTrackId, ')
+          ..write('matchMethod: $matchMethod, ')
+          ..write('confidence: $confidence, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$MeloDriftDatabase extends GeneratedDatabase {
   _$MeloDriftDatabase(QueryExecutor e) : super(e);
   $MeloDriftDatabaseManager get managers => $MeloDriftDatabaseManager(this);
@@ -4745,6 +6448,10 @@ abstract class _$MeloDriftDatabase extends GeneratedDatabase {
       $StoredLocalLibraryTracksTable(this);
   late final $StoredLocalLibraryFavoritesTable storedLocalLibraryFavorites =
       $StoredLocalLibraryFavoritesTable(this);
+  late final $StoredLocalArtistMetadataTable storedLocalArtistMetadata =
+      $StoredLocalArtistMetadataTable(this);
+  late final $StoredLocalTrackMatchesTable storedLocalTrackMatches =
+      $StoredLocalTrackMatchesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4763,7 +6470,9 @@ abstract class _$MeloDriftDatabase extends GeneratedDatabase {
         audioCacheSettings,
         storedLocalLibraryRoots,
         storedLocalLibraryTracks,
-        storedLocalLibraryFavorites
+        storedLocalLibraryFavorites,
+        storedLocalArtistMetadata,
+        storedLocalTrackMatches
       ];
 }
 
@@ -6840,6 +8549,19 @@ typedef $$StoredLocalLibraryTracksTableCreateCompanionBuilder
   required String format,
   Value<String?> album,
   Value<String?> genre,
+  Value<String> genresJson,
+  Value<String?> embeddedAlbumArtist,
+  Value<String?> albumArtist,
+  Value<String> albumArtistSource,
+  Value<String?> albumEditionKey,
+  Value<String?> isrc,
+  Value<DateTime?> addedAt,
+  Value<int?> bitRate,
+  Value<int?> sampleRate,
+  Value<int?> bitDepth,
+  Value<String> normalizedTitle,
+  Value<String> normalizedArtists,
+  Value<String> normalizedAlbum,
   Value<int?> year,
   Value<int?> trackNumber,
   Value<int?> discNumber,
@@ -6863,6 +8585,19 @@ typedef $$StoredLocalLibraryTracksTableUpdateCompanionBuilder
   Value<String> format,
   Value<String?> album,
   Value<String?> genre,
+  Value<String> genresJson,
+  Value<String?> embeddedAlbumArtist,
+  Value<String?> albumArtist,
+  Value<String> albumArtistSource,
+  Value<String?> albumEditionKey,
+  Value<String?> isrc,
+  Value<DateTime?> addedAt,
+  Value<int?> bitRate,
+  Value<int?> sampleRate,
+  Value<int?> bitDepth,
+  Value<String> normalizedTitle,
+  Value<String> normalizedArtists,
+  Value<String> normalizedAlbum,
   Value<int?> year,
   Value<int?> trackNumber,
   Value<int?> discNumber,
@@ -6919,6 +8654,51 @@ class $$StoredLocalLibraryTracksTableFilterComposer
 
   ColumnFilters<String> get genre => $composableBuilder(
       column: $table.genre, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get genresJson => $composableBuilder(
+      column: $table.genresJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get embeddedAlbumArtist => $composableBuilder(
+      column: $table.embeddedAlbumArtist,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get albumArtist => $composableBuilder(
+      column: $table.albumArtist, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get albumArtistSource => $composableBuilder(
+      column: $table.albumArtistSource,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get albumEditionKey => $composableBuilder(
+      column: $table.albumEditionKey,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get isrc => $composableBuilder(
+      column: $table.isrc, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get addedAt => $composableBuilder(
+      column: $table.addedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get bitRate => $composableBuilder(
+      column: $table.bitRate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get sampleRate => $composableBuilder(
+      column: $table.sampleRate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get bitDepth => $composableBuilder(
+      column: $table.bitDepth, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get normalizedTitle => $composableBuilder(
+      column: $table.normalizedTitle,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get normalizedArtists => $composableBuilder(
+      column: $table.normalizedArtists,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get normalizedAlbum => $composableBuilder(
+      column: $table.normalizedAlbum,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get year => $composableBuilder(
       column: $table.year, builder: (column) => ColumnFilters(column));
@@ -6988,6 +8768,51 @@ class $$StoredLocalLibraryTracksTableOrderingComposer
   ColumnOrderings<String> get genre => $composableBuilder(
       column: $table.genre, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get genresJson => $composableBuilder(
+      column: $table.genresJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get embeddedAlbumArtist => $composableBuilder(
+      column: $table.embeddedAlbumArtist,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get albumArtist => $composableBuilder(
+      column: $table.albumArtist, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get albumArtistSource => $composableBuilder(
+      column: $table.albumArtistSource,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get albumEditionKey => $composableBuilder(
+      column: $table.albumEditionKey,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get isrc => $composableBuilder(
+      column: $table.isrc, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get addedAt => $composableBuilder(
+      column: $table.addedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get bitRate => $composableBuilder(
+      column: $table.bitRate, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get sampleRate => $composableBuilder(
+      column: $table.sampleRate, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get bitDepth => $composableBuilder(
+      column: $table.bitDepth, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get normalizedTitle => $composableBuilder(
+      column: $table.normalizedTitle,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get normalizedArtists => $composableBuilder(
+      column: $table.normalizedArtists,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get normalizedAlbum => $composableBuilder(
+      column: $table.normalizedAlbum,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get year => $composableBuilder(
       column: $table.year, builder: (column) => ColumnOrderings(column));
 
@@ -7055,6 +8880,45 @@ class $$StoredLocalLibraryTracksTableAnnotationComposer
   GeneratedColumn<String> get genre =>
       $composableBuilder(column: $table.genre, builder: (column) => column);
 
+  GeneratedColumn<String> get genresJson => $composableBuilder(
+      column: $table.genresJson, builder: (column) => column);
+
+  GeneratedColumn<String> get embeddedAlbumArtist => $composableBuilder(
+      column: $table.embeddedAlbumArtist, builder: (column) => column);
+
+  GeneratedColumn<String> get albumArtist => $composableBuilder(
+      column: $table.albumArtist, builder: (column) => column);
+
+  GeneratedColumn<String> get albumArtistSource => $composableBuilder(
+      column: $table.albumArtistSource, builder: (column) => column);
+
+  GeneratedColumn<String> get albumEditionKey => $composableBuilder(
+      column: $table.albumEditionKey, builder: (column) => column);
+
+  GeneratedColumn<String> get isrc =>
+      $composableBuilder(column: $table.isrc, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get bitRate =>
+      $composableBuilder(column: $table.bitRate, builder: (column) => column);
+
+  GeneratedColumn<int> get sampleRate => $composableBuilder(
+      column: $table.sampleRate, builder: (column) => column);
+
+  GeneratedColumn<int> get bitDepth =>
+      $composableBuilder(column: $table.bitDepth, builder: (column) => column);
+
+  GeneratedColumn<String> get normalizedTitle => $composableBuilder(
+      column: $table.normalizedTitle, builder: (column) => column);
+
+  GeneratedColumn<String> get normalizedArtists => $composableBuilder(
+      column: $table.normalizedArtists, builder: (column) => column);
+
+  GeneratedColumn<String> get normalizedAlbum => $composableBuilder(
+      column: $table.normalizedAlbum, builder: (column) => column);
+
   GeneratedColumn<int> get year =>
       $composableBuilder(column: $table.year, builder: (column) => column);
 
@@ -7118,6 +8982,19 @@ class $$StoredLocalLibraryTracksTableTableManager extends RootTableManager<
             Value<String> format = const Value.absent(),
             Value<String?> album = const Value.absent(),
             Value<String?> genre = const Value.absent(),
+            Value<String> genresJson = const Value.absent(),
+            Value<String?> embeddedAlbumArtist = const Value.absent(),
+            Value<String?> albumArtist = const Value.absent(),
+            Value<String> albumArtistSource = const Value.absent(),
+            Value<String?> albumEditionKey = const Value.absent(),
+            Value<String?> isrc = const Value.absent(),
+            Value<DateTime?> addedAt = const Value.absent(),
+            Value<int?> bitRate = const Value.absent(),
+            Value<int?> sampleRate = const Value.absent(),
+            Value<int?> bitDepth = const Value.absent(),
+            Value<String> normalizedTitle = const Value.absent(),
+            Value<String> normalizedArtists = const Value.absent(),
+            Value<String> normalizedAlbum = const Value.absent(),
             Value<int?> year = const Value.absent(),
             Value<int?> trackNumber = const Value.absent(),
             Value<int?> discNumber = const Value.absent(),
@@ -7140,6 +9017,19 @@ class $$StoredLocalLibraryTracksTableTableManager extends RootTableManager<
             format: format,
             album: album,
             genre: genre,
+            genresJson: genresJson,
+            embeddedAlbumArtist: embeddedAlbumArtist,
+            albumArtist: albumArtist,
+            albumArtistSource: albumArtistSource,
+            albumEditionKey: albumEditionKey,
+            isrc: isrc,
+            addedAt: addedAt,
+            bitRate: bitRate,
+            sampleRate: sampleRate,
+            bitDepth: bitDepth,
+            normalizedTitle: normalizedTitle,
+            normalizedArtists: normalizedArtists,
+            normalizedAlbum: normalizedAlbum,
             year: year,
             trackNumber: trackNumber,
             discNumber: discNumber,
@@ -7162,6 +9052,19 @@ class $$StoredLocalLibraryTracksTableTableManager extends RootTableManager<
             required String format,
             Value<String?> album = const Value.absent(),
             Value<String?> genre = const Value.absent(),
+            Value<String> genresJson = const Value.absent(),
+            Value<String?> embeddedAlbumArtist = const Value.absent(),
+            Value<String?> albumArtist = const Value.absent(),
+            Value<String> albumArtistSource = const Value.absent(),
+            Value<String?> albumEditionKey = const Value.absent(),
+            Value<String?> isrc = const Value.absent(),
+            Value<DateTime?> addedAt = const Value.absent(),
+            Value<int?> bitRate = const Value.absent(),
+            Value<int?> sampleRate = const Value.absent(),
+            Value<int?> bitDepth = const Value.absent(),
+            Value<String> normalizedTitle = const Value.absent(),
+            Value<String> normalizedArtists = const Value.absent(),
+            Value<String> normalizedAlbum = const Value.absent(),
             Value<int?> year = const Value.absent(),
             Value<int?> trackNumber = const Value.absent(),
             Value<int?> discNumber = const Value.absent(),
@@ -7184,6 +9087,19 @@ class $$StoredLocalLibraryTracksTableTableManager extends RootTableManager<
             format: format,
             album: album,
             genre: genre,
+            genresJson: genresJson,
+            embeddedAlbumArtist: embeddedAlbumArtist,
+            albumArtist: albumArtist,
+            albumArtistSource: albumArtistSource,
+            albumEditionKey: albumEditionKey,
+            isrc: isrc,
+            addedAt: addedAt,
+            bitRate: bitRate,
+            sampleRate: sampleRate,
+            bitDepth: bitDepth,
+            normalizedTitle: normalizedTitle,
+            normalizedArtists: normalizedArtists,
+            normalizedAlbum: normalizedAlbum,
             year: year,
             trackNumber: trackNumber,
             discNumber: discNumber,
@@ -7351,6 +9267,544 @@ typedef $$StoredLocalLibraryFavoritesTableProcessedTableManager
         ),
         StoredLocalLibraryFavorite,
         PrefetchHooks Function()>;
+typedef $$StoredLocalArtistMetadataTableCreateCompanionBuilder
+    = StoredLocalArtistMetadataCompanion Function({
+  required String artistKey,
+  required String displayName,
+  Value<String?> sourceProviderId,
+  Value<String?> remoteArtistId,
+  Value<String?> remoteName,
+  Value<String?> avatarUrl,
+  Value<String?> avatarCachePath,
+  Value<String?> backgroundUrl,
+  Value<String?> backgroundCachePath,
+  Value<String?> description,
+  Value<double?> confidence,
+  Value<bool> userConfirmed,
+  required String status,
+  Value<DateTime?> fetchedAt,
+  Value<DateTime?> retryAfter,
+  Value<int> rowid,
+});
+typedef $$StoredLocalArtistMetadataTableUpdateCompanionBuilder
+    = StoredLocalArtistMetadataCompanion Function({
+  Value<String> artistKey,
+  Value<String> displayName,
+  Value<String?> sourceProviderId,
+  Value<String?> remoteArtistId,
+  Value<String?> remoteName,
+  Value<String?> avatarUrl,
+  Value<String?> avatarCachePath,
+  Value<String?> backgroundUrl,
+  Value<String?> backgroundCachePath,
+  Value<String?> description,
+  Value<double?> confidence,
+  Value<bool> userConfirmed,
+  Value<String> status,
+  Value<DateTime?> fetchedAt,
+  Value<DateTime?> retryAfter,
+  Value<int> rowid,
+});
+
+class $$StoredLocalArtistMetadataTableFilterComposer
+    extends Composer<_$MeloDriftDatabase, $StoredLocalArtistMetadataTable> {
+  $$StoredLocalArtistMetadataTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get artistKey => $composableBuilder(
+      column: $table.artistKey, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+      column: $table.displayName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get sourceProviderId => $composableBuilder(
+      column: $table.sourceProviderId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get remoteArtistId => $composableBuilder(
+      column: $table.remoteArtistId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get remoteName => $composableBuilder(
+      column: $table.remoteName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get avatarUrl => $composableBuilder(
+      column: $table.avatarUrl, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get avatarCachePath => $composableBuilder(
+      column: $table.avatarCachePath,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get backgroundUrl => $composableBuilder(
+      column: $table.backgroundUrl, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get backgroundCachePath => $composableBuilder(
+      column: $table.backgroundCachePath,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get confidence => $composableBuilder(
+      column: $table.confidence, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get userConfirmed => $composableBuilder(
+      column: $table.userConfirmed, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get fetchedAt => $composableBuilder(
+      column: $table.fetchedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get retryAfter => $composableBuilder(
+      column: $table.retryAfter, builder: (column) => ColumnFilters(column));
+}
+
+class $$StoredLocalArtistMetadataTableOrderingComposer
+    extends Composer<_$MeloDriftDatabase, $StoredLocalArtistMetadataTable> {
+  $$StoredLocalArtistMetadataTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get artistKey => $composableBuilder(
+      column: $table.artistKey, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+      column: $table.displayName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get sourceProviderId => $composableBuilder(
+      column: $table.sourceProviderId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get remoteArtistId => $composableBuilder(
+      column: $table.remoteArtistId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get remoteName => $composableBuilder(
+      column: $table.remoteName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get avatarUrl => $composableBuilder(
+      column: $table.avatarUrl, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get avatarCachePath => $composableBuilder(
+      column: $table.avatarCachePath,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get backgroundUrl => $composableBuilder(
+      column: $table.backgroundUrl,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get backgroundCachePath => $composableBuilder(
+      column: $table.backgroundCachePath,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get confidence => $composableBuilder(
+      column: $table.confidence, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get userConfirmed => $composableBuilder(
+      column: $table.userConfirmed,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get fetchedAt => $composableBuilder(
+      column: $table.fetchedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get retryAfter => $composableBuilder(
+      column: $table.retryAfter, builder: (column) => ColumnOrderings(column));
+}
+
+class $$StoredLocalArtistMetadataTableAnnotationComposer
+    extends Composer<_$MeloDriftDatabase, $StoredLocalArtistMetadataTable> {
+  $$StoredLocalArtistMetadataTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get artistKey =>
+      $composableBuilder(column: $table.artistKey, builder: (column) => column);
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+      column: $table.displayName, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceProviderId => $composableBuilder(
+      column: $table.sourceProviderId, builder: (column) => column);
+
+  GeneratedColumn<String> get remoteArtistId => $composableBuilder(
+      column: $table.remoteArtistId, builder: (column) => column);
+
+  GeneratedColumn<String> get remoteName => $composableBuilder(
+      column: $table.remoteName, builder: (column) => column);
+
+  GeneratedColumn<String> get avatarUrl =>
+      $composableBuilder(column: $table.avatarUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get avatarCachePath => $composableBuilder(
+      column: $table.avatarCachePath, builder: (column) => column);
+
+  GeneratedColumn<String> get backgroundUrl => $composableBuilder(
+      column: $table.backgroundUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get backgroundCachePath => $composableBuilder(
+      column: $table.backgroundCachePath, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+      column: $table.description, builder: (column) => column);
+
+  GeneratedColumn<double> get confidence => $composableBuilder(
+      column: $table.confidence, builder: (column) => column);
+
+  GeneratedColumn<bool> get userConfirmed => $composableBuilder(
+      column: $table.userConfirmed, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get fetchedAt =>
+      $composableBuilder(column: $table.fetchedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get retryAfter => $composableBuilder(
+      column: $table.retryAfter, builder: (column) => column);
+}
+
+class $$StoredLocalArtistMetadataTableTableManager extends RootTableManager<
+    _$MeloDriftDatabase,
+    $StoredLocalArtistMetadataTable,
+    StoredLocalArtistMetadataData,
+    $$StoredLocalArtistMetadataTableFilterComposer,
+    $$StoredLocalArtistMetadataTableOrderingComposer,
+    $$StoredLocalArtistMetadataTableAnnotationComposer,
+    $$StoredLocalArtistMetadataTableCreateCompanionBuilder,
+    $$StoredLocalArtistMetadataTableUpdateCompanionBuilder,
+    (
+      StoredLocalArtistMetadataData,
+      BaseReferences<_$MeloDriftDatabase, $StoredLocalArtistMetadataTable,
+          StoredLocalArtistMetadataData>
+    ),
+    StoredLocalArtistMetadataData,
+    PrefetchHooks Function()> {
+  $$StoredLocalArtistMetadataTableTableManager(
+      _$MeloDriftDatabase db, $StoredLocalArtistMetadataTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StoredLocalArtistMetadataTableFilterComposer(
+                  $db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StoredLocalArtistMetadataTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StoredLocalArtistMetadataTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> artistKey = const Value.absent(),
+            Value<String> displayName = const Value.absent(),
+            Value<String?> sourceProviderId = const Value.absent(),
+            Value<String?> remoteArtistId = const Value.absent(),
+            Value<String?> remoteName = const Value.absent(),
+            Value<String?> avatarUrl = const Value.absent(),
+            Value<String?> avatarCachePath = const Value.absent(),
+            Value<String?> backgroundUrl = const Value.absent(),
+            Value<String?> backgroundCachePath = const Value.absent(),
+            Value<String?> description = const Value.absent(),
+            Value<double?> confidence = const Value.absent(),
+            Value<bool> userConfirmed = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<DateTime?> fetchedAt = const Value.absent(),
+            Value<DateTime?> retryAfter = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              StoredLocalArtistMetadataCompanion(
+            artistKey: artistKey,
+            displayName: displayName,
+            sourceProviderId: sourceProviderId,
+            remoteArtistId: remoteArtistId,
+            remoteName: remoteName,
+            avatarUrl: avatarUrl,
+            avatarCachePath: avatarCachePath,
+            backgroundUrl: backgroundUrl,
+            backgroundCachePath: backgroundCachePath,
+            description: description,
+            confidence: confidence,
+            userConfirmed: userConfirmed,
+            status: status,
+            fetchedAt: fetchedAt,
+            retryAfter: retryAfter,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String artistKey,
+            required String displayName,
+            Value<String?> sourceProviderId = const Value.absent(),
+            Value<String?> remoteArtistId = const Value.absent(),
+            Value<String?> remoteName = const Value.absent(),
+            Value<String?> avatarUrl = const Value.absent(),
+            Value<String?> avatarCachePath = const Value.absent(),
+            Value<String?> backgroundUrl = const Value.absent(),
+            Value<String?> backgroundCachePath = const Value.absent(),
+            Value<String?> description = const Value.absent(),
+            Value<double?> confidence = const Value.absent(),
+            Value<bool> userConfirmed = const Value.absent(),
+            required String status,
+            Value<DateTime?> fetchedAt = const Value.absent(),
+            Value<DateTime?> retryAfter = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              StoredLocalArtistMetadataCompanion.insert(
+            artistKey: artistKey,
+            displayName: displayName,
+            sourceProviderId: sourceProviderId,
+            remoteArtistId: remoteArtistId,
+            remoteName: remoteName,
+            avatarUrl: avatarUrl,
+            avatarCachePath: avatarCachePath,
+            backgroundUrl: backgroundUrl,
+            backgroundCachePath: backgroundCachePath,
+            description: description,
+            confidence: confidence,
+            userConfirmed: userConfirmed,
+            status: status,
+            fetchedAt: fetchedAt,
+            retryAfter: retryAfter,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$StoredLocalArtistMetadataTableProcessedTableManager
+    = ProcessedTableManager<
+        _$MeloDriftDatabase,
+        $StoredLocalArtistMetadataTable,
+        StoredLocalArtistMetadataData,
+        $$StoredLocalArtistMetadataTableFilterComposer,
+        $$StoredLocalArtistMetadataTableOrderingComposer,
+        $$StoredLocalArtistMetadataTableAnnotationComposer,
+        $$StoredLocalArtistMetadataTableCreateCompanionBuilder,
+        $$StoredLocalArtistMetadataTableUpdateCompanionBuilder,
+        (
+          StoredLocalArtistMetadataData,
+          BaseReferences<_$MeloDriftDatabase, $StoredLocalArtistMetadataTable,
+              StoredLocalArtistMetadataData>
+        ),
+        StoredLocalArtistMetadataData,
+        PrefetchHooks Function()>;
+typedef $$StoredLocalTrackMatchesTableCreateCompanionBuilder
+    = StoredLocalTrackMatchesCompanion Function({
+  required String providerId,
+  required String providerTrackId,
+  required String localTrackId,
+  required String matchMethod,
+  required double confidence,
+  required DateTime updatedAt,
+  Value<int> rowid,
+});
+typedef $$StoredLocalTrackMatchesTableUpdateCompanionBuilder
+    = StoredLocalTrackMatchesCompanion Function({
+  Value<String> providerId,
+  Value<String> providerTrackId,
+  Value<String> localTrackId,
+  Value<String> matchMethod,
+  Value<double> confidence,
+  Value<DateTime> updatedAt,
+  Value<int> rowid,
+});
+
+class $$StoredLocalTrackMatchesTableFilterComposer
+    extends Composer<_$MeloDriftDatabase, $StoredLocalTrackMatchesTable> {
+  $$StoredLocalTrackMatchesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get providerTrackId => $composableBuilder(
+      column: $table.providerTrackId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get localTrackId => $composableBuilder(
+      column: $table.localTrackId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get matchMethod => $composableBuilder(
+      column: $table.matchMethod, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get confidence => $composableBuilder(
+      column: $table.confidence, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$StoredLocalTrackMatchesTableOrderingComposer
+    extends Composer<_$MeloDriftDatabase, $StoredLocalTrackMatchesTable> {
+  $$StoredLocalTrackMatchesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get providerTrackId => $composableBuilder(
+      column: $table.providerTrackId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get localTrackId => $composableBuilder(
+      column: $table.localTrackId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get matchMethod => $composableBuilder(
+      column: $table.matchMethod, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get confidence => $composableBuilder(
+      column: $table.confidence, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$StoredLocalTrackMatchesTableAnnotationComposer
+    extends Composer<_$MeloDriftDatabase, $StoredLocalTrackMatchesTable> {
+  $$StoredLocalTrackMatchesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get providerId => $composableBuilder(
+      column: $table.providerId, builder: (column) => column);
+
+  GeneratedColumn<String> get providerTrackId => $composableBuilder(
+      column: $table.providerTrackId, builder: (column) => column);
+
+  GeneratedColumn<String> get localTrackId => $composableBuilder(
+      column: $table.localTrackId, builder: (column) => column);
+
+  GeneratedColumn<String> get matchMethod => $composableBuilder(
+      column: $table.matchMethod, builder: (column) => column);
+
+  GeneratedColumn<double> get confidence => $composableBuilder(
+      column: $table.confidence, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$StoredLocalTrackMatchesTableTableManager extends RootTableManager<
+    _$MeloDriftDatabase,
+    $StoredLocalTrackMatchesTable,
+    StoredLocalTrackMatche,
+    $$StoredLocalTrackMatchesTableFilterComposer,
+    $$StoredLocalTrackMatchesTableOrderingComposer,
+    $$StoredLocalTrackMatchesTableAnnotationComposer,
+    $$StoredLocalTrackMatchesTableCreateCompanionBuilder,
+    $$StoredLocalTrackMatchesTableUpdateCompanionBuilder,
+    (
+      StoredLocalTrackMatche,
+      BaseReferences<_$MeloDriftDatabase, $StoredLocalTrackMatchesTable,
+          StoredLocalTrackMatche>
+    ),
+    StoredLocalTrackMatche,
+    PrefetchHooks Function()> {
+  $$StoredLocalTrackMatchesTableTableManager(
+      _$MeloDriftDatabase db, $StoredLocalTrackMatchesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StoredLocalTrackMatchesTableFilterComposer(
+                  $db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StoredLocalTrackMatchesTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StoredLocalTrackMatchesTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> providerId = const Value.absent(),
+            Value<String> providerTrackId = const Value.absent(),
+            Value<String> localTrackId = const Value.absent(),
+            Value<String> matchMethod = const Value.absent(),
+            Value<double> confidence = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              StoredLocalTrackMatchesCompanion(
+            providerId: providerId,
+            providerTrackId: providerTrackId,
+            localTrackId: localTrackId,
+            matchMethod: matchMethod,
+            confidence: confidence,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String providerId,
+            required String providerTrackId,
+            required String localTrackId,
+            required String matchMethod,
+            required double confidence,
+            required DateTime updatedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              StoredLocalTrackMatchesCompanion.insert(
+            providerId: providerId,
+            providerTrackId: providerTrackId,
+            localTrackId: localTrackId,
+            matchMethod: matchMethod,
+            confidence: confidence,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$StoredLocalTrackMatchesTableProcessedTableManager
+    = ProcessedTableManager<
+        _$MeloDriftDatabase,
+        $StoredLocalTrackMatchesTable,
+        StoredLocalTrackMatche,
+        $$StoredLocalTrackMatchesTableFilterComposer,
+        $$StoredLocalTrackMatchesTableOrderingComposer,
+        $$StoredLocalTrackMatchesTableAnnotationComposer,
+        $$StoredLocalTrackMatchesTableCreateCompanionBuilder,
+        $$StoredLocalTrackMatchesTableUpdateCompanionBuilder,
+        (
+          StoredLocalTrackMatche,
+          BaseReferences<_$MeloDriftDatabase, $StoredLocalTrackMatchesTable,
+              StoredLocalTrackMatche>
+        ),
+        StoredLocalTrackMatche,
+        PrefetchHooks Function()>;
 
 class $MeloDriftDatabaseManager {
   final _$MeloDriftDatabase _db;
@@ -7393,4 +9847,10 @@ class $MeloDriftDatabaseManager {
       get storedLocalLibraryFavorites =>
           $$StoredLocalLibraryFavoritesTableTableManager(
               _db, _db.storedLocalLibraryFavorites);
+  $$StoredLocalArtistMetadataTableTableManager get storedLocalArtistMetadata =>
+      $$StoredLocalArtistMetadataTableTableManager(
+          _db, _db.storedLocalArtistMetadata);
+  $$StoredLocalTrackMatchesTableTableManager get storedLocalTrackMatches =>
+      $$StoredLocalTrackMatchesTableTableManager(
+          _db, _db.storedLocalTrackMatches);
 }

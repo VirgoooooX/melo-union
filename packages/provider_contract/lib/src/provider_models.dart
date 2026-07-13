@@ -47,6 +47,18 @@ final class ProviderTrackRef {
       Object.hash(providerId, trackId, _sortedStringMapHash(extraIds));
 }
 
+final class ProviderArtistRef {
+  const ProviderArtistRef({
+    required this.providerId,
+    required this.artistId,
+    required this.name,
+  });
+
+  final ProviderId providerId;
+  final String artistId;
+  final String name;
+}
+
 final class SourceTrack {
   const SourceTrack({
     required this.ref,
@@ -65,6 +77,7 @@ final class SourceTrack {
     this.likedAt,
     this.likedAtSource,
     this.likedAtPrecision,
+    this.artistRefs = const [],
   });
 
   final ProviderTrackRef ref;
@@ -92,6 +105,7 @@ final class SourceTrack {
   /// Precision of the liked-at timestamp:
   ///   'exact' | 'approximate' | 'unknown' | null
   final String? likedAtPrecision;
+  final List<ProviderArtistRef> artistRefs;
 
   SourceTrack copyWith({
     ProviderTrackRef? ref,
@@ -111,6 +125,7 @@ final class SourceTrack {
     String? likedAtSource,
     String? likedAtPrecision,
     bool clearLikedAt = false,
+    List<ProviderArtistRef>? artistRefs,
   }) {
     return SourceTrack(
       ref: ref ?? this.ref,
@@ -130,8 +145,59 @@ final class SourceTrack {
       likedAtSource: clearLikedAt ? null : likedAtSource ?? this.likedAtSource,
       likedAtPrecision:
           clearLikedAt ? null : likedAtPrecision ?? this.likedAtPrecision,
+      artistRefs: artistRefs ?? this.artistRefs,
     );
   }
+}
+
+final class ArtistMatchTrack {
+  const ArtistMatchTrack(
+      {required this.title, required this.duration, this.album});
+  final String title;
+  final String? album;
+  final Duration duration;
+}
+
+final class ProviderArtistCandidate {
+  const ProviderArtistCandidate({
+    required this.artist,
+    this.aliases = const [],
+    this.avatar,
+    this.background,
+    this.description,
+    this.providerScore = 0,
+  });
+  final ProviderArtistRef artist;
+  final List<String> aliases;
+  final Uri? avatar;
+  final Uri? background;
+  final String? description;
+  final double providerScore;
+}
+
+final class ProviderArtistMetadata {
+  const ProviderArtistMetadata({
+    required this.artist,
+    this.aliases = const [],
+    this.avatar,
+    this.background,
+    this.description,
+  });
+  final ProviderArtistRef artist;
+  final List<String> aliases;
+  final Uri? avatar;
+  final Uri? background;
+  final String? description;
+}
+
+abstract interface class ArtistMetadataProvider {
+  Future<List<ProviderArtistCandidate>> searchArtistMetadata({
+    required String artistName,
+    required List<ArtistMatchTrack> samples,
+    int limit = 5,
+  });
+
+  Future<ProviderArtistMetadata?> getArtistMetadata(String artistId);
 }
 
 final class FavoriteSnapshot {

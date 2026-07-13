@@ -694,16 +694,18 @@ class DemoRepository extends ChangeNotifier {
       overrides: favoritesOverrideRegistry,
       likedAtLedger: favoriteLikedAtLedger,
     );
+    final tracks = await _attachLocalPlaybackVariants(result.tracks);
     _unifiedFavoritesCache = CachedUnifiedFavorites(
-      tracks: result.tracks,
+      tracks: tracks,
       builtAt: DateTime.now().toUtc(),
     );
-    _lastFavoritesData = result.tracks;
-    for (final track in result.tracks) {
+    _lastFavoritesData = tracks;
+    for (final track in tracks) {
       _rememberTracks(track.variants);
+      if (track.localPlaybackVariant case final local?) _rememberTrack(local);
     }
     _persistSoon();
-    return result.tracks;
+    return tracks;
   }
 
   /// Most recently loaded favorites data, persisted across page rebuilds.
@@ -852,6 +854,8 @@ class DemoRepository extends ChangeNotifier {
       await localLibraryController?.restore(
         snapshot.localLibraryRoots,
         snapshot.localLibraryTracks,
+        artistMetadata: snapshot.localArtistMetadata,
+        trackMatches: snapshot.localTrackMatches,
       );
     }
     playlists.replaceAll(snapshot.playlists);
@@ -1543,12 +1547,8 @@ class DemoRepository extends ChangeNotifier {
   }
 
   Future<void> playUnifiedTrack(UnifiedFavoriteTrack track) async {
-    final playableVariants = track.variants
-        .where((variant) => variant.isPlayable)
-        .toList(growable: false);
-    if (playableVariants.isEmpty) return;
-
-    await playTrack(playableVariants.first);
+    final selected = selectUnifiedPlaybackSource(track);
+    if (selected != null) await playTrack(selected);
   }
 
   Future<void> playOrToggleUnifiedTrack(UnifiedFavoriteTrack track) async {
@@ -1625,24 +1625,41 @@ class DemoRepository extends ChangeNotifier {
       _serializePlayNext(track: track);
 
   Future<void> playUnifiedTrackNext(UnifiedFavoriteTrack track) async {
-    final currentProvider = queue.current?.track.ref.providerId;
-    SourceTrack? selected;
-    for (final variant in track.variants) {
-      if (variant.isPlayable && variant.ref.providerId == currentProvider) {
-        selected = variant;
-        break;
-      }
-    }
-    selected ??= track.variants.where((variant) {
-      final entry = registry.entryOf(variant.ref.providerId);
-      return variant.isPlayable &&
-          entry != null &&
-          entry.isEnabled &&
-          entry.provider.isAuthenticated;
-    }).firstOrNull;
-    selected ??=
-        track.variants.where((variant) => variant.isPlayable).firstOrNull;
+    final selected = selectUnifiedPlaybackSource(
+      track,
+      providerId: queue.current?.track.ref.providerId.value,
+    );
     if (selected != null) await _serializePlayNext(track: selected);
+  }
+
+  final Map<ProviderTrackRef, List<SourceTrack>> _unifiedPlaybackFallbacks = {};
+
+  SourceTrack? selectUnifiedPlaybackSource(
+    UnifiedFavoriteTrack track, {
+    String? providerId,
+  }) {
+    final ordered = <SourceTrack>[];
+    void add(SourceTrack? value) {
+      if (value == null || !value.isPlayable) return;
+      if (!ordered.any((item) => item.ref == value.ref)) ordered.add(value);
+    }
+
+    if (providerId == null) {
+      add(track.localPlaybackVariant);
+    } else {
+      for (final variant in track.variants) {
+        if (variant.ref.providerId.value == providerId) add(variant);
+      }
+      add(track.localPlaybackVariant);
+    }
+    for (final variant in track.variants) {
+      add(variant);
+    }
+    if (ordered.isEmpty) return null;
+    final primary = ordered.first;
+    _unifiedPlaybackFallbacks[primary.ref] = ordered.skip(1).toList();
+    _rememberTracks(ordered);
+    return primary;
   }
 
   Future<void> moveQueueEntryNext(String entryId) =>
@@ -2718,6 +2735,7 @@ class DemoRepository extends ChangeNotifier {
   Future<PlaybackTicket?> _resolvePlaybackTicketForTrack(
     SourceTrack track, {
     bool ignoreLocal = false,
+    bool ignoreUnifiedFallback = false,
   }) async {
     if (!ignoreLocal) {
       final local = await _resolveLocalPlaybackTicket(
@@ -2747,6 +2765,24 @@ class DemoRepository extends ChangeNotifier {
         quality: ticket.quality,
       );
     } catch (_) {
+      if (!ignoreUnifiedFallback) {
+        for (final fallback
+            in _unifiedPlaybackFallbacks[track.ref] ?? const <SourceTrack>[]) {
+          final ticket = await _resolvePlaybackTicketForTrack(
+            fallback,
+            ignoreUnifiedFallback: true,
+          );
+          if (ticket != null) {
+            return PlaybackTicket(
+              mediaUri: ticket.mediaUri,
+              headers: ticket.headers,
+              expiresAt: ticket.expiresAt,
+              trackRef: track.ref,
+              quality: ticket.quality,
+            );
+          }
+        }
+      }
       if (ignoreLocal) return null;
       return _resolveLocalPlaybackTicket(
         track,
@@ -3567,6 +3603,95 @@ class DemoRepository extends ChangeNotifier {
     for (final track in result.tracks) {
       _rememberTracks(track.variants);
     }
+    unawaited(_refreshLocalFavoriteMatches(result.tracks));
+  }
+
+  Future<void> _refreshLocalFavoriteMatches(
+    List<UnifiedFavoriteTrack> tracks,
+  ) async {
+    final enriched = await _attachLocalPlaybackVariants(tracks);
+    if (!identical(_lastFavoritesData, tracks) &&
+        _lastFavoritesData != tracks) {
+      return;
+    }
+    _lastFavoritesData = enriched.isEmpty ? null : enriched;
+    _unifiedFavoritesCache = CachedUnifiedFavorites(
+      tracks: enriched,
+      builtAt: DateTime.now().toUtc(),
+    );
+    _persistSoon();
+    notifyListeners();
+  }
+
+  Future<List<UnifiedFavoriteTrack>> _attachLocalPlaybackVariants(
+    List<UnifiedFavoriteTrack> tracks,
+  ) async {
+    final repository = localLibraryController?.repository;
+    if (repository == null || tracks.isEmpty) return tracks;
+    final localTracks = await repository.listTracks(limit: 1000000);
+    if (localTracks.isEmpty) return tracks;
+
+    final byIsrc = <String, List<LocalLibraryTrack>>{};
+    final byMetadata = <String, List<LocalLibraryTrack>>{};
+    String? normalizedIsrc(String? value) {
+      final normalized =
+          value?.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+      return normalized == null || normalized.isEmpty ? null : normalized;
+    }
+
+    String metadataKey(String title, List<String> artists) {
+      final artistKey = artists.map(normalizeLocalMetadata).toList()..sort();
+      return '${normalizeLocalMetadata(title)}|${artistKey.join('|')}';
+    }
+
+    for (final local in localTracks.where((item) => item.isAvailable)) {
+      final isrc = normalizedIsrc(local.isrc);
+      if (isrc != null) byIsrc.putIfAbsent(isrc, () => []).add(local);
+      byMetadata
+          .putIfAbsent(metadataKey(local.title, local.artists), () => [])
+          .add(local);
+    }
+
+    const matcher = LocalTrackMatcher();
+    final result = <UnifiedFavoriteTrack>[];
+    for (final unified in tracks) {
+      final existingLocal = unified.variants
+          .where((item) => item.ref.providerId == localMusicProviderId)
+          .firstOrNull;
+      if (existingLocal != null) {
+        result.add(unified.copyWithLocalPlaybackVariant(existingLocal));
+        continue;
+      }
+
+      SourceTrack? localVariant;
+      for (final remote in unified.variants) {
+        final stored = await repository.findLocalMatch(remote.ref);
+        if (stored != null) {
+          final local = await repository.getTrack(stored.localTrackId);
+          if (local?.isAvailable == true) {
+            localVariant = local!.toSourceTrack();
+            break;
+          }
+          await repository.removeLocalTrackMatch(remote.ref);
+        }
+        final isrc = normalizedIsrc(remote.isrc);
+        final candidates = isrc == null
+            ? byMetadata[metadataKey(remote.title, remote.artists)] ?? const []
+            : byIsrc[isrc] ?? const [];
+        final match = matcher.match(remote, candidates);
+        if (match == null) continue;
+        await repository.upsertLocalTrackMatch(match);
+        final local = localTracks
+            .where((item) => item.id == match.localTrackId)
+            .firstOrNull;
+        if (local != null) {
+          localVariant = local.toSourceTrack();
+          break;
+        }
+      }
+      result.add(unified.copyWithLocalPlaybackVariant(localVariant));
+    }
+    return result;
   }
 
   String _refKey(ProviderTrackRef ref) {
@@ -3585,12 +3710,16 @@ class DemoRepository extends ChangeNotifier {
       duration: track.duration,
       isFavorited: track.isFavorited,
       album: track.album,
+      year: track.year,
+      trackNumber: track.trackNumber,
+      discNumber: track.discNumber,
       isrc: track.isrc,
       artwork: track.artwork,
       isPlayable: track.isPlayable,
       isDownloadable: track.isDownloadable,
       likedAtSource: LikedAtMetadata.sourceQqImport,
       likedAtPrecision: LikedAtMetadata.precisionUnknown,
+      artistRefs: track.artistRefs,
     );
   }
 

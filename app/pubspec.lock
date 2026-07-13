@@ -28,10 +28,9 @@ packages:
   audio_metadata_reader:
     dependency: "direct main"
     description:
-      name: audio_metadata_reader
-      sha256: "847c7e65ce6c56b684310b90ef165f049a7deca096796ad71a166b9eadd2a1b1"
-      url: "https://pub.dev"
-    source: hosted
+      path: "../packages/audio_metadata_reader_patched"
+      relative: true
+    source: path
     version: "1.6.0"
   audio_service:
     dependency: transitive

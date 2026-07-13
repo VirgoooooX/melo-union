@@ -8,6 +8,8 @@ final class MeloDataSnapshot {
     this.localMediaItems = const [],
     this.localLibraryRoots = const [],
     this.localLibraryTracks = const [],
+    this.localArtistMetadata = const [],
+    this.localTrackMatches = const [],
     this.favoriteProviderSnapshots = const [],
     LikedAtLedger? favoriteLikedAtLedger,
     this.unifiedFavoritesCache,
@@ -27,6 +29,8 @@ final class MeloDataSnapshot {
   final List<LocalMediaItem> localMediaItems;
   final List<LocalLibraryRoot> localLibraryRoots;
   final List<LocalLibraryTrack> localLibraryTracks;
+  final List<LocalArtistMetadata> localArtistMetadata;
+  final List<LocalTrackMatch> localTrackMatches;
   final List<FavoriteSnapshot> favoriteProviderSnapshots;
   final LikedAtLedger favoriteLikedAtLedger;
   final CachedUnifiedFavorites? unifiedFavoritesCache;

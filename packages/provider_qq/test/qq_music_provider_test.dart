@@ -27,7 +27,7 @@ void main() {
                     'albummid': 'album_mid_1',
                     'interval': 269,
                     'singer': [
-                      {'name': '周杰伦'},
+                      {'mid': 'jay_mid', 'name': '周杰伦'},
                     ],
                   },
                 ],
@@ -52,6 +52,7 @@ void main() {
     expect(results, hasLength(1));
     expect(results.single.title, '晴天');
     expect(results.single.artists, ['周杰伦']);
+    expect(results.single.artistRefs.single.artistId, 'jay_mid');
     expect(results.single.album, '叶惠美');
     expect(results.single.ref.extraIds['song_id'], '10001');
     expect(results.single.ref.extraIds['song_type'], '0');
@@ -951,6 +952,108 @@ void main() {
       () => provider.setFavorite(track: trackRef, liked: true),
       throwsA(isA<ProviderException>()),
     );
+  });
+
+  test('searches and loads QQ artist metadata', () async {
+    final provider = QqMusicProvider(
+      searchBaseUri: Uri.parse('https://qq.test'),
+      musicuUri: Uri.parse('https://musicu.test/cgi-bin/musicu.fcg'),
+      client: _FakeClient((request) {
+        if (request.url.path == '/soso/fcgi-bin/client_search_cp') {
+          return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'code': 0,
+              'data': {
+                'song': {
+                  'list': [
+                    {
+                      'songname': '晴天',
+                      'albumname': '叶惠美',
+                      'interval': 269,
+                      'singer': [
+                        {'mid': 'jay_mid', 'name': '周杰伦'},
+                      ],
+                    },
+                  ],
+                },
+              },
+            })),
+            200,
+          );
+        }
+        if (request.url.host == 'musicu.test') {
+          expect(request.method, 'POST');
+          expect(utf8.decode((request as http.Request).bodyBytes),
+              contains('jay_mid'));
+          return http.Response.bytes(
+            utf8.encode(jsonEncode({
+              'req_1': {
+                'code': 0,
+                'data': {
+                  'singer_list': [
+                    {
+                      'basic_info': {'name': '周杰伦'},
+                      'ex_info': {'desc': '<b>歌手简介</b>'},
+                    },
+                  ],
+                },
+              },
+            })),
+            200,
+          );
+        }
+        return http.Response('not found', 404);
+      }),
+    );
+
+    final candidates = await provider.searchArtistMetadata(
+      artistName: '周杰伦',
+      samples: const [
+        ArtistMatchTrack(
+          title: '晴天',
+          album: '叶惠美',
+          duration: Duration(seconds: 269),
+        ),
+      ],
+    );
+    expect(candidates.single.artist.artistId, 'jay_mid');
+    expect(candidates.single.providerScore, greaterThan(4));
+    expect(candidates.single.avatar.toString(), contains('jay_mid'));
+
+    final metadata = await provider.getArtistMetadata('jay_mid');
+    expect(metadata?.artist.name, '周杰伦');
+    expect(metadata?.description, '歌手简介');
+    expect(metadata?.avatar.toString(), contains('jay_mid'));
+  });
+
+  test('QQ artist metadata returns empty results for missing data', () async {
+    final provider = QqMusicProvider(
+      searchBaseUri: Uri.parse('https://qq.test'),
+      musicuUri: Uri.parse('https://musicu.test/cgi-bin/musicu.fcg'),
+      client: _FakeClient((request) => http.Response(
+            jsonEncode({
+              if (request.url.path.contains('search')) 'code': 0,
+              if (request.url.path.contains('search'))
+                'data': {
+                  'song': {'list': <Object?>[]},
+                }
+              else
+                'req_1': {
+                  'code': 0,
+                  'data': {'singer_list': <Object?>[]},
+                },
+            }),
+            200,
+          )),
+    );
+    expect(
+      await provider.searchArtistMetadata(
+        artistName: 'Nobody',
+        samples: const [],
+      ),
+      isEmpty,
+    );
+    expect(await provider.getArtistMetadata('missing'), isNull);
   });
 }
 

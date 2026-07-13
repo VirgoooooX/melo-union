@@ -374,11 +374,12 @@ void main() {
     expect(repository.playbackIssue?.trackRef, isNot(first.ref));
   });
 
-  test('Windows startup migrates downloaded media to an ASCII path', () async {
+  test('Windows startup migrates downloaded media to its readable file name',
+      () async {
     if (!Platform.isWindows) return;
     final directory = await Directory.systemTemp.createTemp('melo-download-');
     addTearDown(() => directory.delete(recursive: true));
-    final original = File('${directory.path}\\歌手 - 中文歌曲.flac');
+    final original = File('${directory.path}\\legacy-download.flac');
     await original.writeAsBytes([0x66, 0x4c, 0x61, 0x43]);
     final ref = ProviderTrackRef(
       providerId: ProviderId('local_source'),
@@ -402,7 +403,10 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
     final migrated = repository.downloadCoordinator.localItems.single;
-    expect(migrated.filePath.codeUnits.every((unit) => unit < 128), isTrue);
+    expect(
+      migrated.filePath,
+      '${directory.path}\\歌手 - 中文歌曲.flac',
+    );
     expect(await File(migrated.filePath).exists(), isTrue);
     expect(await original.exists(), isFalse);
   });
@@ -513,6 +517,52 @@ void main() {
 
     expect(repository.queue.entries, hasLength(1));
     expect(repository.queue.current?.track.ref, second.ref);
+  });
+
+  test('unified favorites prefer local playback without changing favorites',
+      () {
+    final remote = SourceTrack(
+      ref: ProviderTrackRef(
+        providerId: ProviderId('netease_cloud_music'),
+        trackId: 'remote-song',
+      ),
+      title: 'Same Song',
+      artists: const ['Same Artist'],
+      duration: const Duration(minutes: 3),
+      isFavorited: true,
+    );
+    final local = SourceTrack(
+      ref: ProviderTrackRef(
+        providerId: localMusicProviderId,
+        trackId: 'local-song',
+      ),
+      title: remote.title,
+      artists: remote.artists,
+      duration: remote.duration,
+      isFavorited: false,
+    );
+    final unified = UnifiedFavoriteTrack(
+      unifiedId: 'same-song',
+      title: remote.title,
+      artists: remote.artists,
+      duration: remote.duration,
+      variants: [remote],
+      localPlaybackVariant: local,
+    );
+    final repository = DemoRepository.seeded();
+
+    expect(repository.selectUnifiedPlaybackSource(unified)?.ref, local.ref);
+    expect(
+      repository
+          .selectUnifiedPlaybackSource(
+            unified,
+            providerId: 'netease_cloud_music',
+          )
+          ?.ref,
+      remote.ref,
+    );
+    expect(unified.variants, [remote]);
+    expect(unified.bestLikedAt, isNull);
   });
 
   test('DemoRepository repeat one uses native loop without reloading playback',
