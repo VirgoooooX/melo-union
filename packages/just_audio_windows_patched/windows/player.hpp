@@ -17,6 +17,9 @@
 #include <flutter/standard_method_codec.h>
 
 #include "uri_utils.hpp"
+#include "native_media_source.hpp"
+#include "ape_media_source.hpp"
+#include "ape_error.hpp"
 
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Foundation.h>
@@ -162,7 +165,7 @@ auto TO_WIDESTRING = [](std::string string) -> std::wstring {
   int32_t converted_length =
     ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, string.data(),
       static_cast<int32_t>(string.length()),
-      utf16_string.data(), target_length);
+      &utf16_string[0], target_length);
   if (converted_length == 0) {
     return std::wstring();
   }
@@ -176,7 +179,7 @@ public:
   JustAudioEventSink(JustAudioEventSink const&) = delete;
   JustAudioEventSink& operator=(JustAudioEventSink const&) = delete;
 
-  JustAudioEventSink::JustAudioEventSink(
+  JustAudioEventSink(
     flutter::BinaryMessenger* messenger,
     const std::string& id,
     PlatformThreadDispatcher* dispatcher) {
@@ -240,6 +243,7 @@ private:
   void Dispose() {
     if (disposed_) return;
     disposed_ = true;
+    CloseAllSessions();
     auto session = mediaPlayer.PlaybackSession();
     session.PlaybackStateChanged(playback_state_token_);
     mediaPlayer.MediaFailed(media_failed_token_);
@@ -250,6 +254,15 @@ private:
     data_sink_.reset();
     mediaPlayer.Close();
   }
+
+  void CloseAllSessions() {
+    for (auto& session : source_sessions_) {
+      if (session) {
+        session->Close();
+      }
+    }
+    source_sessions_.clear();
+  }
 public:
   std::string id;
   Playback::MediaPlayer mediaPlayer{};
@@ -258,6 +271,8 @@ public:
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> player_channel_;
   std::unique_ptr<JustAudioEventSink> event_sink_ = nullptr;
   std::unique_ptr<JustAudioEventSink> data_sink_ = nullptr;
+
+  std::vector<std::shared_ptr<AudioSourceSession>> source_sessions_;
 
   // Tokens for event unsubscription
   winrt::event_token playback_state_token_{};
@@ -383,8 +398,14 @@ public:
 
       try {
         loadSource(*audioSourceData);
-      } catch (char* error) {
-        return result->Error("load_error", error);
+      } catch (const ApeDecodeException& error) {
+        return result->Error("ape_decode_error", error.what());
+      } catch (const winrt::hresult_error& error) {
+        return result->Error("windows_media_error", winrt::to_string(error.message()));
+      } catch (const std::exception& error) {
+        return result->Error("load_error", error.what());
+      } catch (...) {
+        return result->Error("load_error", "Unknown native audio loading error");
       }
 
       if (initialIndex != nullptr) {
@@ -507,10 +528,10 @@ public:
       int currentIndex = *index;
       for (auto& child : *children) {
         const auto* childMap = std::get_if<flutter::EncodableMap>(&child);
-        auto mediaSource = createMediaPlaybackItem(*childMap);
-        auto item = Playback::MediaPlaybackItem(mediaSource);
+        auto native_item = createNativePlaybackItem(*childMap);
 
-        items.InsertAt(currentIndex, item);
+        items.InsertAt(currentIndex, native_item.item);
+        source_sessions_.insert(source_sessions_.begin() + currentIndex, native_item.session);
         currentIndex++;
       }
 
@@ -530,7 +551,12 @@ public:
 
         for (int i = 0; i < count; i++) {
           // The item to remove should always be located at `startIndex`.
+          auto session = source_sessions_[startIndex];
           items.RemoveAt(startIndex);
+          source_sessions_.erase(source_sessions_.begin() + startIndex);
+          if (session) {
+            session->Close();
+          }
         }
         return result->Success(flutter::EncodableMap());
       } else {
@@ -546,14 +572,18 @@ public:
       int currentIndex = *from;
       int newIndex = *to;
 
-      auto item = items.GetAt(currentIndex);
-
       if (currentIndex >= size || newIndex > size) {
         return result->Error("concatenatingMove_error", "index out of bounds");
       }
 
+      auto item = items.GetAt(currentIndex);
+      auto session = source_sessions_[currentIndex];
+
       items.RemoveAt(currentIndex);
+      source_sessions_.erase(source_sessions_.begin() + currentIndex);
+
       items.InsertAt(newIndex, item);
+      source_sessions_.insert(source_sessions_.begin() + newIndex, session);
       // Do nothing if the two equals
       result->Success(flutter::EncodableMap());
     } else if (method_call.method_name().compare("setAndroidAudioAttributes") == 0) {
@@ -574,10 +604,11 @@ public:
     }
   }
 
-  void AudioPlayer::loadSource(const flutter::EncodableMap& source) const& {
+  void AudioPlayer::loadSource(const flutter::EncodableMap& source) {
     if(disposed_) return;
     auto items = mediaPlaybackList.Items();
     items.Clear(); // Always clear the list since we are resetting
+    CloseAllSessions();
 
     const std::string* type = std::get_if<std::string>(ValueOrNull(source, "type"));
 
@@ -586,25 +617,25 @@ public:
 
       for (auto& child : *children) {
         const auto* childMap = std::get_if<flutter::EncodableMap>(&child);
-        auto item = createMediaPlaybackItem(*childMap);
-        items.Append(item);
+        auto native_item = createNativePlaybackItem(*childMap);
+        items.Append(native_item.item);
+        source_sessions_.push_back(native_item.session);
       }
 
       mediaPlayer.Source(mediaPlaybackList.as<Playback::IMediaPlaybackSource>());
     } else {
-      mediaPlayer.Source(createMediaPlaybackItem(source).as<Playback::IMediaPlaybackSource>());
+      auto native_item = createNativePlaybackItem(source);
+      mediaPlayer.Source(native_item.item.as<Playback::IMediaPlaybackSource>());
+      source_sessions_.push_back(native_item.session);
     }
   }
 
-  /**
-  * Creates a single MediaPlaybackItem, which can be used directly or inside a list.
-  */
-  Playback::MediaPlaybackItem AudioPlayer::createMediaPlaybackItem(const flutter::EncodableMap& source) const& {
+  NativePlaybackItem AudioPlayer::createNativePlaybackItem(const flutter::EncodableMap& source) {
     const std::string* type = std::get_if<std::string>(ValueOrNull(source, "type"));
 
     if (type->compare("clipping") == 0) {
       const auto* child = std::get_if<flutter::EncodableMap>(ValueOrNull(source, "child"));
-      auto childSource = createMediaSource(*child);
+      auto childNative = createNativeMediaSource(*child);
 
       const auto* startUs = std::get_if<int32_t>(ValueOrNull(*child, "start"));
       const auto* endUs = std::get_if<int32_t>(ValueOrNull(*child, "end"));
@@ -614,30 +645,28 @@ public:
         start = *startUs;
       }
 
+      Playback::MediaPlaybackItem item{nullptr};
       if (endUs != nullptr) {
-        // We have a duration limit
         auto duration = *endUs - start;
-
-        return Playback::MediaPlaybackItem(
-          childSource,
+        item = Playback::MediaPlaybackItem(
+          childNative.media_source,
           TimeSpan(std::chrono::microseconds(start)),
           TimeSpan(std::chrono::microseconds(duration))
         );
       } else {
-        return Playback::MediaPlaybackItem(
-          childSource,
+        item = Playback::MediaPlaybackItem(
+          childNative.media_source,
           TimeSpan(std::chrono::microseconds(start))
         );
       }
+      return { item, childNative.session };
     } else {
-      return Playback::MediaPlaybackItem(createMediaSource(source));
+      auto childNative = createNativeMediaSource(source);
+      return { Playback::MediaPlaybackItem(childNative.media_source), childNative.session };
     }
   }
 
-  /**
-  * Creates a single MediaSource.
-  */
-  MediaSource AudioPlayer::createMediaSource(const flutter::EncodableMap& source) const {
+  NativeMediaSource AudioPlayer::createNativeMediaSource(const flutter::EncodableMap& source) {
       const std::string* type = std::get_if<std::string>(ValueOrNull(source, "type"));
       if (type->compare("progressive") == 0 || type->compare("dash") == 0 || type->compare("hls") == 0) {
           const auto* uri = std::get_if<std::string>(ValueOrNull(source, "uri"));
@@ -647,16 +676,36 @@ public:
             if (filePath.empty()) {
               throw std::invalid_argument("Invalid local file URI: " + *uri);
             }
+
+            bool isApe = false;
+            size_t dotIndex = filePath.find_last_of('.');
+            if (dotIndex != std::string::npos) {
+              std::string extStr = filePath.substr(dotIndex + 1);
+              std::transform(extStr.begin(), extStr.end(), extStr.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+              if (extStr == "ape") {
+                isApe = true;
+              }
+            }
+
+            if (isApe) {
+              auto session = ApeMediaSource::Create(TO_WIDESTRING(filePath));
+              return { session->MediaSource(), session };
+            }
+
             IRandomAccessStream stream{nullptr};
             auto widePath = TO_WIDESTRING(filePath);
             winrt::check_hresult(CreateRandomAccessStreamOnFile(
                 widePath.c_str(), STGM_READ, winrt::guid_of<IRandomAccessStream>(),
                 winrt::put_abi(stream)));
-            return MediaSource::CreateFromStream(
-                stream, TO_WIDESTRING(AudioMimeTypeForPath(filePath)));
+            return {
+              MediaSource::CreateFromStream(stream, TO_WIDESTRING(AudioMimeTypeForPath(filePath))),
+              nullptr
+            };
           }
-          return MediaSource::CreateFromUri(
-              Uri(TO_WIDESTRING(EncodeSpacesInUri(*uri))));
+          return {
+            MediaSource::CreateFromUri(Uri(TO_WIDESTRING(EncodeSpacesInUri(*uri)))),
+            nullptr
+          };
       }
       else {
           throw std::invalid_argument("Source is unsupported or can not be nested: " + *type);

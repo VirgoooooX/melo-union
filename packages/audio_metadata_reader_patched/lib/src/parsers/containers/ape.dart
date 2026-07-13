@@ -332,7 +332,7 @@ class ApeParser extends TagParser<ApeMetadata> {
       'DISC' => 'DISCNUMBER',
       'YEAR' => 'DATE',
       'ALBUM_ARTIST' => 'ALBUMARTIST',
-      'LYRIC' => 'LYRICS',
+      'LYRIC' || 'UNSYNCEDLYRICS' || 'UNSYNCED_LYRICS' => 'LYRICS',
       _ => normalized,
     };
   }
