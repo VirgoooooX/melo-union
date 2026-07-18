@@ -442,15 +442,21 @@ void DesktopLyricsWindow::PaintControl(HWND window) {
       draw_button_bg(83.0f, 24.0f, hovered_button_ == HoveredButton::Lock);
       float x = 83.0f;
       float y = 24.0f;
+      const bool lock_hovered = hovered_button_ == HoveredButton::Lock;
+      const BYTE locked_icon_alpha = 105;
+      Gdiplus::Color locked_icon_color = lock_hovered
+          ? icon_color
+          : Gdiplus::Color(locked_icon_alpha, icon_color.GetR(),
+                           icon_color.GetG(), icon_color.GetB());
       Gdiplus::GraphicsPath body_path;
       AddRoundedRect(body_path, x + 6.0f, y + 12.0f, 12.0f, 8.0f, 1.5f);
-      Gdiplus::SolidBrush body_brush(icon_color);
+      Gdiplus::SolidBrush body_brush(locked_icon_color);
       graphics.FillPath(&body_brush, &body_path);
       Gdiplus::GraphicsPath shackle_path;
       shackle_path.AddLine(x + 8.0f, y + 12.0f, x + 8.0f, y + 10.0f);
       shackle_path.AddArc(x + 8.0f, y + 6.5f, 8.0f, 7.0f, 180.0f, 180.0f);
       shackle_path.AddLine(x + 16.0f, y + 10.0f, x + 16.0f, y + 12.0f);
-      Gdiplus::Pen shackle_pen(icon_color, 1.8f);
+      Gdiplus::Pen shackle_pen(locked_icon_color, 1.8f);
       shackle_pen.SetStartCap(Gdiplus::LineCapRound);
       shackle_pen.SetEndCap(Gdiplus::LineCapRound);
       graphics.DrawPath(&shackle_pen, &shackle_path);
