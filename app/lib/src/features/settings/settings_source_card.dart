@@ -187,27 +187,51 @@ class _SourceManagementDialog extends ConsumerWidget {
           child: const Text('关闭'),
         ),
         if (sessionAction?.kind == ProviderSessionActionKind.cookieImport)
-          FilledButton.icon(
-            onPressed: () async {
-              if (signedIn) {
-                final clear = sessionAction?.clear;
-                if (clear != null) {
-                  await clear();
-                }
-                if (context.mounted) {
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (signedIn) ...[
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    showDialog<void>(
+                      context: context,
+                      builder: (context) => _cookieImportDialogFor(
+                        context,
+                        ref,
+                        entry.descriptor.id,
+                      ),
+                    );
+                  },
+                  child: const Text('重新导入 Cookie'),
+                ),
+                const SizedBox(width: 8),
+              ],
+              FilledButton.icon(
+                onPressed: () async {
+                  if (signedIn) {
+                    await sessionAction?.clear?.call();
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                    return;
+                  }
                   Navigator.pop(context);
-                }
-                return;
-              }
-              Navigator.pop(context);
-              await showDialog<void>(
-                context: context,
-                builder: (context) =>
-                    _cookieImportDialogFor(context, ref, entry.descriptor.id),
-              );
-            },
-            icon: Icon(signedIn ? Icons.logout_rounded : Icons.login_rounded),
-            label: Text(signedIn ? '清除会话' : '导入 Cookie'),
+                  await showDialog<void>(
+                    context: context,
+                    builder: (context) => _cookieImportDialogFor(
+                      context,
+                      ref,
+                      entry.descriptor.id,
+                    ),
+                  );
+                },
+                icon: Icon(
+                  signedIn ? Icons.logout_rounded : Icons.login_rounded,
+                ),
+                label: Text(signedIn ? '清除会话' : '导入 Cookie'),
+              ),
+            ],
           )
         else if (sessionAction?.kind == ProviderSessionActionKind.qrLogin)
           Row(

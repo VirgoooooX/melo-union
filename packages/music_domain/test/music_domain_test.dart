@@ -747,6 +747,57 @@ void main() {
       expect(result.tracks.single.variants.single.likedAt, estimate);
     });
 
+    test('estimates new QQ imports across the previous sync window', () {
+      final qqProviderId = ProviderId('qq_music');
+      ProviderTrackRef ref(String id) => ProviderTrackRef(
+            providerId: qqProviderId,
+            trackId: id,
+            extraIds: {'song_mid': id},
+          );
+      SourceTrack track(String id) => SourceTrack(
+            ref: ref(id),
+            title: id,
+            artists: const ['Artist'],
+            duration: const Duration(minutes: 3),
+            isFavorited: true,
+            likedAtSource: LikedAtMetadata.sourceQqImport,
+            likedAtPrecision: LikedAtMetadata.precisionUnknown,
+          );
+
+      final existingTime = DateTime.now().toUtc().subtract(
+            const Duration(days: 2),
+          );
+      final ledger = LikedAtLedger()
+        ..record(
+          ref('existing'),
+          LikedAtMetadata(
+            likedAt: existingTime,
+            source: LikedAtMetadata.sourceLocalEstimate,
+            precision: LikedAtMetadata.precisionUnknown,
+          ),
+        );
+
+      const service = UnifiedFavoritesService();
+      final before = DateTime.now().toUtc();
+      service.buildFromSnapshots(
+        [
+          FavoriteSnapshot(
+            providerId: qqProviderId,
+            tracks: [track('existing'), track('new_a'), track('new_b')],
+            fetchedAt: before,
+          ),
+        ],
+        likedAtLedger: ledger,
+      );
+      final after = DateTime.now().toUtc();
+
+      final newATime = ledger.likedAtFor(ref('new_a'))!.likedAt!;
+      final newBTime = ledger.likedAtFor(ref('new_b'))!.likedAt!;
+      expect(newATime.isAfter(existingTime), isTrue);
+      expect(newATime.isBefore(after.add(const Duration(seconds: 1))), isTrue);
+      expect(newATime.difference(newBTime).inHours, closeTo(24, 1));
+    });
+
     test(
         'does not estimate Kugou imported favorites when raw collecttime is absent',
         () async {

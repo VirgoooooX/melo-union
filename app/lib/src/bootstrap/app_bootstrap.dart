@@ -44,8 +44,27 @@ Future<AppBootstrap> createAppBootstrap({
   final neteaseSessionStore = createNeteaseStore();
   final qqMusicSessionStore = createQqMusicStore();
   final kugouSessionStore = createKugouStore();
-  final cacheStore = managedStore.audioCacheStore;
-  final cacheDirectory = managedStore.audioCacheDirectory;
+  MeloDataSnapshot? snapshot;
+  var persistentStoreHealthy = true;
+  try {
+    snapshot = await managedStore.store?.read();
+  } catch (e, stackTrace) {
+    persistentStoreHealthy = false;
+    debugPrint(
+      'Failed to read snapshot from store; preserving the database and '
+      'disabling persistence for this run: $e\n$stackTrace',
+    );
+    snapshot = MeloDataSnapshot();
+  }
+
+  // The audio cache and local library share the same Drift database as the
+  // snapshot store. If startup hydration failed, keep that database untouched
+  // and run without database-backed services so an empty fallback state cannot
+  // overwrite recoverable user data.
+  final cacheStore =
+      persistentStoreHealthy ? managedStore.audioCacheStore : null;
+  final cacheDirectory =
+      persistentStoreHealthy ? managedStore.audioCacheDirectory : null;
   final audioCacheManager = cacheStore == null || cacheDirectory == null
       ? null
       : await AudioCacheManager.open(
@@ -59,22 +78,11 @@ Future<AppBootstrap> createAppBootstrap({
                 : 2 * 1024 * 1024 * 1024,
           ),
         );
-  MeloDataSnapshot? snapshot;
-  try {
-    snapshot = await managedStore.store?.read();
-  } catch (e, stackTrace) {
-    debugPrint('Failed to read snapshot from store: $e\n$stackTrace');
-    try {
-      await managedStore.store?.clear();
-    } catch (clearError) {
-      debugPrint('Failed to clear store after read failure: $clearError');
-    }
-    snapshot = MeloDataSnapshot();
-  }
   final neteaseCredentials = await neteaseSessionStore.read();
   final qqMusicCredentials = await qqMusicSessionStore.read();
   final KugouSession? kugouSession = await kugouSessionStore.read();
-  final localRepository = managedStore.localLibraryRepository;
+  final localRepository =
+      persistentStoreHealthy ? managedStore.localLibraryRepository : null;
   final localController =
       !kIsWeb && Platform.isWindows && localRepository != null
           ? LocalLibraryController(
@@ -90,7 +98,7 @@ Future<AppBootstrap> createAppBootstrap({
           : null;
   final repository = DemoRepository.seeded(
     snapshot: snapshot,
-    snapshotStore: managedStore.store,
+    snapshotStore: persistentStoreHealthy ? managedStore.store : null,
     neteaseCredentials: neteaseCredentials,
     neteaseSessionStore: neteaseSessionStore,
     qqMusicCredentials: qqMusicCredentials,

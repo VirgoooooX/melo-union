@@ -228,6 +228,28 @@ final class UnifiedFavoritesService {
     List<FavoriteSnapshot> snapshots,
     LikedAtLedger ledger,
   ) {
+    // QQ does not provide a stable, authoritative favorite timestamp. Keep
+    // existing ledger entries untouched and spread only newly discovered
+    // tracks across the elapsed time since the previous QQ import. On the
+    // first import, use the same six-month window as the original importer.
+    final now = DateTime.now().toUtc();
+    DateTime? lastImportAt;
+    for (final entry in ledger.entries) {
+      if (entry.ref.providerId.value != 'qq_music') continue;
+      if (entry.metadata.source != LikedAtMetadata.sourceLocalEstimate &&
+          entry.metadata.source != LikedAtMetadata.sourceQqImport) {
+        continue;
+      }
+      final likedAt = entry.metadata.likedAt;
+      if (likedAt != null &&
+          (lastImportAt == null || likedAt.isAfter(lastImportAt))) {
+        lastImportAt = likedAt;
+      }
+    }
+
+    final refTime = lastImportAt ?? now.subtract(const Duration(days: 180));
+    final span = now.difference(refTime);
+
     for (final snapshot in snapshots) {
       if (snapshot.providerId.value != 'qq_music') continue;
       final missing = <SourceTrack>[];
@@ -237,12 +259,16 @@ final class UnifiedFavoritesService {
         }
       }
       if (missing.isEmpty) continue;
-      final now = DateTime.now().toUtc();
+      final interval = span.inSeconds <= 0
+          ? Duration.zero
+          : Duration(
+              seconds: (span.inSeconds ~/ missing.length).clamp(1, 86400 * 180),
+            );
       for (var i = 0; i < missing.length; i++) {
         ledger.record(
           missing[i].ref,
           LikedAtMetadata(
-            likedAt: now.subtract(Duration(seconds: i)),
+            likedAt: now.subtract(interval * i),
             source: LikedAtMetadata.sourceLocalEstimate,
             precision: LikedAtMetadata.precisionUnknown,
           ),

@@ -33,6 +33,26 @@ final class _MemorySnapshotStore implements MeloSnapshotStore {
   }
 }
 
+final class _FailingSnapshotStore implements MeloSnapshotStore {
+  var clearCalls = 0;
+  var writeCalls = 0;
+
+  @override
+  Future<MeloDataSnapshot?> read() async {
+    throw StateError('corrupt snapshot');
+  }
+
+  @override
+  Future<void> write(MeloDataSnapshot snapshot) async {
+    writeCalls++;
+  }
+
+  @override
+  Future<void> clear() async {
+    clearCalls++;
+  }
+}
+
 final class _MemoryNeteaseSessionStore implements NeteaseSessionStore {
   _MemoryNeteaseSessionStore([this.credentials]);
 
@@ -138,6 +158,23 @@ void main() {
     await bootstrap.close();
 
     expect(closed, isTrue);
+  });
+
+  test('read failure preserves the database and disables fallback writes',
+      () async {
+    final store = _FailingSnapshotStore();
+    final bootstrap = await createAppBootstrap(
+      createStore: () async => ManagedSnapshotStore(store: store),
+    );
+
+    expect(store.clearCalls, 0);
+    expect(bootstrap.repository.snapshotStore, isNull);
+
+    bootstrap.repository.createPlaylist('Recovery Session Playlist');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(store.writeCalls, 0);
+    await bootstrap.close();
   });
 
   test('createAppBootstrap injects NetEase credentials from session store',
