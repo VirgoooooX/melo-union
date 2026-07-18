@@ -62,20 +62,16 @@ class _MusicSourceCard extends ConsumerWidget {
       descriptor.id,
       displayName: descriptor.displayName,
     );
-    final isKugou = descriptor.id.value == 'kugou' ||
-        descriptor.id.value.toLowerCase().contains('kugou');
     final signedIn = entry.provider.isAuthenticated;
     final canSyncFavorites =
         descriptor.supports(ProviderCapability.readFavorites);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isKugou ? presentation.backgroundColor : MeloColors.surface,
+        color: presentation.backgroundColor,
         borderRadius: MeloRadii.lg,
         border: Border.all(
-          color: isKugou
-              ? presentation.foregroundColor.withValues(alpha: 0.24)
-              : MeloColors.border,
+          color: presentation.foregroundColor.withValues(alpha: 0.24),
         ),
       ),
       child: Row(
@@ -178,6 +174,10 @@ class _SourceManagementDialog extends ConsumerWidget {
                     height: 1.5,
                   ),
             ),
+            if (entry.descriptor.id == qqMusicProviderId && signedIn) ...[
+              const SizedBox(height: 14),
+              _QqMusicRefreshStatus(repository: repository),
+            ],
           ],
         ),
       ),
@@ -290,6 +290,72 @@ class _SourceManagementDialog extends ConsumerWidget {
             label: Text(signedIn ? '退出登录' : '登录'),
           ),
       ],
+    );
+  }
+}
+
+class _QqMusicRefreshStatus extends StatelessWidget {
+  const _QqMusicRefreshStatus({required this.repository});
+
+  final DemoRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final status = repository.qqMusicRefreshInProgress
+        ? '正在尝试自动续期…'
+        : repository.qqMusicRefreshError != null
+            ? '最近一次续期未成功（已保留旧会话）'
+            : repository.qqMusicLastRefreshSuccessAt != null
+                ? '最近一次续期成功'
+                : '尚未尝试自动续期';
+    final statusColor = repository.qqMusicRefreshInProgress
+        ? theme.colorScheme.primary
+        : repository.qqMusicRefreshError != null
+            ? theme.colorScheme.error
+            : theme.colorScheme.primary;
+    final successAt = repository.qqMusicLastRefreshSuccessAt;
+    final attemptAt = repository.qqMusicLastRefreshAttemptAt;
+    final timestamp = successAt ?? attemptAt;
+    final timestampText = timestamp == null
+        ? '暂无'
+        : timestamp.toLocal().toString().substring(0, 16);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color:
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '自动续期状态',
+              style: theme.textTheme.labelLarge,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              status,
+              style: theme.textTheme.bodySmall?.copyWith(color: statusColor),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '时间：$timestampText',
+              style: theme.textTheme.bodySmall,
+            ),
+            Text(
+              '密钥指纹：${repository.qqMusicKeyFingerprint ?? '暂无'}',
+              style: theme.textTheme.bodySmall,
+            ),
+            Text(
+              '刷新令牌：${repository.qqMusicHasRefreshToken ? '已包含' : '未包含'}',
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -653,18 +719,19 @@ class _SourceIcon extends StatelessWidget {
         id.contains('netease');
     final isQQ = id == 'qq_music' || id.contains('beacon') || id.contains('qq');
     final isKugou = id == 'kugou' || id.contains('kugou');
-
     if (isNetease || isQQ || isKugou) {
+      final presentation = meloProviderPresentation(
+        entry.descriptor.id,
+        displayName: entry.descriptor.displayName,
+      );
       return Container(
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          color: isKugou ? MeloColors.kugouBackground : Colors.white,
+          color: presentation.backgroundColor,
           borderRadius: MeloRadii.md,
           border: Border.all(
-            color: isKugou
-                ? MeloColors.kugouForeground.withValues(alpha: 0.22)
-                : MeloColors.border,
+            color: presentation.foregroundColor.withValues(alpha: 0.22),
           ),
         ),
         padding: const EdgeInsets.all(6),

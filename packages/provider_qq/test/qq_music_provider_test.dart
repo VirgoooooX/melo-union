@@ -87,6 +87,50 @@ void main() {
     expect(normalized, contains('pgv_pvid=keep'));
   });
 
+  test('refreshes QQ Music key locally and persists the refresh token',
+      () async {
+    QqMusicCredentials? changed;
+    final provider = QqMusicProvider(
+      credentials: const QqMusicCredentials(
+        cookie:
+            'uin=o12345; qqmusic_key=old-key; psrf_qqrefresh_token=refresh-old',
+      ),
+      refreshUri: Uri.parse('https://qq.test/cgi-bin/musics.fcg'),
+      onCredentialsChanged: (credentials) => changed = credentials,
+      client: _FakeClient((request) {
+        expect(request.method, 'GET');
+        expect(request.url.host, 'qq.test');
+        expect(request.url.queryParameters['sign'], startsWith('zzb'));
+        final data = jsonDecode(request.url.queryParameters['data']!)
+            as Map<String, Object?>;
+        final req = data['req1'] as Map<String, Object?>;
+        final param = req['param'] as Map<String, Object?>;
+        expect(param['musicid'], 'o12345');
+        expect(param['refresh_token'], 'refresh-old');
+        return http.Response(
+          jsonEncode({
+            'req1': {
+              'code': 0,
+              'data': {
+                'musickey': 'new-key',
+                'refresh_token': 'refresh-new',
+              },
+            },
+          }),
+          200,
+        );
+      }),
+    );
+
+    final refreshed = await provider.refreshCredentials();
+
+    expect(refreshed, isNotNull);
+    expect(refreshed!.cookie, contains('qqmusic_key=new-key'));
+    expect(refreshed.cookie, contains('qm_keyst=new-key'));
+    expect(refreshed.cookie, contains('psrf_qqrefresh_token=refresh-new'));
+    expect(changed?.cookie, refreshed.cookie);
+  });
+
   test('creates playback and download tickets from vkey response', () async {
     final provider = QqMusicProvider(
       client: _FakeClient((request) {

@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:music_data/music_data.dart';
 import 'package:music_domain/music_domain.dart';
@@ -169,6 +170,7 @@ class DemoRepository extends ChangeNotifier {
         _selectedPlaylistId = playlists.listPlaylists().isEmpty
             ? null
             : playlists.listPlaylists().first.id {
+    _qqMusicKeyFingerprint = _fingerprintQqMusicKey(qqMusicCredentials);
     downloadCoordinator = DownloadCoordinator(
       registry: registry,
       seedTasks: seedDownloadTasks,
@@ -391,6 +393,11 @@ class DemoRepository extends ChangeNotifier {
       downloadQuality: snapshot?.downloadQuality ?? AudioQuality.standard,
       localLibraryController: localLibraryController,
     );
+    if (qqMusicCredentials?.hasCookie ?? false) {
+      // Replace the initially seeded provider with the callback-aware
+      // instance so rotated cookies are persisted in the secure store.
+      repo._replaceQqMusicProvider(qqMusicCredentials);
+    }
     final allSeededTracks = [
       for (final provider in additionalProviders.whereType<FakeMusicProvider>())
         if (provider.allTracks().isNotEmpty) provider.allTracks().first,
@@ -475,6 +482,13 @@ class DemoRepository extends ChangeNotifier {
   int _activeDownloadCount = 0;
   static const int _maxConcurrentDownloads = 3;
   Future<void> _persistenceChain = Future.value();
+  DateTime? _lastQqRefreshAttemptAt;
+  Future<void>? _qqRefreshFuture;
+  int _qqProviderGeneration = 0;
+  bool _qqRefreshInProgress = false;
+  DateTime? _qqLastRefreshSuccessAt;
+  String? _qqRefreshError;
+  String? _qqMusicKeyFingerprint;
 
   /// Incremented on login/logout/toggle to trigger [allFavoritesProvider] refresh.
   int _favoritesVersion = 0;
@@ -589,6 +603,20 @@ class DemoRepository extends ChangeNotifier {
 
   bool get hasQqMusicSession => _qqMusicCredentials?.hasCookie ?? false;
 
+  bool get qqMusicRefreshInProgress => _qqRefreshInProgress;
+
+  DateTime? get qqMusicLastRefreshAttemptAt => _lastQqRefreshAttemptAt;
+
+  DateTime? get qqMusicLastRefreshSuccessAt => _qqLastRefreshSuccessAt;
+
+  String? get qqMusicRefreshError => _qqRefreshError;
+
+  String? get qqMusicKeyFingerprint => _qqMusicKeyFingerprint;
+
+  bool get qqMusicHasRefreshToken =>
+      _cookieValue(_qqMusicCredentials?.cookie ?? '', 'psrf_qqrefresh_token') !=
+      null;
+
   bool get hasKugouSession =>
       registry.find(kugouProviderId)?.isAuthenticated ?? false;
 
@@ -657,6 +685,7 @@ class DemoRepository extends ChangeNotifier {
       PlaylistReferenceResolver(registry);
 
   Future<List<UnifiedFavoriteTrack>> loadAllFavorites() async {
+    await _refreshQqMusicCredentialsIfNeeded();
     final eligibleEntries = capabilityMatrix.eligibleFavoritesEntries(registry);
     final failures = <ProviderId, String>{};
 
@@ -1281,12 +1310,22 @@ class DemoRepository extends ChangeNotifier {
     _qqMusicCredentials =
         (qqMusicCredentials?.hasCookie ?? false) ? qqMusicCredentials : null;
     _replaceQqMusicProvider(_qqMusicCredentials);
+    _lastQqRefreshAttemptAt = null;
+    _qqLastRefreshSuccessAt = null;
+    _qqRefreshError = null;
+    _qqMusicKeyFingerprint = _fingerprintQqMusicKey(qqMusicCredentials);
+    unawaited(_refreshQqMusicCredentialsIfNeeded(force: true));
 
     final kugouSession = await kugouSessionStore?.read();
     _replaceKugouProvider(kugouSession);
 
     _favoritesVersion++;
     notifyListeners();
+  }
+
+  /// Best-effort QQ Music cookie rotation for app startup and manual callers.
+  Future<void> refreshQqMusicCredentials() {
+    return _refreshQqMusicCredentialsIfNeeded(force: true);
   }
 
   Future<KugouQrLoginSession> createKugouQrLoginSession() {
@@ -1450,6 +1489,10 @@ class DemoRepository extends ChangeNotifier {
     }
     await qqMusicSessionStore?.write(normalizedCredentials);
     _qqMusicCredentials = normalizedCredentials;
+    _lastQqRefreshAttemptAt = null;
+    _qqLastRefreshSuccessAt = null;
+    _qqRefreshError = null;
+    _qqMusicKeyFingerprint = _fingerprintQqMusicKey(normalizedCredentials);
     // Keep QQ liked-at records across cookie refreshes. The registry keys by
     // stable QQ song identity, so a re-import can recover the previous time.
     _replaceQqMusicProvider(normalizedCredentials);
@@ -1459,6 +1502,10 @@ class DemoRepository extends ChangeNotifier {
   Future<void> clearQqMusicCredentials() async {
     await qqMusicSessionStore?.clear();
     _qqMusicCredentials = null;
+    _lastQqRefreshAttemptAt = null;
+    _qqLastRefreshSuccessAt = null;
+    _qqRefreshError = null;
+    _qqMusicKeyFingerprint = null;
     _replaceQqMusicProvider(null);
     _discardFavoriteProvider(qqMusicProviderId);
     _favoritesVersion++;
@@ -3773,10 +3820,109 @@ class DemoRepository extends ChangeNotifier {
 
   void _replaceQqMusicProvider(QqMusicCredentials? credentials) {
     final wasEnabled = registry.isEnabled(qqMusicProviderId);
+    final generation = ++_qqProviderGeneration;
     registry.register(
-      QqMusicProvider(credentials: credentials),
+      QqMusicProvider(
+        credentials: credentials,
+        onCredentialsChanged: credentials == null
+            ? null
+            : (updated) =>
+                _handleQqMusicCredentialsChanged(generation, updated),
+      ),
       enabled: wasEnabled,
     );
+  }
+
+  Future<void> _refreshQqMusicCredentialsIfNeeded({bool force = false}) async {
+    final provider = registry.entryOf(qqMusicProviderId)?.provider;
+    if (provider is! QqMusicProvider || !provider.isAuthenticated) return;
+    final lastAttempt = _lastQqRefreshAttemptAt;
+    if (!force &&
+        lastAttempt != null &&
+        DateTime.now().difference(lastAttempt) < const Duration(hours: 12)) {
+      return;
+    }
+    final inFlight = _qqRefreshFuture;
+    if (inFlight != null) {
+      await inFlight;
+      return;
+    }
+    _lastQqRefreshAttemptAt = DateTime.now();
+    _qqRefreshInProgress = true;
+    _qqRefreshError = null;
+    notifyListeners();
+    final task = () async {
+      try {
+        final refreshed = await provider.refreshCredentials();
+        if (refreshed == null) {
+          _qqRefreshError = '未获得新的 QQ Music 密钥，仍保留旧会话';
+        } else {
+          _qqLastRefreshSuccessAt = DateTime.now();
+          _qqMusicKeyFingerprint = _fingerprintQqMusicKey(refreshed);
+        }
+      } catch (_) {
+        _qqRefreshError = '续期请求失败，仍保留旧会话';
+      } finally {
+        _qqRefreshInProgress = false;
+        notifyListeners();
+      }
+    }();
+    _qqRefreshFuture = task;
+    try {
+      await task;
+    } finally {
+      if (identical(_qqRefreshFuture, task)) {
+        _qqRefreshFuture = null;
+      }
+    }
+  }
+
+  void _handleQqMusicCredentialsChanged(
+    int generation,
+    QqMusicCredentials credentials,
+  ) {
+    if (generation != _qqProviderGeneration) return;
+    final normalized = credentials.normalized();
+    final current = _qqMusicCredentials;
+    if (current != null && current.cookie == normalized.cookie) return;
+    if (current != null) {
+      final currentUin = _cookieValue(current.cookie, 'uin');
+      final nextUin = _cookieValue(normalized.cookie, 'uin');
+      if (currentUin != null && nextUin != null && currentUin != nextUin) {
+        return;
+      }
+    }
+    _qqMusicCredentials = normalized;
+    _qqLastRefreshSuccessAt = DateTime.now();
+    _qqRefreshError = null;
+    _qqMusicKeyFingerprint = _fingerprintQqMusicKey(normalized);
+    unawaited(_persistRefreshedQqMusicCredentials(normalized));
+  }
+
+  String? _fingerprintQqMusicKey(QqMusicCredentials? credentials) {
+    final cookie = credentials?.cookie ?? '';
+    final key =
+        _cookieValue(cookie, 'qm_keyst') ?? _cookieValue(cookie, 'qqmusic_key');
+    if (key == null || key.isEmpty) return null;
+    return crypto.sha256.convert(utf8.encode(key)).toString().substring(0, 10);
+  }
+
+  Future<void> _persistRefreshedQqMusicCredentials(
+    QqMusicCredentials credentials,
+  ) async {
+    try {
+      await qqMusicSessionStore?.write(credentials);
+    } catch (error) {
+      debugPrint('QQ Music credential refresh persistence failed: $error');
+    }
+  }
+
+  String? _cookieValue(String cookie, String key) {
+    final pattern = RegExp(
+      '(^|;\\s*)${RegExp.escape(key)}=([^;]+)',
+      caseSensitive: false,
+    );
+    return pattern.firstMatch(cookie)?.group(2)?.trim();
   }
 
   void _replaceKugouProvider(KugouSession? session) {

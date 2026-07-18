@@ -152,9 +152,11 @@ final class QqMusicQrLoginResult {
 final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
   QqMusicProvider({
     QqMusicCredentials? credentials,
+    void Function(QqMusicCredentials credentials)? onCredentialsChanged,
     http.Client? client,
     Uri? searchBaseUri,
     Uri? musicuUri,
+    Uri? refreshUri,
     Uri? lyricBaseUri,
     Uri? qqQrShowUri,
     Uri? qqQrCheckUri,
@@ -162,10 +164,13 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
     Uri? wxQrCheckUri,
     DateTime Function()? now,
   })  : _credentials = credentials?.normalized(),
+        _onCredentialsChanged = onCredentialsChanged,
         _client = client ?? http.Client(),
         _searchBaseUri = searchBaseUri ?? Uri.parse('https://c.y.qq.com'),
         _musicuUri =
             musicuUri ?? Uri.parse('https://u.y.qq.com/cgi-bin/musicu.fcg'),
+        _refreshUri =
+            refreshUri ?? Uri.parse('https://u6.y.qq.com/cgi-bin/musics.fcg'),
         _lyricBaseUri = lyricBaseUri ?? Uri.parse('https://c.y.qq.com'),
         _qqQrShowUri =
             qqQrShowUri ?? Uri.parse('https://ssl.ptlogin2.qq.com/ptqrshow'),
@@ -198,10 +203,12 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
     );
   }
 
-  final QqMusicCredentials? _credentials;
+  QqMusicCredentials? _credentials;
+  final void Function(QqMusicCredentials credentials)? _onCredentialsChanged;
   final http.Client _client;
   final Uri _searchBaseUri;
   final Uri _musicuUri;
+  final Uri _refreshUri;
   final Uri _lyricBaseUri;
   final Uri _qqQrShowUri;
   final Uri _qqQrCheckUri;
@@ -216,6 +223,102 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
   bool get isAuthenticated => _credentials?.hasCookie ?? false;
 
   List<QqMusicQrLoginOption> qrLoginOptions() => const [];
+
+  /// Attempts to rotate the short-lived QQ Music key using the refresh
+  /// material already present in the imported cookie.
+  ///
+  /// QQ does not publish a stable public refresh API.  The web client uses a
+  /// legacy signed endpoint, so this method is intentionally best-effort:
+  /// an endpoint/signature change returns `null` and leaves the existing
+  /// credentials untouched.
+  Future<QqMusicCredentials?> refreshCredentials() async {
+    final current = _credentials;
+    if (current == null || !current.hasCookie) return null;
+
+    final uin = _cookieValue('uin') ?? _extractUin();
+    final musicKey = _cookieValue('qm_keyst') ??
+        _cookieValue('qqmusic_key') ??
+        _cookieValue('p_skey');
+    if (uin == null || uin.isEmpty || musicKey == null || musicKey.isEmpty) {
+      return null;
+    }
+
+    final refreshToken =
+        _cookieValue('psrf_qqrefresh_token') ?? _cookieValue('refresh_token');
+    final requestData = <String, Object?>{
+      'req1': {
+        'module': 'QQConnectLogin.LoginServer',
+        'method': 'QQLogin',
+        'param': {
+          'expired_in': 7776000,
+          'musicid': uin,
+          'musickey': musicKey,
+          if (refreshToken != null && refreshToken.isNotEmpty)
+            'refresh_token': refreshToken,
+        },
+      },
+    };
+
+    try {
+      final payload = jsonEncode(requestData);
+      final response = await _client
+          .get(
+            _refreshUri.replace(queryParameters: {
+              ..._refreshUri.queryParameters,
+              'sign': qqMusicZzbSign(payload),
+              'format': 'json',
+              'inCharset': 'utf8',
+              'outCharset': 'utf-8',
+              'data': payload,
+            }),
+            headers: _headers(),
+          )
+          .timeout(const Duration(seconds: 15));
+      _mergeResponseCookies(response);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+      final decoded = jsonDecode(
+        _stripJsonp(utf8.decode(response.bodyBytes, allowMalformed: true)),
+      );
+      if (decoded is! Map<Object?, Object?>) return null;
+      final root = _stringMap(decoded);
+      final req = _jsonMap(root['req1'] ?? root['req_1']);
+      final data = _jsonMap(req['data']);
+      final newMusicKey = _firstNonEmpty([
+        data['musickey']?.toString(),
+        data['music_key']?.toString(),
+        data['qqmusic_key']?.toString(),
+        data['qm_keyst']?.toString(),
+      ]);
+      if (newMusicKey.isEmpty) return null;
+
+      final updates = <String, String>{
+        'qqmusic_key': newMusicKey,
+        'qm_keyst': newMusicKey,
+      };
+      final nextRefreshToken = _firstNonEmpty([
+        data['refresh_token']?.toString(),
+        data['refreshToken']?.toString(),
+      ]);
+      if (nextRefreshToken.isNotEmpty &&
+          (_cookieValue('psrf_qqrefresh_token') != null ||
+              refreshToken != null)) {
+        updates['psrf_qqrefresh_token'] = nextRefreshToken;
+      }
+      final openId = _firstNonEmpty([
+        data['openid']?.toString(),
+        data['openId']?.toString(),
+      ]);
+      if (openId.isNotEmpty && _cookieValue('psrf_qqopenid') != null) {
+        updates['psrf_qqopenid'] = openId;
+      }
+      _mergeCredentials(updates);
+      return _credentials;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<QqMusicQrLoginSession> createQrLoginSession(
     QqMusicQrLoginMode mode,
@@ -1395,6 +1498,7 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
     final response = await _client
         .get(uri, headers: _headers())
         .timeout(const Duration(seconds: 15));
+    _mergeResponseCookies(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ProviderException(
         providerId: descriptor.id,
@@ -1656,6 +1760,24 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
     return cookies;
   }
 
+  void _mergeResponseCookies(http.BaseResponse response) {
+    final cookies = _responseCookies(response);
+    if (cookies.isEmpty) return;
+    _mergeCredentials(cookies);
+  }
+
+  void _mergeCredentials(Map<String, String> updates) {
+    final current = _credentials;
+    if (current == null || updates.isEmpty) return;
+    final merged = _parseQqMusicCookieHeader(current.cookie)..addAll(updates);
+    final normalized = QqMusicCredentials(
+      cookie: _joinQqMusicCookies(_normalizeQqMusicCookieMap(merged)),
+    );
+    if (normalized.cookie == current.cookie) return;
+    _credentials = normalized;
+    _onCredentialsChanged?.call(normalized);
+  }
+
   Map<String, String> _normalizeQqMusicCookies(Map<String, String> cookies) {
     return _normalizeQqMusicCookieMap(cookies);
   }
@@ -1857,6 +1979,7 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
     final response = await _client
         .get(uri, headers: _headers())
         .timeout(const Duration(seconds: 15));
+    _mergeResponseCookies(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ProviderException(
         providerId: descriptor.id,
@@ -1897,6 +2020,7 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
           body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 15));
+    _mergeResponseCookies(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ProviderException(
         providerId: descriptor.id,
@@ -1930,6 +2054,7 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
           body: await encodeQqMusicAg1Request(payload),
         )
         .timeout(const Duration(seconds: 15));
+    _mergeResponseCookies(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ProviderException(
         providerId: descriptor.id,
