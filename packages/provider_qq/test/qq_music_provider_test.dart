@@ -93,20 +93,28 @@ void main() {
     final provider = QqMusicProvider(
       credentials: const QqMusicCredentials(
         cookie:
-            'uin=o12345; qqmusic_key=old-key; psrf_qqrefresh_token=refresh-old',
+            'uin=o12345; qqmusic_key=old-key; psrf_qqrefresh_token=refresh-old; '
+            'psrf_qqopenid=openid-old; psrf_qqaccess_token=access-old; '
+            'psrf_access_token_expiresAt=123; psrf_musickey_createtime=456; '
+            'psrf_qqunionid=union-old',
       ),
-      refreshUri: Uri.parse('https://qq.test/cgi-bin/musics.fcg'),
+      refreshUri: Uri.parse('https://qq.test/cgi-bin/musicu.fcg'),
       onCredentialsChanged: (credentials) => changed = credentials,
       client: _FakeClient((request) {
-        expect(request.method, 'GET');
+        expect(request.method, 'POST');
         expect(request.url.host, 'qq.test');
-        expect(request.url.queryParameters['sign'], startsWith('zzb'));
-        final data = jsonDecode(request.url.queryParameters['data']!)
-            as Map<String, Object?>;
+        expect(request.url.queryParameters['format'], 'json');
+        expect(request.headers['content-type'], contains('application/json'));
+        final data =
+            jsonDecode(utf8.decode((request as http.Request).bodyBytes))
+                as Map<String, Object?>;
         final req = data['req1'] as Map<String, Object?>;
         final param = req['param'] as Map<String, Object?>;
-        expect(param['musicid'], 'o12345');
+        expect(param['musicid'], 12345);
         expect(param['refresh_token'], 'refresh-old');
+        expect(param['access_token'], 'access-old');
+        expect(param['psrf_qqopenid'], 'openid-old');
+        expect(param['musickeyCreateTime'], 456);
         return http.Response(
           jsonEncode({
             'req1': {
@@ -114,6 +122,9 @@ void main() {
               'data': {
                 'musickey': 'new-key',
                 'refresh_token': 'refresh-new',
+                'access_token': 'access-new',
+                'musickeyCreateTime': 789,
+                'unionid': 'union-new',
               },
             },
           }),
@@ -128,6 +139,9 @@ void main() {
     expect(refreshed!.cookie, contains('qqmusic_key=new-key'));
     expect(refreshed.cookie, contains('qm_keyst=new-key'));
     expect(refreshed.cookie, contains('psrf_qqrefresh_token=refresh-new'));
+    expect(refreshed.cookie, contains('psrf_qqaccess_token=access-new'));
+    expect(refreshed.cookie, contains('psrf_musickey_createtime=789'));
+    expect(refreshed.cookie, contains('psrf_qqunionid=union-new'));
     expect(changed?.cookie, refreshed.cookie);
   });
 

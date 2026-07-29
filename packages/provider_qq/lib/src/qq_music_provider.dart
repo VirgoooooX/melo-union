@@ -170,7 +170,7 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
         _musicuUri =
             musicuUri ?? Uri.parse('https://u.y.qq.com/cgi-bin/musicu.fcg'),
         _refreshUri =
-            refreshUri ?? Uri.parse('https://u6.y.qq.com/cgi-bin/musics.fcg'),
+            refreshUri ?? Uri.parse('https://u6.y.qq.com/cgi-bin/musicu.fcg'),
         _lyricBaseUri = lyricBaseUri ?? Uri.parse('https://c.y.qq.com'),
         _qqQrShowUri =
             qqQrShowUri ?? Uri.parse('https://ssl.ptlogin2.qq.com/ptqrshow'),
@@ -227,34 +227,44 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
   /// Attempts to rotate the short-lived QQ Music key using the refresh
   /// material already present in the imported cookie.
   ///
-  /// QQ does not publish a stable public refresh API.  The web client uses a
-  /// legacy signed endpoint, so this method is intentionally best-effort:
-  /// an endpoint/signature change returns `null` and leaves the existing
-  /// credentials untouched.
+  /// QQ does not publish a stable public refresh API. The current client
+  /// gateway is therefore treated as best-effort: an endpoint or response
+  /// shape change returns `null` and leaves the existing credentials intact.
   Future<QqMusicCredentials?> refreshCredentials() async {
     final current = _credentials;
     if (current == null || !current.hasCookie) return null;
 
-    final uin = _cookieValue('uin') ?? _extractUin();
+    final rawUin = _cookieValue('uin') ?? '';
+    final uin = _numericQqUin(rawUin) ?? int.tryParse(_extractUin() ?? '') ?? 0;
     final musicKey = _cookieValue('qm_keyst') ??
         _cookieValue('qqmusic_key') ??
         _cookieValue('p_skey');
-    if (uin == null || uin.isEmpty || musicKey == null || musicKey.isEmpty) {
+    if (uin <= 0 || musicKey == null || musicKey.isEmpty) {
       return null;
     }
 
     final refreshToken =
         _cookieValue('psrf_qqrefresh_token') ?? _cookieValue('refresh_token');
     final requestData = <String, Object?>{
+      'code': 0,
       'req1': {
+        'code': 0,
         'module': 'QQConnectLogin.LoginServer',
         'method': 'QQLogin',
         'param': {
-          'expired_in': 7776000,
+          'onlyNeedAccessToken': 0,
+          'forceRefreshToken': 0,
+          'psrf_qqopenid': _cookieValue('psrf_qqopenid') ?? '',
+          'refresh_token': refreshToken ?? '',
+          'access_token': _cookieValue('psrf_qqaccess_token') ?? '',
+          'expired_at': _cookieValue('psrf_access_token_expiresAt') ?? '',
           'musicid': uin,
           'musickey': musicKey,
-          if (refreshToken != null && refreshToken.isNotEmpty)
-            'refresh_token': refreshToken,
+          'musickeyCreateTime':
+              _cookieIntValue('psrf_musickey_createtime') ?? 0,
+          'unionid': _cookieValue('psrf_qqunionid') ?? '',
+          'str_musicid': rawUin,
+          'encryptUin': _cookieValue('euin') ?? '',
         },
       },
     };
@@ -262,16 +272,18 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
     try {
       final payload = jsonEncode(requestData);
       final response = await _client
-          .get(
+          .post(
             _refreshUri.replace(queryParameters: {
               ..._refreshUri.queryParameters,
-              'sign': qqMusicZzbSign(payload),
               'format': 'json',
               'inCharset': 'utf8',
-              'outCharset': 'utf-8',
-              'data': payload,
+              'outCharset': 'utf8',
             }),
-            headers: _headers(),
+            headers: {
+              ..._headers(),
+              'Content-Type': 'application/json',
+            },
+            body: payload,
           )
           .timeout(const Duration(seconds: 15));
       _mergeResponseCookies(response);
@@ -283,7 +295,12 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
       );
       if (decoded is! Map<Object?, Object?>) return null;
       final root = _stringMap(decoded);
+      final code = root['code'];
       final req = _jsonMap(root['req1'] ?? root['req_1']);
+      final reqCode = req['code'];
+      if (code is num && code != 0 || reqCode is num && reqCode != 0) {
+        return null;
+      }
       final data = _jsonMap(req['data']);
       final newMusicKey = _firstNonEmpty([
         data['musickey']?.toString(),
@@ -305,6 +322,28 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
           (_cookieValue('psrf_qqrefresh_token') != null ||
               refreshToken != null)) {
         updates['psrf_qqrefresh_token'] = nextRefreshToken;
+      }
+      final nextAccessToken = _firstNonEmpty([
+        data['access_token']?.toString(),
+        data['accessToken']?.toString(),
+      ]);
+      if (nextAccessToken.isNotEmpty &&
+          _cookieValue('psrf_qqaccess_token') != null) {
+        updates['psrf_qqaccess_token'] = nextAccessToken;
+      }
+      final createTime = _firstNonEmpty([
+        data['musickeyCreateTime']?.toString(),
+        data['musickey_create_time']?.toString(),
+      ]);
+      if (createTime.isNotEmpty && createTime != '0') {
+        updates['psrf_musickey_createtime'] = createTime;
+      }
+      final unionId = _firstNonEmpty([
+        data['unionid']?.toString(),
+        data['unionId']?.toString(),
+      ]);
+      if (unionId.isNotEmpty && _cookieValue('psrf_qqunionid') != null) {
+        updates['psrf_qqunionid'] = unionId;
       }
       final openId = _firstNonEmpty([
         data['openid']?.toString(),
@@ -1561,6 +1600,16 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
       caseSensitive: false,
     );
     return pattern.firstMatch(cookie)?.group(2);
+  }
+
+  int? _numericQqUin(String value) {
+    final normalized = value.trim().replaceFirst(RegExp(r'^o'), '');
+    return int.tryParse(normalized);
+  }
+
+  int? _cookieIntValue(String key) {
+    final value = _cookieValue(key);
+    return value == null ? null : int.tryParse(value.trim());
   }
 
   Map<String, String> _qrHeaders({required String referer, String? cookie}) {

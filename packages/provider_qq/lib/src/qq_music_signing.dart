@@ -89,48 +89,6 @@ String qqMusicZzcSign(String payload) {
   return 'zzc$part1$part3$part2'.toLowerCase();
 }
 
-/// Signs the legacy JSON refresh endpoint used by QQ Music's web client.
-///
-/// This is deliberately kept separate from [qqMusicZzcSign].  The current
-/// AG1 gateway uses the `zzc`/SHA-1 variant, while the cookie refresh endpoint
-/// expects the older `zzb`/MD5 variant.
-String qqMusicZzbSign(String payload) {
-  final digest = crypto.md5.convert(utf8.encode(payload)).bytes;
-  final hash = digest
-      .map((value) => value.toRadixString(16).padLeft(2, '0'))
-      .join()
-      .toUpperCase();
-  const headIndexes = [21, 4, 9, 26, 16, 20, 27, 30];
-  const tailIndexes = [18, 11, 3, 2, 1, 7, 6, 25];
-  const scramble = [
-    212,
-    45,
-    80,
-    68,
-    195,
-    163,
-    163,
-    203,
-    157,
-    220,
-    254,
-    91,
-    204,
-    79,
-    104,
-    6,
-  ];
-  final middle = <int>[
-    for (var index = 0; index < scramble.length; index++)
-      int.parse(hash.substring(index * 2, index * 2 + 2), radix: 16) ^
-          scramble[index],
-  ];
-  final encoded = base64Encode(middle).replaceAll(RegExp(r'[/+=]'), '');
-  return 'zzb${headIndexes.map((index) => hash[index]).join()}$encoded'
-          '${tailIndexes.map((index) => hash[index]).join()}'
-      .toLowerCase();
-}
-
 Future<String> encodeQqMusicAg1Request(
   String payload, {
   List<int>? nonce,
