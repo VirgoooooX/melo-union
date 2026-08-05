@@ -108,7 +108,7 @@ Future<AppBootstrap> createAppBootstrap({
     audioCacheManager: audioCacheManager,
     localLibraryController: localController,
   );
-  unawaited(repository.refreshQqMusicCredentials());
+  unawaited(repository.refreshQqMusicCredentialsIfDue());
   if (localController != null) {
     await localController.initialize(scanOnStartup: false);
     unawaited(localController.scanAll());

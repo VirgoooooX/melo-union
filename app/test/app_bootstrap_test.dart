@@ -243,6 +243,10 @@ void main() {
       () async {
     final qqStore = _MemoryQqMusicSessionStore();
     final repository = DemoRepository.seeded(qqMusicSessionStore: qqStore);
+    final sessionStates = <bool>[];
+    repository.setQqSessionLifecycleCallback((hasSession) async {
+      sessionStates.add(hasSession);
+    });
     final qqRef = ProviderTrackRef(
       providerId: qqMusicProviderId,
       trackId: 'qq_mid_001',
@@ -276,6 +280,7 @@ void main() {
     expect(qqStore.credentials?.cookie, contains('qqmusic_key=abc'));
     expect(qqStore.credentials?.cookie, contains('qm_keyst=abc'));
     expect(repository.hasQqMusicSession, isTrue);
+    expect(sessionStates, [true]);
     expect(
       repository.registry.entryOf(qqMusicProviderId)!.provider.isAuthenticated,
       isTrue,
@@ -289,6 +294,7 @@ void main() {
 
     expect(qqStore.credentials, isNull);
     expect(repository.hasQqMusicSession, isFalse);
+    expect(sessionStates, [true, false]);
     expect(
       repository.favoriteLikedAtLedger.likedAtFor(qqRef)?.likedAt,
       likedAt,

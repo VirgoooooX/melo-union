@@ -397,6 +397,7 @@ class DemoRepository extends ChangeNotifier {
       // Replace the initially seeded provider with the callback-aware
       // instance so rotated cookies are persisted in the secure store.
       repo._replaceQqMusicProvider(qqMusicCredentials);
+      repo._scheduleQqMusicRefresh();
     }
     final allSeededTracks = [
       for (final provider in additionalProviders.whereType<FakeMusicProvider>())
@@ -484,11 +485,14 @@ class DemoRepository extends ChangeNotifier {
   Future<void> _persistenceChain = Future.value();
   DateTime? _lastQqRefreshAttemptAt;
   Future<void>? _qqRefreshFuture;
+  Timer? _qqRefreshTimer;
+  DateTime? _qqNextRefreshAt;
   int _qqProviderGeneration = 0;
   bool _qqRefreshInProgress = false;
   DateTime? _qqLastRefreshSuccessAt;
   String? _qqRefreshError;
   String? _qqMusicKeyFingerprint;
+  Future<void> Function(bool hasSession)? _qqSessionLifecycleCallback;
 
   /// Incremented on login/logout/toggle to trigger [allFavoritesProvider] refresh.
   int _favoritesVersion = 0;
@@ -609,6 +613,8 @@ class DemoRepository extends ChangeNotifier {
 
   DateTime? get qqMusicLastRefreshSuccessAt => _qqLastRefreshSuccessAt;
 
+  DateTime? get qqMusicNextRefreshAt => _qqNextRefreshAt;
+
   String? get qqMusicRefreshError => _qqRefreshError;
 
   String? get qqMusicKeyFingerprint => _qqMusicKeyFingerprint;
@@ -616,6 +622,12 @@ class DemoRepository extends ChangeNotifier {
   bool get qqMusicHasRefreshToken =>
       _cookieValue(_qqMusicCredentials?.cookie ?? '', 'psrf_qqrefresh_token') !=
       null;
+
+  void setQqSessionLifecycleCallback(
+    Future<void> Function(bool hasSession) callback,
+  ) {
+    _qqSessionLifecycleCallback = callback;
+  }
 
   bool get hasKugouSession =>
       registry.find(kugouProviderId)?.isAuthenticated ?? false;
@@ -1314,7 +1326,9 @@ class DemoRepository extends ChangeNotifier {
     _qqLastRefreshSuccessAt = null;
     _qqRefreshError = null;
     _qqMusicKeyFingerprint = _fingerprintQqMusicKey(qqMusicCredentials);
-    unawaited(_refreshQqMusicCredentialsIfNeeded(force: true));
+    _scheduleQqMusicRefresh();
+    await _qqSessionLifecycleCallback?.call(_qqMusicCredentials != null);
+    unawaited(_refreshQqMusicCredentialsIfNeeded());
 
     final kugouSession = await kugouSessionStore?.read();
     _replaceKugouProvider(kugouSession);
@@ -1323,9 +1337,14 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Best-effort QQ Music cookie rotation for app startup and manual callers.
+  /// Forces a best-effort QQ Music cookie rotation for manual callers.
   Future<void> refreshQqMusicCredentials() {
     return _refreshQqMusicCredentialsIfNeeded(force: true);
+  }
+
+  /// Startup/background callers should respect the twenty-hour refresh age.
+  Future<void> refreshQqMusicCredentialsIfDue() {
+    return _refreshQqMusicCredentialsIfNeeded();
   }
 
   Future<KugouQrLoginSession> createKugouQrLoginSession() {
@@ -1496,6 +1515,8 @@ class DemoRepository extends ChangeNotifier {
     // Keep QQ liked-at records across cookie refreshes. The registry keys by
     // stable QQ song identity, so a re-import can recover the previous time.
     _replaceQqMusicProvider(normalizedCredentials);
+    _scheduleQqMusicRefresh();
+    await _qqSessionLifecycleCallback?.call(true);
     notifyListeners();
   }
 
@@ -1506,8 +1527,12 @@ class DemoRepository extends ChangeNotifier {
     _qqLastRefreshSuccessAt = null;
     _qqRefreshError = null;
     _qqMusicKeyFingerprint = null;
+    _qqRefreshTimer?.cancel();
+    _qqRefreshTimer = null;
+    _qqNextRefreshAt = null;
     _replaceQqMusicProvider(null);
     _discardFavoriteProvider(qqMusicProviderId);
+    await _qqSessionLifecycleCallback?.call(false);
     _favoritesVersion++;
     notifyListeners();
   }
@@ -3779,6 +3804,9 @@ class DemoRepository extends ChangeNotifier {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    _qqRefreshTimer?.cancel();
+    _qqRefreshTimer = null;
+    _qqNextRefreshAt = null;
     for (final client in _activeDownloadClients.values) {
       client.close(force: true);
     }
@@ -3836,10 +3864,14 @@ class DemoRepository extends ChangeNotifier {
   Future<void> _refreshQqMusicCredentialsIfNeeded({bool force = false}) async {
     final provider = registry.entryOf(qqMusicProviderId)?.provider;
     if (provider is! QqMusicProvider || !provider.isAuthenticated) return;
+    if (!force && !_isQqMusicRefreshDue()) {
+      _scheduleQqMusicRefresh();
+      return;
+    }
     final lastAttempt = _lastQqRefreshAttemptAt;
     if (!force &&
         lastAttempt != null &&
-        DateTime.now().difference(lastAttempt) < const Duration(hours: 12)) {
+        DateTime.now().difference(lastAttempt) < const Duration(minutes: 30)) {
       return;
     }
     final inFlight = _qqRefreshFuture;
@@ -3853,15 +3885,19 @@ class DemoRepository extends ChangeNotifier {
     notifyListeners();
     final task = () async {
       try {
-        final refreshed = await provider.refreshCredentials();
+        final result = await provider.refreshCredentialsDetailed();
+        final refreshed = result.credentials;
         if (refreshed == null) {
-          _qqRefreshError = '未获得新的 QQ Music 密钥，仍保留旧会话';
+          _qqRefreshError = result.message;
+          _scheduleQqMusicRefresh(retryAfter: const Duration(hours: 1));
         } else {
           _qqLastRefreshSuccessAt = DateTime.now();
           _qqMusicKeyFingerprint = _fingerprintQqMusicKey(refreshed);
+          _scheduleQqMusicRefresh();
         }
-      } catch (_) {
-        _qqRefreshError = '续期请求失败，仍保留旧会话';
+      } catch (error) {
+        _qqRefreshError = '续期流程异常（${error.runtimeType}）';
+        _scheduleQqMusicRefresh(retryAfter: const Duration(hours: 1));
       } finally {
         _qqRefreshInProgress = false;
         notifyListeners();
@@ -3896,7 +3932,50 @@ class DemoRepository extends ChangeNotifier {
     _qqLastRefreshSuccessAt = DateTime.now();
     _qqRefreshError = null;
     _qqMusicKeyFingerprint = _fingerprintQqMusicKey(normalized);
+    if (!_qqRefreshInProgress) {
+      _scheduleQqMusicRefresh();
+    }
     unawaited(_persistRefreshedQqMusicCredentials(normalized));
+  }
+
+  bool _isQqMusicRefreshDue() {
+    final createdAt = _qqMusicKeyCreatedAt();
+    if (createdAt == null) return true;
+    return !DateTime.now().isBefore(createdAt.add(const Duration(hours: 20)));
+  }
+
+  DateTime? _qqMusicKeyCreatedAt() {
+    final raw = _cookieValue(
+      _qqMusicCredentials?.cookie ?? '',
+      'psrf_musickey_createtime',
+    );
+    final value = int.tryParse(raw ?? '');
+    if (value == null || value <= 0) return null;
+    return value > 1000000000000
+        ? DateTime.fromMillisecondsSinceEpoch(value)
+        : DateTime.fromMillisecondsSinceEpoch(value * 1000);
+  }
+
+  void _scheduleQqMusicRefresh({Duration? retryAfter}) {
+    _qqRefreshTimer?.cancel();
+    _qqRefreshTimer = null;
+    _qqNextRefreshAt = null;
+    if (_closed || !hasQqMusicSession) return;
+
+    final now = DateTime.now();
+    final createdAt = _qqMusicKeyCreatedAt();
+    var target = retryAfter == null
+        ? createdAt?.add(const Duration(hours: 20)) ?? now
+        : now.add(retryAfter);
+    if (!target.isAfter(now)) {
+      target = now.add(const Duration(seconds: 5));
+    }
+    _qqNextRefreshAt = target;
+    _qqRefreshTimer = Timer(target.difference(now), () {
+      _qqRefreshTimer = null;
+      _qqNextRefreshAt = null;
+      unawaited(_refreshQqMusicCredentialsIfNeeded(force: true));
+    });
   }
 
   String? _fingerprintQqMusicKey(QqMusicCredentials? credentials) {

@@ -316,10 +316,17 @@ class _QqMusicRefreshStatus extends StatelessWidget {
             : theme.colorScheme.primary;
     final successAt = repository.qqMusicLastRefreshSuccessAt;
     final attemptAt = repository.qqMusicLastRefreshAttemptAt;
-    final timestamp = successAt ?? attemptAt;
+    final timestamp = repository.qqMusicRefreshError != null ||
+            repository.qqMusicRefreshInProgress
+        ? attemptAt
+        : successAt ?? attemptAt;
     final timestampText = timestamp == null
         ? '暂无'
         : timestamp.toLocal().toString().substring(0, 16);
+    final nextRefreshAt = repository.qqMusicNextRefreshAt;
+    final nextRefreshText = nextRefreshAt == null
+        ? '暂无'
+        : nextRefreshAt.toLocal().toString().substring(0, 16);
     return DecoratedBox(
       decoration: BoxDecoration(
         color:
@@ -340,6 +347,13 @@ class _QqMusicRefreshStatus extends StatelessWidget {
               status,
               style: theme.textTheme.bodySmall?.copyWith(color: statusColor),
             ),
+            if (repository.qqMusicRefreshError case final error?) ...[
+              const SizedBox(height: 3),
+              Text(
+                '原因：$error',
+                style: theme.textTheme.bodySmall?.copyWith(color: statusColor),
+              ),
+            ],
             const SizedBox(height: 4),
             Text(
               '时间：$timestampText',
@@ -352,6 +366,21 @@ class _QqMusicRefreshStatus extends StatelessWidget {
             Text(
               '刷新令牌：${repository.qqMusicHasRefreshToken ? '已包含' : '未包含'}',
               style: theme.textTheme.bodySmall,
+            ),
+            Text(
+              '计划续期：$nextRefreshText',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: repository.qqMusicRefreshInProgress
+                    ? null
+                    : repository.refreshQqMusicCredentials,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('立即尝试续期'),
+              ),
             ),
           ],
         ),

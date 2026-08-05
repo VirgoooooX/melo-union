@@ -2,6 +2,8 @@
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
 
+#include <algorithm>
+
 #include "flutter_window.h"
 #include "utils.h"
 
@@ -21,13 +23,39 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
+  const bool background_command =
+      std::find(command_line_arguments.begin(), command_line_arguments.end(),
+                "--hidden") != command_line_arguments.end() ||
+      std::find(command_line_arguments.begin(), command_line_arguments.end(),
+                "--refresh-qq-and-exit") != command_line_arguments.end();
+
+  HANDLE single_instance_mutex =
+      ::CreateMutexW(nullptr, TRUE, L"Local\\MeloUnion.SingleInstance");
+  if (single_instance_mutex != nullptr &&
+      ::GetLastError() == ERROR_ALREADY_EXISTS) {
+    if (!background_command) {
+      HWND existing_window =
+          ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"MeloUnion");
+      if (existing_window != nullptr) {
+        ::ShowWindow(existing_window, SW_RESTORE);
+        ::SetForegroundWindow(existing_window);
+      }
+    }
+    ::CloseHandle(single_instance_mutex);
+    ::CoUninitialize();
+    return EXIT_SUCCESS;
+  }
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
-  FlutterWindow window(project);
+  FlutterWindow window(project, !background_command);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
   if (!window.Create(L"MeloUnion", origin, size)) {
+    if (single_instance_mutex != nullptr) {
+      ::CloseHandle(single_instance_mutex);
+    }
+    ::CoUninitialize();
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
@@ -38,6 +66,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::DispatchMessage(&msg);
   }
 
+  if (single_instance_mutex != nullptr) {
+    ::CloseHandle(single_instance_mutex);
+  }
   ::CoUninitialize();
   return EXIT_SUCCESS;
 }

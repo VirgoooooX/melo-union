@@ -70,10 +70,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               section: _selected,
               wifiOnly: _wifiOnly,
               playbackQuality: repository.playbackQuality,
-              onWifiOnlyChanged: (value) =>
-                  setState(() => _wifiOnly = value),
-              onPlaybackQualityChanged:
-                  repository.setPlaybackQuality,
+              onWifiOnlyChanged: (value) => setState(() => _wifiOnly = value),
+              onPlaybackQualityChanged: repository.setPlaybackQuality,
             ),
           ),
         ],
@@ -600,6 +598,8 @@ class _SettingsContent extends StatelessWidget {
               leading: Icons.light_mode_rounded,
             ),
             SizedBox(height: MeloSpacing.md),
+            _WindowsBackgroundSettingsCard(),
+            SizedBox(height: MeloSpacing.md),
             _SettingsCard(
               title: '快捷键',
               subtitle: 'Space 播放/暂停 · Ctrl+K 打开搜索。',
@@ -627,6 +627,131 @@ class _SettingsContent extends StatelessWidget {
           ],
         ),
     };
+  }
+}
+
+class _WindowsBackgroundSettingsCard extends StatelessWidget {
+  const _WindowsBackgroundSettingsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Platform.isWindows) return const SizedBox.shrink();
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        desktopLifecycleController,
+        windowsQqRefreshTaskController,
+      ]),
+      builder: (context, _) {
+        final controller = desktopLifecycleController;
+        final refreshTask = windowsQqRefreshTaskController;
+        final lastRunAt = refreshTask.lastRunAt;
+        final lastRunText = lastRunAt == null
+            ? '尚未运行'
+            : lastRunAt.toLocal().toString().substring(0, 16);
+        return _SettingsCard(
+          title: 'Windows 后台运行',
+          subtitle: '使用系统计划任务续期 QQ 音乐；应用退出后也不需要常驻内存。',
+          leading: Icons.desktop_windows_rounded,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SettingsSwitchRow(
+                title: 'QQ 音乐计划任务续期',
+                subtitle: refreshTask.hasQqSession
+                    ? 'Windows 每小时启动一次轻量检查；未满 20 小时不会发起续期请求。'
+                    : '当前没有 QQ 音乐会话；导入 Cookie 后会按此开关自动注册。',
+                value: refreshTask.desiredEnabled,
+                onChanged: refreshTask.updating ? null : refreshTask.setEnabled,
+              ),
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: MeloSpacing.xs,
+                  bottom: MeloSpacing.xs,
+                ),
+                child: Text(
+                  refreshTask.taskRegistered
+                      ? '计划任务已注册 · 最近运行：$lastRunText'
+                      : !refreshTask.hasQqSession
+                          ? '等待导入 QQ 音乐会话'
+                          : refreshTask.desiredEnabled
+                              ? '计划任务尚未注册'
+                              : '计划任务未启用',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: refreshTask.taskRegistered
+                            ? MeloColors.success
+                            : MeloColors.textSecondary,
+                      ),
+                ),
+              ),
+              if (refreshTask.lastMessage case final message?)
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: MeloSpacing.xs,
+                    bottom: MeloSpacing.xs,
+                  ),
+                  child: Text(
+                    '最近结果：$message',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.textSecondary,
+                        ),
+                  ),
+                ),
+              if (refreshTask.error case final error?)
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: MeloSpacing.xs,
+                    bottom: MeloSpacing.xs,
+                  ),
+                  child: Text(
+                    error,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: MeloColors.error,
+                        ),
+                  ),
+                ),
+              const _SettingsDivider(),
+              _SettingsSwitchRow(
+                title: '开机启动',
+                subtitle: '可选；只影响播放器常驻，不是 QQ 音乐自动续期的必要条件。',
+                value: controller.launchAtStartupEnabled,
+                onChanged: controller.initialized &&
+                        !controller.launchAtStartupUpdating
+                    ? controller.setLaunchAtStartup
+                    : null,
+              ),
+              const _SettingsDivider(),
+              _SettingsSwitchRow(
+                title: '最小化或关闭后驻留托盘',
+                subtitle: controller.trayReady
+                    ? '适合持续播放音乐；关闭后仍会占用完整应用内存。'
+                    : '系统托盘当前不可用，关闭窗口会正常退出。',
+                value: controller.keepInTray,
+                onChanged:
+                    controller.trayReady ? controller.setKeepInTray : null,
+              ),
+              if (controller.error case final error?) ...[
+                const SizedBox(height: MeloSpacing.xs),
+                Text(
+                  error,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: MeloColors.error,
+                      ),
+                ),
+              ],
+              const SizedBox(height: MeloSpacing.xs),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: controller.exitApplication,
+                  icon: const Icon(Icons.power_settings_new_rounded, size: 18),
+                  label: const Text('退出 MeloUnion'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 

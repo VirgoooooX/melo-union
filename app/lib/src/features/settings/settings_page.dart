@@ -19,6 +19,8 @@ import '../../bootstrap/backup/backup_target.dart';
 import '../../design/melo_tokens.dart';
 import '../../presentation/app_destination.dart';
 import '../../presentation/provider_presentation.dart';
+import '../../platform/desktop_lifecycle_controller.dart';
+import '../../platform/windows_qq_refresh_task_controller.dart';
 import '../../widgets/melo_components.dart';
 import '../../widgets/melo_logo_mark.dart';
 import '../../widgets/provider_tabs.dart';

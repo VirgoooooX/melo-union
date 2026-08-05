@@ -16,6 +16,50 @@ enum QqMusicQrLoginMode { qq, wechat }
 
 enum QqMusicQrLoginStatus { waiting, scanned, authorized, expired, failed }
 
+enum QqMusicCredentialRefreshProtocol { qqConnect, loginServer }
+
+final class QqMusicCredentialRefreshResult {
+  const QqMusicCredentialRefreshResult._({
+    required this.credentials,
+    required this.message,
+    required this.attemptedProtocols,
+  });
+
+  factory QqMusicCredentialRefreshResult.success({
+    required QqMusicCredentials credentials,
+    required QqMusicCredentialRefreshProtocol protocol,
+  }) {
+    return QqMusicCredentialRefreshResult._(
+      credentials: credentials,
+      message: switch (protocol) {
+        QqMusicCredentialRefreshProtocol.qqConnect => 'QQConnect 续期成功',
+        QqMusicCredentialRefreshProtocol.loginServer => 'LoginServer 续期成功',
+      },
+      attemptedProtocols: [protocol],
+    );
+  }
+
+  factory QqMusicCredentialRefreshResult.failure({
+    required String message,
+    List<QqMusicCredentialRefreshProtocol> attemptedProtocols = const [],
+  }) {
+    return QqMusicCredentialRefreshResult._(
+      credentials: null,
+      message: message,
+      attemptedProtocols: attemptedProtocols,
+    );
+  }
+
+  final QqMusicCredentials? credentials;
+
+  /// A deliberately redacted diagnostic. It contains only protocol names,
+  /// response codes, HTTP status codes, and missing cookie field names.
+  final String message;
+  final List<QqMusicCredentialRefreshProtocol> attemptedProtocols;
+
+  bool get succeeded => credentials != null;
+}
+
 final class QqMusicCredentials {
   const QqMusicCredentials({required this.cookie});
 
@@ -228,24 +272,39 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
   /// material already present in the imported cookie.
   ///
   /// QQ does not publish a stable public refresh API. The current client
-  /// gateway is therefore treated as best-effort: an endpoint or response
-  /// shape change returns `null` and leaves the existing credentials intact.
+  /// gateways are therefore treated as best-effort. QQ currently has two
+  /// refresh shapes in active community clients; try both without replacing
+  /// the stored cookie unless one returns a new music key.
   Future<QqMusicCredentials?> refreshCredentials() async {
+    return (await refreshCredentialsDetailed()).credentials;
+  }
+
+  Future<QqMusicCredentialRefreshResult> refreshCredentialsDetailed() async {
     final current = _credentials;
-    if (current == null || !current.hasCookie) return null;
+    if (current == null || !current.hasCookie) {
+      return QqMusicCredentialRefreshResult.failure(message: '本地没有 QQ 音乐会话');
+    }
 
     final rawUin = _cookieValue('uin') ?? '';
     final uin = _numericQqUin(rawUin) ?? int.tryParse(_extractUin() ?? '') ?? 0;
     final musicKey = _cookieValue('qm_keyst') ??
         _cookieValue('qqmusic_key') ??
         _cookieValue('p_skey');
-    if (uin <= 0 || musicKey == null || musicKey.isEmpty) {
-      return null;
+    final refreshToken = _cookieValue('psrf_qqrefresh_token') ??
+        _cookieValue('refresh_token') ??
+        _cookieValue('wxrefresh_token');
+    final missingFields = <String>[
+      if (uin <= 0) 'uin',
+      if (musicKey == null || musicKey.isEmpty) 'qqmusic_key/qm_keyst',
+      if (refreshToken == null || refreshToken.isEmpty) 'psrf_qqrefresh_token',
+    ];
+    if (missingFields.isNotEmpty) {
+      return QqMusicCredentialRefreshResult.failure(
+        message: 'Cookie 缺少续期字段：${missingFields.join('、')}',
+      );
     }
 
-    final refreshToken =
-        _cookieValue('psrf_qqrefresh_token') ?? _cookieValue('refresh_token');
-    final requestData = <String, Object?>{
+    final qqConnectRequest = <String, Object?>{
       'code': 0,
       'req1': {
         'code': 0,
@@ -255,7 +314,7 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
           'onlyNeedAccessToken': 0,
           'forceRefreshToken': 0,
           'psrf_qqopenid': _cookieValue('psrf_qqopenid') ?? '',
-          'refresh_token': refreshToken ?? '',
+          'refresh_token': refreshToken,
           'access_token': _cookieValue('psrf_qqaccess_token') ?? '',
           'expired_at': _cookieValue('psrf_access_token_expiresAt') ?? '',
           'musicid': uin,
@@ -268,38 +327,161 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
         },
       },
     };
+    final loginServerRequest = <String, Object?>{
+      'comm': {
+        'tmeLoginType': _cookieIntValue('tmeLoginType') ?? 2,
+      },
+      'req': {
+        'module': 'music.login.LoginServer',
+        'method': 'Login',
+        'param': {
+          'openid':
+              _cookieValue('psrf_qqopenid') ?? _cookieValue('wxopenid') ?? '',
+          'access_token': _cookieValue('psrf_qqaccess_token') ??
+              _cookieValue('wxaccess_token') ??
+              '',
+          'refresh_token': refreshToken,
+          'expired_in': _cookieIntValue('psrf_access_token_expiresAt') ?? 0,
+          'musicid': uin,
+          'musickey': musicKey,
+          'refresh_key': _cookieValue('refresh_key') ?? '',
+          'unionid':
+              _cookieValue('psrf_qqunionid') ?? _cookieValue('wxunionid') ?? '',
+          'loginMode': 2,
+        },
+      },
+    };
 
+    final rawCreateTime = _cookieIntValue('psrf_musickey_createtime');
+    final createTime = rawCreateTime != null && rawCreateTime > 1000000000000
+        ? rawCreateTime ~/ 1000
+        : rawCreateTime;
+    final keyIsAtLeastOneDayOld = createTime == null ||
+        createTime <= 0 ||
+        _now().millisecondsSinceEpoch ~/ 1000 - createTime >= 24 * 60 * 60;
+    final attempts = keyIsAtLeastOneDayOld
+        ? <(
+            QqMusicCredentialRefreshProtocol,
+            Uri,
+            String,
+            Map<String, Object?>
+          )>[
+            (
+              QqMusicCredentialRefreshProtocol.loginServer,
+              _musicuUri,
+              'req',
+              loginServerRequest,
+            ),
+            (
+              QqMusicCredentialRefreshProtocol.qqConnect,
+              _refreshUri.replace(queryParameters: {
+                ..._refreshUri.queryParameters,
+                'format': 'json',
+                'inCharset': 'utf8',
+                'outCharset': 'utf8',
+              }),
+              'req1',
+              qqConnectRequest,
+            ),
+          ]
+        : <(
+            QqMusicCredentialRefreshProtocol,
+            Uri,
+            String,
+            Map<String, Object?>
+          )>[
+            (
+              QqMusicCredentialRefreshProtocol.qqConnect,
+              _refreshUri.replace(queryParameters: {
+                ..._refreshUri.queryParameters,
+                'format': 'json',
+                'inCharset': 'utf8',
+                'outCharset': 'utf8',
+              }),
+              'req1',
+              qqConnectRequest,
+            ),
+            (
+              QqMusicCredentialRefreshProtocol.loginServer,
+              _musicuUri,
+              'req',
+              loginServerRequest,
+            ),
+          ];
+
+    final diagnostics = <String>[];
+    final attemptedProtocols = <QqMusicCredentialRefreshProtocol>[];
+    for (final attempt in attempts) {
+      attemptedProtocols.add(attempt.$1);
+      final result = await _performCredentialRefresh(
+        protocol: attempt.$1,
+        uri: attempt.$2,
+        responseKey: attempt.$3,
+        requestData: attempt.$4,
+      );
+      if (result.credentials != null) {
+        return QqMusicCredentialRefreshResult._(
+          credentials: result.credentials,
+          message: result.message,
+          attemptedProtocols: List.unmodifiable(attemptedProtocols),
+        );
+      }
+      diagnostics.add(result.message);
+    }
+    return QqMusicCredentialRefreshResult.failure(
+      message: diagnostics.join('；'),
+      attemptedProtocols: List.unmodifiable(attemptedProtocols),
+    );
+  }
+
+  Future<QqMusicCredentialRefreshResult> _performCredentialRefresh({
+    required QqMusicCredentialRefreshProtocol protocol,
+    required Uri uri,
+    required String responseKey,
+    required Map<String, Object?> requestData,
+  }) async {
+    final protocolLabel = switch (protocol) {
+      QqMusicCredentialRefreshProtocol.qqConnect => 'QQConnect',
+      QqMusicCredentialRefreshProtocol.loginServer => 'LoginServer',
+    };
     try {
-      final payload = jsonEncode(requestData);
       final response = await _client
           .post(
-            _refreshUri.replace(queryParameters: {
-              ..._refreshUri.queryParameters,
-              'format': 'json',
-              'inCharset': 'utf8',
-              'outCharset': 'utf8',
-            }),
+            uri,
             headers: {
               ..._headers(),
+              'User-Agent':
+                  protocol == QqMusicCredentialRefreshProtocol.qqConnect
+                      ? 'QQMusic/14090508 (android 12)'
+                      : 'Mozilla/5.0',
               'Content-Type': 'application/json',
             },
-            body: payload,
+            body: jsonEncode(requestData),
           )
           .timeout(const Duration(seconds: 15));
-      _mergeResponseCookies(response);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        return null;
+        return QqMusicCredentialRefreshResult.failure(
+          message: '$protocolLabel HTTP ${response.statusCode}',
+        );
       }
       final decoded = jsonDecode(
         _stripJsonp(utf8.decode(response.bodyBytes, allowMalformed: true)),
       );
-      if (decoded is! Map<Object?, Object?>) return null;
+      if (decoded is! Map<Object?, Object?>) {
+        return QqMusicCredentialRefreshResult.failure(
+          message: '$protocolLabel 返回格式不是 JSON 对象',
+        );
+      }
       final root = _stringMap(decoded);
-      final code = root['code'];
-      final req = _jsonMap(root['req1'] ?? root['req_1']);
-      final reqCode = req['code'];
-      if (code is num && code != 0 || reqCode is num && reqCode != 0) {
-        return null;
+      final req = _jsonMap(
+          root[responseKey] ?? (responseKey == 'req1' ? root['req_1'] : null));
+      final rootCode = _qqResponseCode(root['code']);
+      final reqCode = _qqResponseCode(req['code']);
+      if ((rootCode != null && rootCode != 0) ||
+          (reqCode != null && reqCode != 0)) {
+        return QqMusicCredentialRefreshResult.failure(
+          message: '$protocolLabel 返回码 ${rootCode ?? '无'}/${reqCode ?? '无'}',
+        );
       }
       final data = _jsonMap(req['data']);
       final newMusicKey = _firstNonEmpty([
@@ -308,55 +490,113 @@ final class QqMusicProvider implements MusicProvider, ArtistMetadataProvider {
         data['qqmusic_key']?.toString(),
         data['qm_keyst']?.toString(),
       ]);
-      if (newMusicKey.isEmpty) return null;
+      if (newMusicKey.isEmpty) {
+        return QqMusicCredentialRefreshResult.failure(
+          message:
+              '$protocolLabel 未返回 musickey（返回码 ${rootCode ?? '无'}/${reqCode ?? '无'}）',
+        );
+      }
 
       final updates = <String, String>{
+        ..._responseCookies(response),
         'qqmusic_key': newMusicKey,
         'qm_keyst': newMusicKey,
       };
-      final nextRefreshToken = _firstNonEmpty([
-        data['refresh_token']?.toString(),
-        data['refreshToken']?.toString(),
-      ]);
-      if (nextRefreshToken.isNotEmpty &&
-          (_cookieValue('psrf_qqrefresh_token') != null ||
-              refreshToken != null)) {
-        updates['psrf_qqrefresh_token'] = nextRefreshToken;
-      }
-      final nextAccessToken = _firstNonEmpty([
-        data['access_token']?.toString(),
-        data['accessToken']?.toString(),
-      ]);
-      if (nextAccessToken.isNotEmpty &&
-          _cookieValue('psrf_qqaccess_token') != null) {
-        updates['psrf_qqaccess_token'] = nextAccessToken;
-      }
-      final createTime = _firstNonEmpty([
-        data['musickeyCreateTime']?.toString(),
-        data['musickey_create_time']?.toString(),
-      ]);
-      if (createTime.isNotEmpty && createTime != '0') {
-        updates['psrf_musickey_createtime'] = createTime;
-      }
-      final unionId = _firstNonEmpty([
-        data['unionid']?.toString(),
-        data['unionId']?.toString(),
-      ]);
-      if (unionId.isNotEmpty && _cookieValue('psrf_qqunionid') != null) {
-        updates['psrf_qqunionid'] = unionId;
-      }
-      final openId = _firstNonEmpty([
-        data['openid']?.toString(),
-        data['openId']?.toString(),
-      ]);
-      if (openId.isNotEmpty && _cookieValue('psrf_qqopenid') != null) {
-        updates['psrf_qqopenid'] = openId;
-      }
+      _addRefreshValue(
+        updates,
+        'psrf_qqrefresh_token',
+        data,
+        const ['refresh_token', 'refreshToken'],
+      );
+      _addRefreshValue(
+        updates,
+        'psrf_qqaccess_token',
+        data,
+        const ['access_token', 'accessToken'],
+      );
+      _addRefreshValue(
+        updates,
+        'psrf_musickey_createtime',
+        data,
+        const ['musickeyCreateTime', 'musickey_create_time'],
+        rejectZero: true,
+      );
+      updates.putIfAbsent(
+        'psrf_musickey_createtime',
+        () => (_now().millisecondsSinceEpoch ~/ 1000).toString(),
+      );
+      _addRefreshValue(
+        updates,
+        'psrf_access_token_expiresAt',
+        data,
+        const ['expired_at', 'expiredAt'],
+        rejectZero: true,
+      );
+      _addRefreshValue(
+        updates,
+        'psrf_qqunionid',
+        data,
+        const ['unionid', 'unionId'],
+      );
+      _addRefreshValue(
+        updates,
+        'psrf_qqopenid',
+        data,
+        const ['openid', 'openId'],
+      );
+      _addRefreshValue(
+        updates,
+        'refresh_key',
+        data,
+        const ['refresh_key', 'refreshKey'],
+      );
       _mergeCredentials(updates);
-      return _credentials;
+      final refreshed = _credentials;
+      if (refreshed == null) {
+        return QqMusicCredentialRefreshResult.failure(
+          message: '$protocolLabel 本地保存失败',
+        );
+      }
+      return QqMusicCredentialRefreshResult.success(
+        credentials: refreshed,
+        protocol: protocol,
+      );
+    } on TimeoutException {
+      return QqMusicCredentialRefreshResult.failure(
+        message: '$protocolLabel 请求超时',
+      );
+    } on FormatException {
+      return QqMusicCredentialRefreshResult.failure(
+        message: '$protocolLabel 返回内容无法解析',
+      );
+    } on http.ClientException {
+      return QqMusicCredentialRefreshResult.failure(
+        message: '$protocolLabel 网络请求失败',
+      );
     } catch (_) {
-      return null;
+      return QqMusicCredentialRefreshResult.failure(
+        message: '$protocolLabel 请求异常',
+      );
     }
+  }
+
+  int? _qqResponseCode(Object? value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  void _addRefreshValue(
+    Map<String, String> updates,
+    String cookieKey,
+    Map<String, Object?> data,
+    List<String> dataKeys, {
+    bool rejectZero = false,
+  }) {
+    final value = _firstNonEmpty([
+      for (final key in dataKeys) data[key]?.toString(),
+    ]);
+    if (value.isEmpty || rejectZero && value == '0') return;
+    updates[cookieKey] = value;
   }
 
   Future<QqMusicQrLoginSession> createQrLoginSession(

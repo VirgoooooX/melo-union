@@ -99,6 +99,7 @@ void main() {
             'psrf_qqunionid=union-old',
       ),
       refreshUri: Uri.parse('https://qq.test/cgi-bin/musicu.fcg'),
+      now: () => DateTime.fromMillisecondsSinceEpoch(500000),
       onCredentialsChanged: (credentials) => changed = credentials,
       client: _FakeClient((request) {
         expect(request.method, 'POST');
@@ -143,6 +144,108 @@ void main() {
     expect(refreshed.cookie, contains('psrf_musickey_createtime=789'));
     expect(refreshed.cookie, contains('psrf_qqunionid=union-new'));
     expect(changed?.cookie, refreshed.cookie);
+  });
+
+  test('falls back from expired LoginServer refresh to QQConnect', () async {
+    final modules = <String>[];
+    final provider = QqMusicProvider(
+      credentials: const QqMusicCredentials(
+        cookie:
+            'uin=12345; qqmusic_key=old-key; psrf_qqrefresh_token=refresh-old; '
+            'psrf_musickey_createtime=1',
+      ),
+      musicuUri: Uri.parse('https://musicu.test/cgi-bin/musicu.fcg'),
+      refreshUri: Uri.parse('https://refresh.test/cgi-bin/musicu.fcg'),
+      now: () => DateTime.utc(2026, 8, 5),
+      client: _FakeClient((request) {
+        final body = jsonDecode(
+          utf8.decode((request as http.Request).bodyBytes),
+        ) as Map<String, Object?>;
+        if (body['req'] case final Map<String, Object?> req) {
+          modules.add(req['module']! as String);
+          expect(request.url.host, 'musicu.test');
+          final param = req['param']! as Map<String, Object?>;
+          expect(param['refresh_token'], 'refresh-old');
+          expect(param['loginMode'], 2);
+          return http.Response(
+            jsonEncode({
+              'code': 0,
+              'req': {'code': 10001, 'data': <String, Object?>{}},
+            }),
+            200,
+          );
+        }
+        final req = body['req1']! as Map<String, Object?>;
+        modules.add(req['module']! as String);
+        expect(request.url.host, 'refresh.test');
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'req1': {
+              'code': 0,
+              'data': {
+                'musickey': 'fallback-key',
+                'musickeyCreateTime': 999,
+              },
+            },
+          }),
+          200,
+        );
+      }),
+    );
+
+    final result = await provider.refreshCredentialsDetailed();
+
+    expect(result.succeeded, isTrue);
+    expect(result.credentials!.cookie, contains('qqmusic_key=fallback-key'));
+    expect(
+      result.attemptedProtocols,
+      [
+        QqMusicCredentialRefreshProtocol.loginServer,
+        QqMusicCredentialRefreshProtocol.qqConnect,
+      ],
+    );
+    expect(modules, [
+      'music.login.LoginServer',
+      'QQConnectLogin.LoginServer',
+    ]);
+  });
+
+  test('returns redacted diagnostics when both refresh protocols fail',
+      () async {
+    var requestCount = 0;
+    final provider = QqMusicProvider(
+      credentials: const QqMusicCredentials(
+        cookie: 'uin=12345; qqmusic_key=secret-key; '
+            'psrf_qqrefresh_token=secret-refresh; '
+            'psrf_musickey_createtime=1',
+      ),
+      musicuUri: Uri.parse('https://musicu.test/cgi-bin/musicu.fcg'),
+      refreshUri: Uri.parse('https://refresh.test/cgi-bin/musicu.fcg'),
+      now: () => DateTime.utc(2026, 8, 5),
+      client: _FakeClient((request) {
+        requestCount++;
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            if (request.url.host == 'musicu.test')
+              'req': {'code': 10001}
+            else
+              'req1': {'code': 20002},
+          }),
+          200,
+        );
+      }),
+    );
+
+    final result = await provider.refreshCredentialsDetailed();
+
+    expect(result.succeeded, isFalse);
+    expect(requestCount, 2);
+    expect(result.message, contains('LoginServer 返回码 0/10001'));
+    expect(result.message, contains('QQConnect 返回码 0/20002'));
+    expect(result.message, isNot(contains('secret-key')));
+    expect(result.message, isNot(contains('secret-refresh')));
   });
 
   test('creates playback and download tickets from vkey response', () async {
