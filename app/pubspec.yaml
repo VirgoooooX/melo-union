@@ -1,7 +1,7 @@
 name: melo_union_app
 description: Phase 1-5 Flutter MVP skeleton for MeloUnion.
 publish_to: none
-version: 2.1.5+22
+version: 2.1.6+23
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
