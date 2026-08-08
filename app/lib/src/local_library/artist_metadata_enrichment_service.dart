@@ -76,7 +76,11 @@ final class ArtistMetadataEnrichmentService {
 
   Future<void> _enrich(LocalLibraryArtist artist, {required bool force}) async {
     final existing = await repository.getArtistMetadata(artist.artistKey);
-    if (!force && !_shouldRefresh(existing)) return;
+    if (!force &&
+        !_shouldRefresh(existing) &&
+        !await _cachedImagesMissing(existing)) {
+      return;
+    }
     final tracks = await repository.listArtistTracks(artist.artistKey);
     final samples = tracks
         .where((track) => track.title.trim().isNotEmpty)
@@ -112,6 +116,15 @@ final class ArtistMetadataEnrichmentService {
             await imageCache.cache(resolved.avatar, resolved.artist, 'avatar');
         final backgroundPath = await imageCache.cache(
             resolved.background, resolved.artist, 'background');
+        final resolvedAvatarPath =
+            avatarPath ?? await _existingCachePath(existing?.avatarCachePath);
+        final resolvedBackgroundPath = backgroundPath ??
+            await _existingCachePath(existing?.backgroundCachePath);
+        final imageRetryAfter = (resolved.avatar != null &&
+                    resolvedAvatarPath == null) ||
+                (resolved.background != null && resolvedBackgroundPath == null)
+            ? _clock().add(const Duration(hours: 1))
+            : null;
         await repository.upsertArtistMetadata(LocalArtistMetadata(
           artistKey: artist.artistKey,
           displayName: artist.displayName,
@@ -120,12 +133,13 @@ final class ArtistMetadataEnrichmentService {
           remoteArtistId: resolved.artist.artistId,
           remoteName: resolved.artist.name,
           avatarUrl: resolved.avatar?.toString(),
-          avatarCachePath: avatarPath ?? existing?.avatarCachePath,
+          avatarCachePath: resolvedAvatarPath,
           backgroundUrl: resolved.background?.toString(),
-          backgroundCachePath: backgroundPath ?? existing?.backgroundCachePath,
+          backgroundCachePath: resolvedBackgroundPath,
           description: resolved.description,
           confidence: match.providerScore,
           fetchedAt: _clock(),
+          retryAfter: imageRetryAfter,
         ));
         await onMetadataUpdated?.call(artist.artistKey);
         return;
@@ -172,6 +186,31 @@ final class ArtistMetadataEnrichmentService {
     final fetchedAt = metadata.fetchedAt;
     return fetchedAt == null ||
         now.difference(fetchedAt) >= const Duration(days: 30);
+  }
+
+  // A matched record whose cached image files were deleted externally (for
+  // example when the cache directory is cleaned) must be re-fetched here;
+  // otherwise the UI keeps pointing at dead paths until the 30-day refresh
+  // window expires.
+  Future<bool> _cachedImagesMissing(LocalArtistMetadata? metadata) async {
+    if (metadata == null || metadata.status != ArtistMetadataStatus.matched) {
+      return false;
+    }
+    if (metadata.retryAfter?.isAfter(_clock()) ?? false) return false;
+    return await _imageMissing(metadata.avatarUrl, metadata.avatarCachePath) ||
+        await _imageMissing(
+            metadata.backgroundUrl, metadata.backgroundCachePath);
+  }
+
+  Future<bool> _imageMissing(String? url, String? cachePath) async {
+    if (url == null || url.trim().isEmpty) return false;
+    if (cachePath == null || cachePath.trim().isEmpty) return true;
+    return !await File(cachePath).exists();
+  }
+
+  Future<String?> _existingCachePath(String? cachePath) async {
+    if (cachePath == null || cachePath.trim().isEmpty) return null;
+    return await File(cachePath).exists() ? cachePath : null;
   }
 }
 

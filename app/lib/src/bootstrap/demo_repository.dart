@@ -28,6 +28,7 @@ import 'audio_cache_manager.dart';
 import 'audio_cache_proxy_server.dart';
 import 'download_file_naming.dart';
 import '../local_library/local_library_controller.dart';
+import '../local_library/local_lyrics_enrichment_service.dart';
 import '../local_library/local_music_provider.dart';
 
 class _CacheEntry<T> {
@@ -170,6 +171,12 @@ class DemoRepository extends ChangeNotifier {
         _selectedPlaylistId = playlists.listPlaylists().isEmpty
             ? null
             : playlists.listPlaylists().first.id {
+    _localLyricsEnrichmentService = localLibraryController == null
+        ? null
+        : LocalLyricsEnrichmentService(
+            repository: localLibraryController!.repository,
+            providerEntries: registry.allEntries,
+          );
     _qqMusicKeyFingerprint = _fingerprintQqMusicKey(qqMusicCredentials);
     downloadCoordinator = DownloadCoordinator(
       registry: registry,
@@ -426,6 +433,7 @@ class DemoRepository extends ChangeNotifier {
   final KugouSessionStore? kugouSessionStore;
   final NotificationPermissionBridge notificationPermissionBridge;
   final LocalLibraryController? localLibraryController;
+  late final LocalLyricsEnrichmentService? _localLyricsEnrichmentService;
   final ProviderCapabilityMatrix capabilityMatrix =
       const ProviderCapabilityMatrix();
   final UnifiedFavoritesService favoritesService =
@@ -4018,6 +4026,10 @@ class DemoRepository extends ChangeNotifier {
   Future<String?> getLyrics(ProviderTrackRef ref) async {
     final provider = registry.entryOf(ref.providerId)?.provider;
     if (provider == null) return null;
+    final service = _localLyricsEnrichmentService;
+    if (ref.providerId == localMusicProviderId && service != null) {
+      return service.getLyrics(ref);
+    }
     return provider.getLyrics(ref);
   }
 }

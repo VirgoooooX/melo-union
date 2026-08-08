@@ -748,7 +748,8 @@ class _SourceIcon extends StatelessWidget {
         id.contains('netease');
     final isQQ = id == 'qq_music' || id.contains('beacon') || id.contains('qq');
     final isKugou = id == 'kugou' || id.contains('kugou');
-    if (isNetease || isQQ || isKugou) {
+    final isLocal = id.contains('local');
+    if (isNetease || isQQ || isKugou || isLocal) {
       final presentation = meloProviderPresentation(
         entry.descriptor.id,
         displayName: entry.descriptor.displayName,
@@ -769,7 +770,9 @@ class _SourceIcon extends StatelessWidget {
               ? 'assets/images/netease_logo.png'
               : (isQQ
                   ? 'assets/images/qq_logo.png'
-                  : 'assets/images/kugou_logo.png'),
+                  : (isKugou
+                      ? 'assets/images/kugou_logo.png'
+                      : 'assets/images/local_logo.png')),
           fit: BoxFit.contain,
         ),
       );

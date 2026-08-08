@@ -46,8 +46,65 @@ final class _MeloLocalMarkPainter extends CustomPainter {
       ..close();
     canvas.drawPath(body, fill);
     canvas.drawPath(body, stroke);
-    canvas.drawCircle(Offset(12 * scale, 13 * scale), 4.2 * scale, stroke);
-    canvas.drawCircle(Offset(12 * scale, 13 * scale), 1.05 * scale, stroke);
+
+    final noteHeadPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final stemPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5 * scale
+      ..strokeCap = StrokeCap.round;
+
+    // Draw left note head
+    canvas.save();
+    canvas.translate(9.5 * scale, 15.5 * scale);
+    canvas.rotate(-0.25);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset.zero,
+        width: 3.5 * scale,
+        height: 2.6 * scale,
+      ),
+      noteHeadPaint,
+    );
+    canvas.restore();
+
+    // Draw right note head
+    canvas.save();
+    canvas.translate(14.5 * scale, 14.5 * scale);
+    canvas.rotate(-0.25);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset.zero,
+        width: 3.5 * scale,
+        height: 2.6 * scale,
+      ),
+      noteHeadPaint,
+    );
+    canvas.restore();
+
+    // Draw stems
+    canvas.drawLine(
+      Offset(11.0 * scale, 15.5 * scale),
+      Offset(11.0 * scale, 9.5 * scale),
+      stemPaint,
+    );
+    canvas.drawLine(
+      Offset(16.0 * scale, 14.5 * scale),
+      Offset(16.0 * scale, 8.5 * scale),
+      stemPaint,
+    );
+
+    // Draw beam (connecting tops of stems)
+    final beamPath = Path()
+      ..moveTo(10.25 * scale, 10.0 * scale)
+      ..lineTo(16.75 * scale, 8.7 * scale)
+      ..lineTo(16.75 * scale, 10.7 * scale)
+      ..lineTo(10.25 * scale, 12.0 * scale)
+      ..close();
+    canvas.drawPath(beamPath, noteHeadPaint);
   }
 
   @override

@@ -2137,20 +2137,20 @@ class MeloPlatformIcon extends StatelessWidget {
         height: 18,
         fit: BoxFit.contain,
       );
+    } else if (value.contains('local')) {
+      return Image.asset(
+        'assets/images/local_logo.png',
+        width: 18,
+        height: 18,
+        fit: BoxFit.contain,
+      );
     }
 
     Color bgColor;
     IconData iconData;
 
-    if (value.contains('local')) {
-      return const SizedBox.square(
-        dimension: 18,
-        child: MeloLocalMark(size: 18),
-      );
-    } else {
-      bgColor = presentation.foregroundColor;
-      iconData = presentation.icon;
-    }
+    bgColor = presentation.foregroundColor;
+    iconData = presentation.icon;
 
     return Container(
       width: 18,

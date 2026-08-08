@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -71,6 +72,34 @@ void main() {
     await service.enrichNow(_artist);
 
     expect(updatedArtistKey, _artist.artistKey);
+  });
+
+  test('refreshes a recent match when its cached image file was deleted',
+      () async {
+    repository.metadata = LocalArtistMetadata(
+      artistKey: _artist.artistKey,
+      displayName: _artist.displayName,
+      status: ArtistMetadataStatus.matched,
+      avatarUrl: 'https://images.example/avatar.jpg',
+      avatarCachePath: '${temp.path}/deleted-avatar.jpg',
+      fetchedAt: DateTime.now().toUtc(),
+    );
+    final provider = _Provider('netease_cloud_music', score: .95);
+    final updated = Completer<void>();
+    final service = ArtistMetadataEnrichmentService(
+      repository: repository,
+      providerEntries: [
+        ProviderRegistryEntry(provider: provider, isEnabled: true),
+      ],
+      imageCache: ArtistMetadataImageCache(directory: temp),
+      requestGap: Duration.zero,
+      onMetadataUpdated: (_) => updated.complete(),
+    );
+
+    service.enqueue([_artist]);
+    await updated.future.timeout(const Duration(seconds: 1));
+
+    expect(provider.searchCalls, 1);
   });
 }
 

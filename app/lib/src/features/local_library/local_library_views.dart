@@ -150,7 +150,10 @@ class LocalArtistsView extends StatelessWidget {
       onMore: controller.loadMore,
       itemBuilder: (context, index) {
         final artist = controller.artists[index];
-        final cached = artist.metadata?.avatarCachePath;
+        final cachedPath = artist.metadata?.avatarCachePath;
+        final cached = cachedPath != null && File(cachedPath).existsSync()
+            ? cachedPath
+            : null;
         return _LibraryCard(
           artwork: cached == null
               ? artist.sampleArtworkPaths.take(4).toList()
@@ -494,9 +497,10 @@ class LocalArtistDetailView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final metadata = artist.metadata;
-    final artwork = metadata?.avatarCachePath == null
+    final cachedPath = metadata?.avatarCachePath;
+    final artwork = cachedPath == null || !File(cachedPath).existsSync()
         ? artist.sampleArtworkPaths
-        : [metadata!.avatarCachePath!];
+        : [cachedPath];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

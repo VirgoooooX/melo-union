@@ -140,7 +140,9 @@ final class LocalLibraryScanner {
           year: parsed.year,
           trackNumber: parsed.trackNumber,
           discNumber: parsed.discNumber,
-          lyrics: parsed.lyrics,
+          // Keep lyrics previously scraped into the library index when a
+          // changed audio file still has no embedded lyrics of its own.
+          lyrics: _nonEmpty(parsed.lyrics) ?? previous?.lyrics,
           artworkPath:
               artworkPath ?? existing?.artworkPath ?? matched?.artworkPath,
           isAvailable: true,

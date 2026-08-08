@@ -62,6 +62,7 @@ flutter:
     - assets/images/netease_logo.png
     - assets/images/qq_logo.png
     - assets/images/kugou_logo.png
+    - assets/images/local_logo.png
     - windows/runner/resources/app_icon.ico
 
 msix_config:

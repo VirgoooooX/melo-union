@@ -128,6 +128,33 @@ void main() {
     );
   });
 
+  test('scanner preserves cached scraped lyrics when a changed file has none',
+      () async {
+    final file = File(path.join(temp.path, 'lyrics-cache.ape'))
+      ..writeAsBytesSync(List<int>.generate(128, (index) => index));
+    final root = LocalLibraryRoot(
+      id: 'root-lyrics-cache',
+      path: temp.path,
+      displayName: 'Lyrics cache',
+    );
+    final scanner = LocalLibraryScanner(
+      repository: repository,
+      artworkDirectory: Directory(path.join(temp.path, 'covers')),
+    );
+    await scanner.scan(root, onProgress: (_) {});
+    final indexed = (await repository.listTracks()).single;
+    await repository.upsertTracks([
+      indexed.copyWith(lyrics: '[00:00.00] Scraped lyrics'),
+    ]);
+
+    await file.writeAsBytes([255], mode: FileMode.append, flush: true);
+    await file.setLastModified(DateTime.now().add(const Duration(seconds: 2)));
+    await scanner.scan(root, onProgress: (_) {});
+
+    expect((await repository.listTracks()).single.lyrics,
+        '[00:00.00] Scraped lyrics');
+  });
+
   test('scanner hydrates unchanged legacy tracks exactly once', () async {
     final tagged = File(path.join(temp.path, 'tagged.mp3'))
       ..writeAsBytesSync(_id3Fixture(
