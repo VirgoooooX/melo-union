@@ -22,6 +22,32 @@ abstract final class MeloListMetrics {
   static const rowHorizontalPadding = 16.0;
 }
 
+/// The single switch treatment used throughout the app.
+///
+/// Keeping this as a small wrapper prevents pages from drifting between
+/// adaptive/Cupertino and Material switches, or from overriding one state
+/// color in isolation. The Material switch supplies the thumb/track animation
+/// for every platform while the shared theme owns the visual states.
+class MeloSwitch extends StatelessWidget {
+  const MeloSwitch({
+    required this.value,
+    required this.onChanged,
+    super.key,
+  });
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Switch(
+      value: value,
+      onChanged: onChanged,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
+}
+
 /// Shared headers for artwork image requests across music providers.
 const meloArtworkHeaders = <String, String>{
   'User-Agent':

@@ -134,6 +134,9 @@ class DesktopLifecycleController extends ChangeNotifier
     if (!isSupported || _quitting) return;
     _quitting = true;
     try {
+      // Hide first so a slow persistence/audio teardown never leaves a
+      // visible window that looks frozen to the user.
+      await windowManager.hide();
       await _onExit?.call();
     } finally {
       await windowManager.setPreventClose(false);

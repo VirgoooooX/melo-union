@@ -113,7 +113,7 @@ class _MusicSourceCard extends ConsumerWidget {
               ],
             ),
           ),
-          Switch(
+          MeloSwitch(
             value: entry.isEnabled,
             onChanged: (value) =>
                 repository.setProviderEnabled(descriptor.id, value),

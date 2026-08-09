@@ -4,6 +4,7 @@ import 'package:provider_contract/provider_contract.dart';
 
 import '../../bootstrap/demo_repository.dart';
 import '../../design/melo_tokens.dart';
+import '../../widgets/melo_components.dart';
 import '../../widgets/melo_logo_mark.dart';
 import '../../widgets/provider_badge.dart';
 
@@ -142,9 +143,8 @@ class _ProviderCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              Switch(
+              MeloSwitch(
                 value: entry.isEnabled,
-                activeThumbColor: MeloColors.primary600,
                 onChanged: (value) {
                   repository.setProviderEnabled(descriptor.id, value);
                   ref.invalidate(allFavoritesProvider);

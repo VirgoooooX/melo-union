@@ -78,6 +78,45 @@ abstract final class MeloTheme {
       ),
       dividerColor: MeloColors.border,
       iconTheme: const IconThemeData(color: MeloColors.textSecondary),
+      switchTheme: SwitchThemeData(
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return Colors.white;
+          if (states.contains(WidgetState.disabled)) {
+            return MeloColors.textQuaternary;
+          }
+          return MeloColors.textPrimary;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return states.contains(WidgetState.selected)
+                ? MeloColors.primary100
+                : MeloColors.surfaceMuted;
+          }
+          return states.contains(WidgetState.selected)
+              ? MeloColors.primary600
+              : MeloColors.surface;
+        }),
+        trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return Colors.transparent;
+          return states.contains(WidgetState.disabled)
+              ? MeloColors.textQuaternary
+              : MeloColors.borderStrong;
+        }),
+        trackOutlineWidth: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return 0;
+          return states.contains(WidgetState.disabled) ? 1 : 1.5;
+        }),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) return Colors.transparent;
+          if (states.contains(WidgetState.pressed) ||
+              states.contains(WidgetState.focused) ||
+              states.contains(WidgetState.hovered)) {
+            return MeloColors.primary300.withValues(alpha: .28);
+          }
+          return Colors.transparent;
+        }),
+      ),
       cardTheme: const CardThemeData(
         color: MeloColors.surface,
         margin: EdgeInsets.zero,

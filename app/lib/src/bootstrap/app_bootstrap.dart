@@ -117,6 +117,7 @@ Future<AppBootstrap> createAppBootstrap({
   return AppBootstrap(
     repository: repository,
     close: () async {
+      await localController?.close();
       await repository.close();
       await managedStore.close();
     },

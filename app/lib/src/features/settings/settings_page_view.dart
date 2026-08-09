@@ -381,7 +381,7 @@ class _MobileSourceSummaryCard extends ConsumerWidget {
               onPressed: () => _showSourceDialog(context),
               icon: const Icon(Icons.manage_accounts_rounded),
             ),
-            Switch.adaptive(
+            MeloSwitch(
               value: entry.isEnabled,
               onChanged: (value) =>
                   repository.setProviderEnabled(descriptor.id, value),
@@ -2125,7 +2125,7 @@ class _SettingsSwitchRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: MeloSpacing.md),
-          Switch.adaptive(value: value, onChanged: onChanged),
+          MeloSwitch(value: value, onChanged: onChanged),
         ],
       ),
     );

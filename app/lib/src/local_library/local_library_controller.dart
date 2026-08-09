@@ -26,6 +26,7 @@ final class LocalLibraryController extends ChangeNotifier {
   LocalLibraryScanProgress? _progress;
   bool _loading = false;
   bool _hasMore = false;
+  bool _closed = false;
   String _query = '';
   LocalLibrarySortOrder _sort = LocalLibrarySortOrder.album;
   LocalAlbumSortOrder _albumSort = LocalAlbumSortOrder.artist;
@@ -229,13 +230,15 @@ final class LocalLibraryController extends ChangeNotifier {
   }
 
   Future<void> scanAll() async {
+    if (_closed) return;
     for (final root in List<LocalLibraryRoot>.of(_roots)) {
+      if (_closed) return;
       await scanRoot(root.id);
     }
   }
 
   Future<void> scanRoot(String rootId) async {
-    if (isScanning) return;
+    if (_closed || isScanning) return;
     final root = _roots.where((item) => item.id == rootId).firstOrNull;
     if (root == null) return;
     _roots = [
@@ -261,6 +264,15 @@ final class LocalLibraryController extends ChangeNotifier {
   }
 
   void cancelScan() => scanner.cancel();
+
+  Future<void> close() async {
+    _closed = true;
+    scanner.cancel();
+    final activeScan = _activeScan;
+    if (activeScan != null) {
+      await activeScan.catchError((Object _) {});
+    }
+  }
 
   Future<void> restore(
     List<LocalLibraryRoot> roots,
